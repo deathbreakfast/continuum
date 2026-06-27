@@ -1,13 +1,13 @@
 # Continuum
 
-[![CI](https://github.com/deathbreakfast/continuum/actions/workflows/ci.yml/badge.svg)](https://github.com/deathbreakfast/continuum/actions/workflows/ci.yml)
+[![CI](https://github.com/unified-field-dev/continuum/actions/workflows/ci.yml/badge.svg)](https://github.com/unified-field-dev/continuum/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 **Continuum** is a Rust append-only transport log for services that need durable publish, replay, and fanout. A thin [`LogBackend`](continuum-core/src/backend/log_backend.rs) port with feature-gated storage backends — sequenced partitions, idempotent appends, and consumer checkpoints — without locking you into one database or a full message broker.
 
 *A dependency-light persistence port for high-throughput event transport.*
 
-**Status:** v0.1.0 early release · [MIT](LICENSE) · [GitHub](https://github.com/deathbreakfast/continuum)
+**Status:** v0.1.0 early release · [MIT](LICENSE) · [GitHub](https://github.com/unified-field-dev/continuum)
 
 **Requires:** nightly Rust ([`rust-toolchain.toml`](rust-toolchain.toml)) — stable is not supported yet.
 
@@ -45,7 +45,7 @@ Add the facade crate with the in-memory backend for local evaluation:
 
 ```toml
 [dependencies]
-continuum = { git = "https://github.com/deathbreakfast/continuum", features = ["mem"] }
+continuum = { git = "https://github.com/unified-field-dev/continuum", features = ["mem"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 uuid = { version = "1", features = ["v4"] }
 ```

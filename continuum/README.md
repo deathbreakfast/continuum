@@ -9,7 +9,7 @@ Public facade re-exporting [`continuum-core`](../continuum-core) and feature-gat
 No features are enabled by default. Enable backends explicitly in your dependency:
 
 ```toml
-continuum = { git = "https://github.com/deathbreakfast/continuum", features = ["mem"] }
+continuum = { git = "https://github.com/unified-field-dev/continuum", features = ["mem"] }
 # or: features = ["surreal-local"]
 # or: default-features = false  # port + DTOs + router only
 ```

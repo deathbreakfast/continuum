@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Sean O'Rourke"]
 license = "MIT"
-repository = "https://github.com/deathbreakfast/continuum"
+repository = "https://github.com/unified-field-dev/continuum"
 description = "TelemetrySink port and InstrumentedLogBackend for continuum"
 
 [lints]

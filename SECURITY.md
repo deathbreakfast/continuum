@@ -11,7 +11,7 @@
 
 **Do not open a public GitHub issue** for undisclosed security problems.
 
-Report privately via [GitHub Security Advisories](https://github.com/deathbreakfast/continuum/security/advisories/new) for this repository.
+Report privately via [GitHub Security Advisories](https://github.com/unified-field-dev/continuum/security/advisories/new) for this repository.
 
 Include:
 
