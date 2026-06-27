@@ -1,0 +1,53 @@
+{
+  "experiment_id": "bm-c1",
+  "dimensions": {
+    "storage": "mem",
+    "topology": "isolated-lab",
+    "telemetry": "off",
+    "hardware": "aws-t3-small"
+  },
+  "hardware_detail": {
+    "cpu_model": "Intel(R) Xeon(R) Platinum 8259CL CPU @ 2.50GHz",
+    "cpu_cores": 2,
+    "ram_gib": 1.8684539794921875,
+    "os": "linux (Linux 6.1.175-219.357.amzn2023.x86_64)",
+    "root_mount": {
+      "device": "/dev/nvme0n1p1",
+      "mount_point": "/",
+      "fs_type": "xfs",
+      "size_gib": 19.9
+    },
+    "host_drive": {
+      "model": null,
+      "media_type": null,
+      "bus_type": null,
+      "size_gib": null,
+      "wsl_distro_path": null
+    }
+  },
+  "engine_path": "mem://",
+  "started_at": "2026-06-26T15:36:33.562316223Z",
+  "elapsed_secs": 0.227412926,
+  "metrics": {
+    "events_per_sec_batch_1": 305676.91863238066,
+    "events_per_sec_batch_10": 671112.2484226681,
+    "events_per_sec_batch_100": 718521.5528084241,
+    "events_per_sec_batch_1000": 717163.0749944599
+  },
+  "resource_profile": {
+    "process_rss_bytes_start": 19486736384,
+    "process_rss_bytes_end": 39837499392,
+    "process_rss_bytes_peak": 39837499392,
+    "process_cpu_percent_mean": 0.0,
+    "process_cpu_percent_peak": 0.0,
+    "system_mem_used_bytes_start": 275320832,
+    "system_mem_used_bytes_peak": 295235584,
+    "system_mem_used_bytes_end": 295235584,
+    "sample_count": 0,
+    "sample_interval_ms": 1000
+  },
+  "pass_criteria": "Throughput scales with batch",
+  "pass": true,
+  "status": "completed",
+  "notes": "1=305677/s 1000=717163/s PASS"
+}

@@ -1,0 +1,22 @@
+[package]
+name = "continuum-backend-sqlite"
+version = "0.1.0"
+edition = "2021"
+authors = ["Sean O'Rourke"]
+license = "MIT"
+repository = "https://github.com/deathbreakfast/continuum"
+description = "SQLite LogBackend for continuum transport log"
+
+[lints]
+workspace = true
+
+[dependencies]
+async-trait = { workspace = true }
+continuum-backend-sql-common = { path = "../continuum-backend-sql-common" }
+continuum-core = { path = "../continuum-core" }
+sqlx = { workspace = true, default-features = false, features = ["runtime-tokio", "sqlite"] }
+
+[dev-dependencies]
+continuum-test-utils = { path = "../continuum-test-utils" }
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

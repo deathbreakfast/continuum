@@ -1,0 +1,44 @@
+{
+  "experiment_id": "bm-c0",
+  "dimensions": {
+    "storage": "surreal-mem",
+    "topology": "isolated-lab",
+    "telemetry": "console",
+    "hardware": "dev-wsl"
+  },
+  "hardware_detail": {
+    "cpu_model": "11th Gen Intel(R) Core(TM) i7-11700KF @ 3.60GHz",
+    "cpu_cores": 16,
+    "ram_gib": 19.530902862548828,
+    "os": "linux WSL2 (Linux 6.18.33.1-microsoft-standard-WSL2)",
+    "root_mount": {
+      "device": "/dev/sdd",
+      "mount_point": "/",
+      "fs_type": "ext4",
+      "size_gib": 1945.6
+    },
+    "host_drive": {
+      "model": "X16 SSD 2TB",
+      "media_type": "SSD",
+      "bus_type": "NVMe",
+      "size_gib": 1907.7,
+      "wsl_distro_path": "\\\\?\\J:\\wsl\\ubuntu"
+    }
+  },
+  "engine_path": "mem://",
+  "started_at": "2026-06-25T14:12:01.198344505Z",
+  "elapsed_secs": 5.9374333230000005,
+  "metrics": {
+    "decile_p95_slope": -0.04660484242424211,
+    "mean_ms": 1.1858600557999996,
+    "p50_ms": 1.0730760000000001,
+    "p95_ms": 1.844329,
+    "p99_ms": 2.2613469999999998,
+    "sample_count": 5000,
+    "slope_vs_index": -0.0000368455239697694
+  },
+  "pass_criteria": "Flat vs op count at 5k ops",
+  "pass": true,
+  "status": "completed",
+  "notes": "p50=1.073ms p95=1.844ms PASS"
+}

@@ -1,0 +1,24 @@
+[package]
+name = "continuum-core"
+version = "0.1.0"
+edition = "2021"
+authors = ["Sean O'Rourke"]
+license = "MIT"
+repository = "https://github.com/deathbreakfast/continuum"
+description = "Continuum LogBackend port, DTOs, and routing (no storage engines)"
+
+[lints]
+workspace = true
+
+[dependencies]
+async-trait = { workspace = true }
+chrono = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true, features = ["serde", "v4"] }
+
+[dev-dependencies]
+continuum-backend-mem = { path = "../continuum-backend-mem" }
+continuum-test-utils = { path = "../continuum-test-utils" }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

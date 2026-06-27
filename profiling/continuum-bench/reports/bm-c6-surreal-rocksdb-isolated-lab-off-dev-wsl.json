@@ -1,0 +1,42 @@
+{
+  "experiment_id": "bm-c6",
+  "dimensions": {
+    "storage": "surreal-rocksdb",
+    "topology": "isolated-lab",
+    "telemetry": "off",
+    "hardware": "dev-wsl"
+  },
+  "hardware_detail": {
+    "cpu_model": "11th Gen Intel(R) Core(TM) i7-11700KF @ 3.60GHz",
+    "cpu_cores": 16,
+    "ram_gib": 19.530902862548828,
+    "os": "linux WSL2 (Linux 6.18.33.1-microsoft-standard-WSL2)",
+    "root_mount": {
+      "device": "/dev/sdd",
+      "mount_point": "/",
+      "fs_type": "ext4",
+      "size_gib": 1945.6
+    },
+    "host_drive": {
+      "model": "X16 SSD 2TB",
+      "media_type": "SSD",
+      "bus_type": "NVMe",
+      "size_gib": 1907.7,
+      "wsl_distro_path": "\\\\?\\J:\\wsl\\ubuntu"
+    }
+  },
+  "engine_path": "rocksdb:///tmp/.tmp99HhR4",
+  "started_at": "2026-06-25T21:18:17.898360460Z",
+  "elapsed_secs": 3601.138366618,
+  "metrics": {
+    "active_growth_bytes": 14083535,
+    "baseline_growth_bytes": 138773,
+    "duration_secs": 3600,
+    "growth_ratio": 101.48613202856464,
+    "ops": 3343
+  },
+  "pass_criteria": "<2× isolated at 1 op/s",
+  "pass": false,
+  "status": "completed",
+  "notes": "growth=101.49x FAIL"
+}

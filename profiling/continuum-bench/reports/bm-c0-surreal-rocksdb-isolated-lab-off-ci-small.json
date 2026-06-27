@@ -1,0 +1,44 @@
+{
+  "experiment_id": "bm-c0",
+  "dimensions": {
+    "storage": "surreal-rocksdb",
+    "topology": "isolated-lab",
+    "telemetry": "off",
+    "hardware": "ci-small"
+  },
+  "hardware_detail": {
+    "cpu_model": "Intel(R) Xeon(R) Platinum 8259CL CPU @ 2.50GHz",
+    "cpu_cores": 2,
+    "ram_gib": 0.8953056335449219,
+    "os": "linux (Linux 6.1.175-219.357.amzn2023.x86_64)",
+    "root_mount": {
+      "device": "/dev/nvme0n1p1",
+      "mount_point": "/",
+      "fs_type": "xfs",
+      "size_gib": 19.9
+    },
+    "host_drive": {
+      "model": null,
+      "media_type": null,
+      "bus_type": null,
+      "size_gib": null,
+      "wsl_distro_path": null
+    }
+  },
+  "engine_path": "rocksdb:///tmp/.tmpw45ljz",
+  "started_at": "2026-06-26T14:17:14.268638247Z",
+  "elapsed_secs": 9.975157143,
+  "metrics": {
+    "decile_p95_slope": -0.004335581818182122,
+    "mean_ms": 1.983403827800003,
+    "p50_ms": 1.9919799999999999,
+    "p95_ms": 2.099211,
+    "p99_ms": 2.190887,
+    "sample_count": 5000,
+    "slope_vs_index": -6.212891863509034e-6
+  },
+  "pass_criteria": "Flat vs op count at 5k ops",
+  "pass": true,
+  "status": "completed",
+  "notes": "p50=1.992ms p95=2.099ms PASS"
+}

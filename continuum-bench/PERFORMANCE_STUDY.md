@@ -1,0 +1,576 @@
+# Continuum Transport Log Performance Across Storage Adapters
+
+**Performance study** — standalone document. Full methodology and interpretation live here; [`EXPERIMENTS.md`](EXPERIMENTS.md) is the pre-registered experiment log and runner reference.
+
+> **Summary for adopters:** need ~2k durable ops/s on a modest cloud instance → **sqlite** (~$0.003/M ops on t3.small). need ~100k/s in-process ceiling → **mem** (non-durable). **surreal-rocksdb** works for many paths but fails long-run soak on burstable instances — see §5.5 and Appendix D.
+
+---
+
+## Abstract
+
+Continuum is a Rust append-only transport log: a thin async storage port (`LogBackend`) with feature-gated backends, strictly increasing per-stream sequences, idempotent append, consumer checkpoints, and truncate-for-reclaim. This study evaluates whether the port and its storage adapters exhibit scaling behavior compatible with fleet-scale event transport—including replay and recovery paths on durable storage.
+
+We present a pre-registered synthetic benchmark suite (BM-C0–C6, BM-L0–L3) spanning append latency, batch throughput, tail read at depth, checkpoint churn, truncate reclaim, co-tenancy, long-run soak, and sustained load tiers. On lab hardware (WSL2, Intel i7-11700KF, NVMe), in-process `mem` establishes an algorithmic ceiling; `surreal-mem` and `surreal-rocksdb` expose engine and durable-path costs. Lab results (Appendix A) show batch amortization on all adapters, flat tail-read scaling on Surreal paths, and orders-of-magnitude gap between durable single-node throughput and aspirational fleet-scale targets.
+
+On AWS burstable instances (`t3.small`, `t3.medium`, `t4g.medium`), sqlite sustains ~1.9k ops/s with flat replay at 100k depth and stable checkpoints; postgres ~250/s on ARM (valid baseline); `mem` hits ~100k ops/s but fails the replay-at-depth ratio criterion. Best durable cost per operation: `t3.small` + sqlite (~$0.0031 per 1M ops, compute only). surreal-rocksdb fails 1 h soak on burstable cloud, matching lab.
+
+**Keywords:** append-only log, storage port, replay, recovery, checkpoint, benchmark, SurrealDB, RocksDB, transport persistence
+
+---
+
+## 1. Introduction
+
+### 1.1 Problem
+
+Services that need durable publish, replay, and fanout without adopting a full message broker often reinvent append/read/checkpoint logic per project. Continuum extracts that into a single async port with pluggable storage backends ([`LogBackend`](../continuum-core/src/backend/log_backend.rs)).
+
+### 1.2 Motivation
+
+Fleet-scale event transport implies **very high aggregate throughput**—on the order of **~1B events/s** summed across partitions and nodes—plus stable tail latency, bounded checkpoint cost, reclaim under churn, and the ability to **recover and replay** after machine or site failure when data lives on durable backends. This paper evaluates whether Continuum’s **port contract and adapter implementations** exhibit scaling characteristics that could support that volume class when horizontally partitioned.
+
+The same benchmark suite serves **smaller deployments** on cost-effective hardware: adopters need a direct answer—*given my expected ops/s and replay depth, can this modest machine handle the load?* The analysis is **product-agnostic**: no dependency on any particular consumer or upstream system.
+
+### 1.3 Research questions
+
+1. How does append throughput scale with batch size per adapter?
+2. Does tail-read latency stay flat as stream depth grows to 100k rows (**replay / fanout read path**)?
+3. Are checkpoint and truncate paths stable under churn (**consumer resume after restart**)?
+4. What sustained ops/s and p99 can each adapter hold before error rate or latency degrades?
+5. Does long-run growth (1 h soak at 1 op/s) stay bounded relative to an idle baseline?
+6. On **durable** adapters, can consumers **recover and replay** efficiently—i.e. forward read from a checkpoint (or stream start) without pathological latency growth—after a process or node failure? *(Multi-datacenter failover and geo-replication are host/backend deployment concerns; this paper measures port-level replay and checkpoint performance, not cross-DC replication.)*
+
+### 1.4 Scope
+
+- **In scope:** Continuum-only harness (`continuum-bench`); adapters `mem`, `surreal-mem`, `surreal-rocksdb`, `sqlite`, `postgres` (when `CONTINUUM_BENCH_POSTGRES_URL` set).
+- **Out of scope:** In-repo competitor harnesses; `stub` telemetry (not implemented); claiming current systems reach 1B/s aggregate; BM-R0 reopen-after-crash (future).
+
+### 1.5 Contributions
+
+- Consolidated methodology for adapter comparison at a single hardware profile.
+- Lab baseline (39 runs, dev-wsl) with pass/fail against pre-registered criteria.
+- **Cloud partial baseline** (cost-effective tier, June 2026): throughput, replay/checkpoint/truncate paths, and $/op sizing on `aws-t3-*` and `aws-t4g-medium` (Appendix D).
+- Analytical framework linking workloads to fleet-scale requirements (§3, §5).
+- Roadmap for **tiered** hardware baselines (cost-effective sizing + scale envelope) and future high-throughput adapters (§7).
+
+---
+
+## 2. System model
+
+### 2.1 Continuum port
+
+A **stream** ([`LogStreamId`](../continuum-core/src/types/stream.rs)) is destination + topic + optional key. The port provides:
+
+| Operation | Role |
+|-----------|------|
+| `append` | Batch append; strictly increasing seq per stream; idempotent on `event_id` |
+| `read_from` | Forward read after cursor — **replay** of stored events |
+| `commit_checkpoint` / `load_checkpoint` | Durable consumer cursor per subscription — **resume** after restart without reprocessing from seq 0 |
+| `truncate_before` | Logical reclaim after delivery ack |
+
+**Replay and recovery (port semantics):**
+
+- After a **process crash**, a durable backend (`surreal-rocksdb`, remote Surreal, future adapters) retains appended events; a new process reconnects to the same store, `load_checkpoint` returns the last committed seq, and `read_from` continues forward (at-least-once; dedupe on `event_id`).
+- After **node or datacenter loss**, recovery requires **durable storage that survives the failure** (replicated disk, remote database, backup restore)—Continuum defines the replay *interface*; replication and failover are configured at the backend/host layer, not inside the port.
+- **`mem` / `surreal-mem`** do not survive process restart; they are not recovery targets for disaster scenarios.
+
+Payloads are opaque ciphertext; encryption is above the port ([`README.md`](../README.md)).
+
+### 2.2 Storage adapters under test
+
+| Adapter | Engine path | Role in study |
+|---------|-------------|---------------|
+| `mem` | In-memory `HashMap` | Algorithmic ceiling (non-durable) |
+| `surreal-mem` | SurrealDB `mem://` | Engine overhead without disk |
+| `surreal-rocksdb` | SurrealDB `rocksdb://{tempdir}` | Durable embedded path |
+| postgres | Supported when `CONTINUUM_BENCH_POSTGRES_URL` set | Requires external Postgres |
+| sqlite | Supported | Embedded temp file in matrix |
+| *future custom* | TBD | Hypothesized path to extreme scale |
+
+### 2.3 Topology
+
+| Topology | Meaning |
+|----------|---------|
+| `isolated-lab` | Fresh backend per experiment |
+| `shared-handle` | Shared Surreal handle (BM-C5 co-tenancy) |
+| `remote-surreal` | Remote URL via `CONTINUUM_BENCH_SURREAL_URL` (not run in lab matrix) |
+
+### 2.4 Workload constants
+
+- Payload: **256 B** ciphertext per record
+- Telemetry: `off` (primary); `console` on BM-C0 and BM-L1 for overhead comparison
+- Read limit cap: **10,000** rows per `read_from` call (port validation)
+
+---
+
+## 3. Target scale analysis (aspirational)
+
+Fleet-scale aggregate target: **~1B events/s** across the fleet. This section decomposes requirements on the **storage port**—not a performance claim.
+
+### 3.1 Partitioning
+
+Single hot partitions cannot absorb 1B/s. Required shape:
+
+| Partitions | Implied mean rate per partition |
+|------------|----------------------------------|
+| 1 | 1B/s (infeasible single-stream) |
+| 1,000 | 1M/s |
+| 1,000,000 | 1k/s |
+
+Continuum sequences are **per-stream**; fleet scale assumes many streams/keys and many nodes.
+
+### 3.2 Per-operation budgets
+
+At 1M/s per hot shard with batch size 1000 → **1k append calls/s** per shard. BM-C0/C1 establish per-call and per-batch floors. Tail fanout and **replay reads** (BM-C2) and **checkpoint resume** (BM-C3) must stay flat at depth. Truncate (BM-C4) must not destabilize reads post-reclaim.
+
+### 3.3 Recovery and replay at scale
+
+Failure scenarios decompose into port-level vs infrastructure-level:
+
+| Scenario | Continuum port | Backend / ops requirement |
+|----------|----------------|---------------------------|
+| Consumer restart | `load_checkpoint` + `read_from` | Durable backend handle |
+| Publisher/process restart | Reconnect; events readable after crash | Durable backend (not `mem`) |
+| Single node loss | Same as above if store is remote/replicated | HA storage, failover |
+| Datacenter loss | Replay possible **after** store is restored/replicated elsewhere | Geo-replication, backup, RTO/RPO targets |
+
+Research question 6 and workloads BM-C2/C3 proxy **replay and resume cost** on a live store; a dedicated **reopen-after-crash** benchmark (backend contract test `s2_durable_after_reopen`; future BM-R0) would measure durability explicitly.
+
+### 3.4 Batching
+
+BM-C1 measures events/s vs batch size {1, 10, 100, 1000}. Fleet-scale production assumes **large batches** to amortize storage round trips ([`LogBackend` design notes](../continuum-core/src/backend/log_backend.rs)).
+
+### 3.5 Hypothesis
+
+General-purpose embedded adapters (Surreal/RocksDB) establish **correctness and scaling shape** on lab hardware. Extreme aggregate rates likely require a **purpose-built adapter** (future work)—co-designed with partitioning, checkpoint coalescing, and read paging.
+
+---
+
+## 4. Experimental methodology
+
+### 4.1 Experimental dimensions
+
+| Dimension | Values (lab) | Rationale |
+|-----------|--------------|-----------|
+| Storage | mem, surreal-mem, surreal-rocksdb | Adapter comparison |
+| Topology | isolated-lab; shared-handle (BM-C5) | Deployment shape |
+| Telemetry | off; console (BM-C0, BM-L1) | Instrumentation overhead |
+| Hardware | dev-wsl | Reproducible lab baseline |
+
+**Future hardware profiles:** tiered matrix so the paper answers both **fleet-scale ceiling** and **cost-effective sizing** (see §7.2):
+
+| Tier | Example profiles | Question answered |
+|------|------------------|-------------------|
+| Lab | `dev-wsl` (done) | Method validation |
+| Cost-effective | `ci-small`, `aws-t3.medium`, `aws-t3.small`, `aws-t4g.small`, `bare-metal-small` | *Can this modest machine handle my expected load?* |
+| Scale | `aws-c7i.4xlarge`, `aws-i4i.xlarge`, `bare-metal-large` | *What is the upper envelope on high-end hardware?* |
+
+### 4.2 Hardware profiling
+
+Each run JSON records ([`harness/hardware.rs`](src/harness/hardware.rs)):
+
+- CPU model and core count
+- RAM (GiB)
+- OS string (WSL2 detection)
+- **Root mount:** device, fs type, capacity (`findmnt /`)
+- **Host drive:** model, media type, bus, WSL distro path (PowerShell, best effort)
+- **`engine_path`:** e.g. `mem://`, `rocksdb://…` (per-run data location)
+
+**Run resource profile (cloud sizing hardware only):** when `hardware` is a cloud sizing profile (e.g. `aws-t3-medium`), each completed run JSON also includes `resource_profile`:
+
+| Field | Meaning |
+|-------|---------|
+| `process_rss_bytes_start` / `end` / `peak` | Benchmark process RSS during the run |
+| `process_cpu_percent_mean` / `peak` | Process CPU % (1 s sample interval) |
+| `system_mem_used_bytes_start` / `end` / `peak` | Host used RAM (isolates sizing on dedicated cloud instances) |
+| `sample_count`, `sample_interval_ms` | Sampling metadata |
+
+**Lab `dev-wsl`** does not record `resource_profile` — the dev box runs other workloads; Appendix A remains a **sanity / method-validation** baseline. Cloud appendices use resource peaks for sizing tables (e.g. “peak RSS 890 MiB on `aws-t3-medium` at BM-L1”).
+
+Lab profile (Appendix A.1): Intel i7-11700KF, 16 cores, 19 GiB RAM, root on `/dev/sdd` ext4, host NVMe **X16 SSD 2TB**.
+
+### 4.3 Workloads
+
+| ID | Workload | Primary metric | Pass criteria | Scale signal |
+|----|----------|----------------|---------------|--------------|
+| **BM-C0** | 5,000 single-record appends | p50/p95 append ms | Flat vs op index | Per-op overhead floor |
+| **BM-C1** | 10k events; batch sizes 1/10/100/1000 | events/s | Throughput at 1000 ≥ scaled throughput at 1 | Batch amortization |
+| **BM-C2** | Preload 1k/10k/100k; tail `read_from` ×200 | poll p95 | p95@100k ≤ 2× p95@1k | **Replay / fanout** read at depth |
+| **BM-C3** | 10k `commit_checkpoint` on advancing seq | p95; decile slope | Decile p95 slope ≈ flat | **Consumer resume** cursor cost |
+| **BM-C4** | 50k append; `truncate_before` mid; tail read | post/pre read p95 | Post ≤ 1.5× pre | Reclaim stability |
+| **BM-C5** | 10 streams × 500 ops; same vs isolated handle | growth ratio | same/isolated > 1 | Co-tenancy interference |
+| **BM-C6** | 1 op/s × 3600 s vs idle baseline backend | growth ratio | active/baseline < 2× | Long-run leak/churn |
+| **BM-L0** | 100 ops/s × 60 s | p99; error rate | err < 0.1% | Sustained low rate |
+| **BM-L1** | 1k ops/s × 60 s | p99; achieved rate | err < 0.1% | Sustained medium rate |
+| **BM-L2** | 10k ops/s × 60 s | p99; achieved rate | err < 0.1% | Sustained high rate |
+| **BM-L3** | 100k ops/s × 60 s | p99; achieved rate | err < 0.1% | Sustained peak rate |
+### 4.4 Execution protocol
+
+```bash
+cargo run --release -p continuum-bench -- matrix --hardware dev-wsl
+cargo run --release -p continuum-bench -- matrix --from bm-c4 --skip-existing
+cargo run -p continuum-bench -- run bm-c0 --storage mem --telemetry off
+```
+
+- Reports: `profiling/continuum-bench/reports/{id}-{storage}-{topology}-{telemetry}-{hardware}.json`
+- Matrix runs sequentially; pass/fail evaluated in harness ([`metrics/pass_eval.rs`](src/metrics/pass_eval.rs))
+- Regenerate registry Results column: `cargo run -p continuum-bench -- fill-results`
+
+### 4.5 Limitations
+
+- **Single-node lab** on WSL2—not cloud or bare metal.
+- **No competitor in-repo baselines**; related work cites published external numbers only.
+- **Stub SQL backends** skipped.
+- **BM-C6 surreal-rocksdb:** growth ratio compares on-disk active growth vs idle RocksDB baseline; small baseline denominator can inflate ratio (lab run: 101×)—interpret with care.
+- **BM-C2 mem FAIL:** in-process structure may not meet “flat at 100k” criterion despite low absolute latency.
+- **Load tiers:** pass criteria is error rate; **achieved ops/s** may fall below target on slow adapters (recorded in metrics).
+
+---
+
+## 5. Analytical framework
+
+### 5.1 Reading results by adapter
+
+| Adapter | Interpret as |
+|---------|----------------|
+| **mem** | Upper bound on port + in-process structures (not durable) |
+| **surreal-mem** | Surreal engine + schema cost without disk I/O |
+| **surreal-rocksdb** | Durable path: disk, WAL, compaction, checkpoint persistence |
+
+Compare adapters **holding workload constant**; compare workloads **holding adapter constant** to isolate scaling dimension.
+
+### 5.2 Workload × adapter map
+
+```mermaid
+flowchart LR
+  subgraph workloads [Workloads]
+    Append[Append BM-C0 C1]
+    Read[Tail read BM-C2]
+    Chk[Checkpoint BM-C3]
+    Trunc[Truncate BM-C4]
+    Soak[Soak BM-C6]
+    Load[Load BM-L0-L3]
+  end
+  subgraph adapters [Adapters]
+    Mem[mem]
+    SMem[surreal-mem]
+    SRocks[surreal-rocksdb]
+    Future[future custom]
+  end
+  workloads --> adapters
+```
+
+### 5.3 Lab headline patterns (dev-wsl)
+
+See Appendix A for full tables. Summary:
+
+- **Batch scaling (BM-C1):** All adapters benefit from batching; mem ~1.8M events/s at batch 1000; surreal-rocksdb ~3.4k/s at batch 1000 vs 115/s at batch 1.
+- **Tail read (BM-C2):** surreal-mem/rocksdb PASS flat-at-100k criterion; mem FAIL (p95 ratio vs 1k rows).
+- **Sustained load:** mem meets 100k ops/s target; surreal-mem ~850/s at L3; surreal-rocksdb ~25–110/s at L1–L3 on lab NVMe—**orders of magnitude below fleet-scale per-node targets**.
+- **Soak (BM-C6):** mem and surreal-mem PASS (<2× baseline); surreal-rocksdb FAIL on lab (disk growth vs idle baseline).
+- **Co-tenancy (BM-C5):** surreal-mem PASS; mem and surreal-rocksdb FAIL on growth-ratio criterion.
+
+### 5.4 Link to fleet-scale target
+
+Lab durable paths do **not** approach 1B/s aggregate on one node—expected. The suite establishes **which operations dominate cost** (batch vs single append, disk vs memory engine) and **which pass criteria fail first** on general-purpose adapters—inputs for cloud baselines and custom adapter design (§7).
+
+### 5.5 Cloud headline patterns (cost-effective tier, June 2026)
+
+See Appendix D for full tables. Summary by research question (§1.3).
+
+#### 5.5.1 Throughput and cost (RQ1, RQ4)
+
+- **SQLite ceiling ~1,870–1,930 ops/s** at L2/L3 on `t3.small`, `t3.medium`, and `t4g.medium`—instance size does not change throughput within this burstable tier (adapter/EBS bound).
+- **`mem`** meets 10k/s (L2) and ~100k/s (L3) on cloud; not durable.
+- **Batch scaling (BM-C1):** sqlite ~1.4–2k/s → ~3.8–4.1k/s at batch 1000; postgres (t4g) ~248/s → ~516/s.
+- **Cost per 1M ops** (us-west-2 on-demand Linux, compute only): best durable = **t3.small + sqlite L2 ~$0.0031**; t4g postgres ~$0.0379; mem L3 ~$0.00009 (not durable). Excludes EBS and co-located Postgres Docker overhead.
+
+#### 5.5.2 Operational paths: replay, resume, reclaim, soak (RQ2–3, RQ5–6)
+
+- **Replay at depth (BM-C2, RQ2):** sqlite, postgres (t4g), surreal-mem, surreal-rocksdb **PASS** flat-at-100k on cloud EBS (sqlite p95@100k ~0.09 ms; postgres ~0.61 ms). **`mem` FAIL** on all cloud profiles (same as lab)—low absolute latency but fails ratio criterion.
+- **Checkpoint resume (BM-C3, RQ3):** all durable adapters **PASS** flat decile slope; postgres checkpoint p95 ~2 ms (t4g) vs sqlite ~0.3 ms.
+- **Truncate reclaim (BM-C4, RQ3):** postgres **PASS** on t4g (0.93× post/pre; truncate deleted rows successfully—not OOM). surreal paths PASS. sqlite **FAIL on t4g ARM only** (8.49× read regression post-truncate); PASS on t3 x86. t3 postgres runs **invalid** (adapter init failure before truncate).
+- **Soak (BM-C6, RQ5):** surreal-rocksdb **FAIL** (~105–110× growth) on t3.medium/t4g.medium; mem/surreal-mem PASS. sqlite/postgres soak **not run** in SQL subset.
+- **Crash reopen (RQ6):** proxied by BM-C2 + BM-C3 on live durable store; **BM-R0 not run**.
+
+---
+
+## 6. Related work
+
+Continuum is a **storage port**, not a message broker or system of record. Capability contrast (published benchmarks cited externally, not in-repo):
+
+| System | Model | Contrast with Continuum |
+|--------|-------|-------------------------|
+| Kafka / Pulsar | Distributed broker cluster | Routing, consumer groups, ops tooling built-in; Continuum is embeddable port only |
+| NATS JetStream | Lightweight streaming | Similar replay use case; different deployment and protocol |
+| EventStoreDB | Event store / SOR | Canonical store semantics; Continuum is short-lived transport log |
+| Redis Streams | In-memory streams | Continuum targets injected durable backends |
+| DIY SQL append table | Application-owned rows | Continuum standardizes seq, dedupe, checkpoints |
+
+---
+
+## 7. Conclusions and future work
+
+### 7.1 Conclusions (lab phase)
+
+1. **Adapter ranking (scaling shape):** mem > surreal-mem > surreal-rocksdb for raw throughput on lab hardware; durable path is disk-bound at sustained load.
+2. **Port overhead** is separable: mem vs surreal-mem isolates engine cost from port contract.
+3. **Batching is necessary** for any approach to high aggregate rates (BM-C1).
+4. **Gaps vs fleet-scale target:** single-node durable adapters are **orders of magnitude** below 1B/s aggregate; lab establishes baseline envelope and failure modes (checkpoint drift on rocksdb, soak growth, co-tenancy on some paths).
+5. **Pass/fail summary:** 33/39 lab runs PASS; failures concentrated in BM-C2 (mem), BM-C3/C5/C6 (surreal-rocksdb), BM-C5 (mem)—Appendix A.4.
+
+### 7.1.2 Conclusions (cloud phase, partial — June 2026)
+
+Cost-effective tier: `aws-t3-small`, `aws-t3-medium`, `aws-t4g-medium` (Appendix D). **t3 postgres invalid** (pre-fix adapter); conclusions below use t4g postgres + sqlite on all profiles.
+
+1. **RQ1 — Batch append:** batching essential on cloud; sqlite ~2× at batch 1000; postgres ~2× on t4g at much lower absolute rates.
+2. **RQ2 — Replay at depth:** durable adapters PASS BM-C2 on cloud EBS up to 100k rows; adopters with deep replay on burstable instances are within pre-registered bounds for sqlite/postgres/surreal.
+3. **RQ3 — Checkpoint + truncate:** checkpoint path flat on all durable adapters; truncate stable on postgres/surreal; sqlite truncate unstable on **t4g ARM only** (investigate before churn-heavy ARM + sqlite).
+4. **RQ4 — Sustained load + cost:** sqlite ~2k/s durable ceiling regardless of instance size within tier; **t3.small + sqlite** best $/op among durable options; postgres ~250/s class suitable for low-volume durable logs.
+5. **RQ5 — Long-run growth:** surreal-rocksdb unsuitable for 1 h embedded soak on burstable cloud; SQL long-run stability **not measured** (BM-C6 skipped in SQL subset).
+6. **RQ6 — Recovery proxy:** C2+C3 PASS on t4g sqlite/postgres supports port-level replay/resume on running store; explicit reopen-after-crash (BM-R0) still needed.
+7. **Instance viability:** t3.small not viable for full surreal-rocksdb matrix (memory hang on BM-C1); sqlite and lite mem/surreal-mem OK.
+
+### 7.2 Future work
+
+Benchmark coverage should span **two adoption questions**, not only fleet-scale ceilings:
+
+1. **Scale path** — what throughput/latency is achievable on high-end hardware (informing partition count toward ~1B/s aggregate)?
+2. **Cost-effective path** — on a **small or budget instance**, can Continuum + a chosen adapter sustain *your* target load (e.g. 1k–10k ops/s, bounded replay depth) with acceptable p99 and recovery behavior?
+
+#### Hardware matrix (tiered)
+
+Extend `Hardware` enum in [`dimensions.rs`](src/harness/dimensions.rs) and run the same BM-* suite per tier. Append results to **Appendix D**.
+
+**Cost-effective tier** *(priority for smaller deployments)*
+
+| Profile | Planned instance / disk | Typical use |
+|---------|-------------------------|-------------|
+| `ci-small` | Small CI / dev VM (2–4 vCPU, modest RAM) | Minimum viable baseline |
+| `aws-t3.medium` | General-purpose burstable (~2 vCPU, EBS) | Common low-cost cloud |
+| `aws-t4g.small` | ARM burstable | Cost-optimized cloud |
+| `bare-metal-small` | Entry dedicated / small VPS NVMe | Self-hosted budget |
+
+**Research output:** publish **sizing tables** — e.g. “on `aws-t3.medium`, surreal-rocksdb sustains X ops/s at p99 Y ms; recommended max stream depth Z”—so adopters can answer *can this machine handle my load?* without extrapolating from WSL lab or large instances.
+
+**Scale tier** *(fleet-scale envelope, not default recommendation)*
+
+| Profile | Planned instance / disk | Typical use |
+|---------|-------------------------|-------------|
+| `aws-c7i-4xlarge` | Compute-optimized, NVMe instance store | High append rate ceiling |
+| `aws-i4i.xlarge` | Storage-optimized NVMe | Durable I/O ceiling |
+| `bare-metal-large` | Dedicated NVMe bare metal | Upper bound reference |
+
+Large instances establish **headroom** for scale-out design; they are not prescriptive for every deployment.
+
+#### Other experiments
+
+3. **Distributed topology** — `CONTINUUM_BENCH_SURREAL_URL` remote Surreal / TiKV-backed deployments.
+
+4. **Purpose-built high-throughput adapter** — design from §3 decomposition (partition-local batch append, coalesced checkpoints, paginated tail read).
+
+5. **Optimization iterations** — checkpoint coalescing, read paging, truncate/compaction policy ([`LogBackend` rustdoc](../continuum-core/src/backend/log_backend.rs)).
+
+6. **SQL backends** — postgres/sqlite benchmarked on cloud (June 2026); re-run t3 postgres with fixed adapter; optional BM-C6 for SQL adapters.
+
+7. **Replay durability benchmark (BM-R0)** — formalize reopen-after-crash latency and data integrity (extend contract test `s2_durable_after_reopen`); measure recovery time to first replayed event after simulated failure.
+
+---
+
+## Appendix A — Lab results (dev-wsl, June 2025)
+
+Source: 39 JSON reports under [`profiling/continuum-bench/reports/`](../profiling/continuum-bench/reports/).
+
+### Table A.1 — Hardware profile
+
+| Field | Value |
+|-------|-------|
+| Profile label | `dev-wsl` |
+| CPU | 11th Gen Intel Core i7-11700KF @ 3.60 GHz |
+| Cores | 16 |
+| RAM | 19 GiB |
+| OS | Linux WSL2 (6.18.33.1-microsoft-standard-WSL2) |
+| Root mount | `/dev/sdd` → `/` ext4 ~1.9 TiB |
+| Host drive | X16 SSD 2TB, NVMe (`J:\wsl\ubuntu`) |
+
+### Table A.2 — Core experiments (telemetry off, isolated-lab unless noted)
+
+| ID | mem | surreal-mem | surreal-rocksdb |
+|----|-----|-------------|-----------------|
+| **BM-C0** p50 / p95 (ms) | 0.001 / 0.002 PASS | 0.906 / 1.331 PASS | 8.322 / 11.321 PASS |
+| **BM-C1** batch 1 → 1000 (events/s) | 987k → 1.82M PASS | 935 → 4531 PASS | 115 → 3401 PASS |
+| **BM-C2** p95 poll @100k (ms) | 0.612 FAIL | 0.283 PASS | 0.330 PASS |
+| **BM-C3** p95 checkpoint (ms) | 0.001 PASS | 0.742 PASS | 6.591 FAIL |
+| **BM-C4** post/pre read ratio | 0.25× PASS | 1.15× PASS | 0.93× PASS |
+| **BM-C5** growth ratio (monolith) | 0.43 FAIL | 21.27 PASS | 0.20 FAIL |
+| **BM-C6** growth ratio (1 h) | 1.19× PASS | 1.03× PASS | 101.49× FAIL |
+
+BM-C0 console telemetry: mem p95 0.012 ms; surreal-mem 1.844 ms; surreal-rocksdb 14.507 ms (all PASS).
+
+### Table A.3 — Load tiers (60 s sustained, telemetry off)
+
+| ID | Target ops/s | mem achieved / p99 | surreal-mem achieved / p99 | surreal-rocksdb achieved / p99 |
+|----|--------------|--------------------|-----------------------------|--------------------------------|
+| **BM-L0** | 100 | 100 / 0.073 ms | 100 / 7.1 ms | 95 / 57.8 ms |
+| **BM-L1** | 1,000 | 1000 / 0.054 ms | 955 / 1.6 ms | 110 / 14.7 ms |
+| **BM-L2** | 10,000 | 10000 / 0.032 ms | 783 / 2.7 ms | 25 / 519 ms |
+| **BM-L3** | 100,000 | 99998 / 0.014 ms | 849 / 2.1 ms | 101 / 18.6 ms |
+
+All load runs PASS on error rate (&lt;0.1%). Achieved rate below target indicates adapter saturation, not failure.
+
+BM-L1 console: mem p99 0.143 ms @ 1000/s; surreal-mem 1.826 ms @ 832/s; surreal-rocksdb 27.3 ms @ 93/s.
+
+### Table A.4 — Pass/fail summary (primary runs, telemetry off)
+
+| Experiment | mem | surreal-mem | surreal-rocksdb |
+|------------|-----|-------------|-----------------|
+| BM-C0 | PASS | PASS | PASS |
+| BM-C1 | PASS | PASS | PASS |
+| BM-C2 | **FAIL** | PASS | PASS |
+| BM-C3 | PASS | PASS | **FAIL** |
+| BM-C4 | PASS | PASS | PASS |
+| BM-C5 | **FAIL** | PASS | **FAIL** |
+| BM-C6 | PASS | PASS | **FAIL** |
+| BM-L0–L3 | PASS | PASS | PASS |
+
+**Total:** 33 PASS / 39 runs (including console duplicates: 39/39 completed, 33 PASS on primary off runs as above).
+
+---
+
+## Appendix B — Data access
+
+- **Schema and fields:** [`profiling/continuum-bench/reports/README.md`](../profiling/continuum-bench/reports/README.md)
+- **Filename pattern:** `{experiment_id}-{storage}-{topology}-{telemetry}-{hardware}.json`
+- **Regenerate registry column:** `cargo run -p continuum-bench -- fill-results`
+
+---
+
+## Appendix C — Experiment registry
+
+Pre-registered IDs, dimension matrix, Results log, and CLI reference: [`EXPERIMENTS.md`](EXPERIMENTS.md).
+
+---
+
+## Appendix D — Cloud and sizing results (partial, June 2026)
+
+Source: JSON reports under [`profiling/continuum-bench/reports/`](../profiling/continuum-bench/reports/) tagged `aws-t3-medium`, `aws-t3-small`, `aws-t4g-medium`.
+
+**Data caveats:** t3 `postgres` reports before 2026-06-27 are **invalid** (`PostgresLogBackend::from_pool` — fixed in `continuum-backend-sql-common`). Do not cite t3 postgres metrics. `resource_profile.process_rss_bytes_*` values are implausible on cloud runs—use `metrics` and `notes` only until measurement is fixed.
+
+### D.1 Cost-effective tier summary
+
+| Profile | Instance | Date | Reports | Isolated-lab/off PASS | Max sustained (durable) | Notes |
+|---------|----------|------|---------|----------------------|---------------------------|-------|
+| `aws-t3.medium` | 2 vCPU, 4 GiB, EBS x86 | 2026-06-26 | 59 | 37/48 | sqlite ~1909/s L2 | Full matrix; postgres invalid |
+| `aws-t3.small` | 2 vCPU, 2 GiB, EBS x86 | 2026-06-26 | 47 | 28/38 | sqlite ~1885/s L2 | Full matrix not viable; SQL subset complete |
+| `aws-t4g.medium` | 2 vCPU, 4 GiB, EBS ARM | 2026-06-27 | 59 | 45/48 | sqlite ~1928/s L2 | Full matrix; valid postgres baseline |
+| `ci-small` | TBD | — | — | — | — | — |
+| `aws-t4g.small` | ARM burstable | — | — | — | — | — |
+| `bare-metal-small` | TBD | — | — | — | — | — |
+
+### D.1.1 `aws-t3.small` — partial full matrix + SQL subset
+
+**Instance:** `t3.small`, us-west-2, Amazon Linux 2023, 2 vCPU, ~1.9 GiB RAM, 20 GiB gp3 EBS.
+
+**Outcome:** Full 39-run matrix **not completed** — stalled on **BM-C1 `surreal-rocksdb`** (memory pressure on 2 GiB). Lite `mem`/`surreal-mem` matrix and **20-run SQL subset** (`--subset sql`) completed and synced.
+
+**Viability:** not recommended for full surreal-rocksdb on ≤2 GiB; sqlite SQL subset and lite mem/surreal-mem OK for low-volume sizing.
+
+Early partial (8 reports at stall): BM-C0–C1 mem/surreal-mem/surreal-rocksdb only. See [`EXPERIMENTS.md`](EXPERIMENTS.md) for operational tables.
+
+### D.1.2 `aws-t3.medium` — full matrix + SQL subset
+
+**Instance:** `t3.medium`, us-west-2, x86, 2 vCPU, ~3.7 GiB RAM, gp3 EBS. Full **39-run** matrix completed (telemetry duplicates → 59 reports total).
+
+**Headlines:** mem ~100k/s L3; sqlite ~1909/s L2 with flat replay (BM-C2 PASS 0.089 ms @100k); surreal-rocksdb BM-C6 FAIL (109.77× soak). Postgres all invalid on this profile.
+
+### D.1.3 `aws-t4g-medium` — full matrix + SQL subset
+
+**Instance:** `t4g.medium`, us-west-2, ARM, 2 vCPU, ~3.7 GiB RAM, gp3 EBS. Postgres via co-located Docker (`postgres:16-alpine`).
+
+**Headlines:** mem ~100k/s L3; sqlite ~1928/s L2; postgres ~246/s L2 with **PASS** replay (0.61 ms @100k), checkpoint (2.17 ms p95), truncate (0.93× post/pre, 24,999 rows removed). sqlite BM-C4 truncate **FAIL** (8.49×). surreal-rocksdb BM-C6 FAIL (105.65×).
+
+### Table D-C — Core experiments (telemetry off, isolated-lab unless noted)
+
+Values are primary metric; PASS/FAIL from pre-registered criteria. postgres t3 = **invalid**.
+
+| ID | aws-t3.medium mem | sqlite | postgres | surreal-mem | surreal-rocksdb |
+|----|-------------------|--------|----------|-------------|-----------------|
+| **BM-C0** p50/p95 (ms) | 0.002/0.005 P | 0.500/0.562 P | inv | 1.402/1.959 P | 2.146/2.278 P |
+| **BM-C1** 1→1000 (events/s) | 213k→690k P | 1951→4102 P | inv | 673→1265 P | 464→983 P |
+| **BM-C2** p95@100k (ms) | 0.503 F | 0.089 P | inv | 0.270 P | 0.410 P |
+| **BM-C3** p95 ck (ms) | 0.003 P | 0.315 P | inv | 0.594 P | 1.061 P |
+| **BM-C4** post/pre | 0.48× P | 1.35× P | inv | 0.99× P | 1.13× P |
+| **BM-C5** ratio (monolith) | 1.00 F | 0.00 F | inv | 1.00 F | 0.20 F |
+| **BM-C6** growth (1 h) | 0.00× P | — | — | 0.00× P | 109.77× F |
+
+| ID | aws-t4g.medium mem | sqlite | postgres | surreal-mem | surreal-rocksdb |
+|----|-------------------|--------|----------|-------------|-----------------|
+| **BM-C0** p50/p95 (ms) | 0.002/0.003 P | 0.480/0.547 P | 3.970/4.305 P | 1.781/2.043 P | 2.560/3.041 P |
+| **BM-C1** 1→1000 (events/s) | 341k→884k P | 1995→4056 P | 248→516 P | 518→1340 P | 364→921 P |
+| **BM-C2** p95@100k (ms) | 0.480 F | 0.091 P | 0.610 P | 0.318 P | 0.668 P |
+| **BM-C3** p95 ck (ms) | 0.001 P | 0.266 P | 2.172 P | 0.769 P | 1.495 P |
+| **BM-C4** post/pre | 0.40× P | **8.49× F** | 0.93× P | 1.11× P | 1.18× P |
+| **BM-C5** ratio (monolith) | 1.00 F | 28.18 P | 0.00 F | 4194304× P* | 0.20 F |
+| **BM-C6** growth (1 h) | 0.00× P | — | — | 0.00× P | 105.65× F |
+
+P = PASS, F = FAIL, inv = invalid adapter run. \*surreal-mem BM-C5 ratio suspect.
+
+### Table D-replay — BM-C2 tail read p95 (ms) by stream depth (`aws-t4g-medium`)
+
+Pass criterion: p95@100k ≤ 2× p95@1k.
+
+| Adapter | @1k | @10k | @100k | PASS |
+|---------|-----|------|-------|------|
+| mem | 0.003 | 0.024 | 0.480 | **FAIL** |
+| sqlite | 0.094 | 0.098 | 0.091 | PASS |
+| postgres | 0.600 | 0.583 | 0.610 | PASS |
+| surreal-mem | 0.993 | 0.332 | 0.318 | PASS |
+| surreal-rocksdb | 0.407 | 0.398 | 0.668 | PASS |
+
+sqlite/postgres on t3 x86: PASS @100k (~0.089–0.092 ms sqlite; postgres invalid).
+
+### Table D-checkpoint — BM-C3 + BM-C4 (`aws-t4g-medium`)
+
+| Adapter | BM-C3 p95 ck (ms) | BM-C4 post/pre truncate |
+|---------|-------------------|-------------------------|
+| mem | 0.001 PASS | 0.40× PASS |
+| sqlite | 0.266 PASS | **8.49× FAIL** |
+| postgres | 2.172 PASS | 0.93× PASS (24,999 rows removed) |
+| surreal-mem | 0.769 PASS | 1.11× PASS |
+| surreal-rocksdb | 1.495 PASS | 1.18× PASS |
+
+### Table D-L — Load tiers (60 s sustained, telemetry off)
+
+Target vs achieved ops/s and p99. Error rate PASS (&lt;0.1%) on all listed runs.
+
+| ID | Target | t3.small sqlite | t3.medium sqlite | t4g.medium sqlite | t4g.medium postgres |
+|----|--------|-----------------|------------------|-------------------|---------------------|
+| **BM-L0** | 100 | 100 / 1.75 ms | 100 / 6.46 ms | 100 / 1.02 ms | 100 / 7.17 ms |
+| **BM-L1** | 1,000 | 1000 / 1.45 ms | 1000 / 0.92 ms | 1000 / 0.86 ms | 246 / 5.75 ms |
+| **BM-L2** | 10,000 | 1885 / 0.79 ms | 1909 / 0.79 ms | 1928 / 0.75 ms | 246 / 5.63 ms |
+| **BM-L3** | 100,000 | 1880 / 0.78 ms | 1898 / 0.78 ms | 1874 / 0.91 ms | 242 / 5.83 ms |
+
+**mem** on t3.medium / t4g.medium: L2 10k / 0.014–0.016 ms; L3 ~99998/s / 0.007–0.009 ms.
+
+### Table D-cost — $ per 1M operations (compute only)
+
+us-west-2 Linux on-demand hourly: t3.small $0.0208, t3.medium $0.0416, t4g.medium $0.0336. Formula: `($/hr ÷ ops/s) × (1e6 / 3600)`. Excludes EBS, transfer, Postgres licensing.
+
+| Rank | Config | ops/s | $/1M ops |
+|------|--------|-------|----------|
+| 1 | t4g.medium mem L3 | 99,998 | ~$0.00009 |
+| 2 | t3.medium mem L3 | 99,999 | ~$0.00012 |
+| 3 | **t3.small sqlite L2** | 1,885 | **~$0.0031** |
+| 4 | t4g.medium sqlite L2 | 1,928 | ~$0.0048 |
+| 5 | t3.medium sqlite L2 | 1,909 | ~$0.0061 |
+| 6 | t4g.medium postgres L2 | 246 | ~$0.0379 |
+
+Best **durable** cost-efficiency: smallest instance + sqlite at observed ceiling (~1.9k/s).
+
+### D.2 Scale tier *(upper envelope)*
+
+| Profile | Instance | Target question | Date | Reports |
+|---------|----------|-----------------|------|---------|
+| `aws-c7i-4xlarge` | Compute + NVMe | High-end append ceiling | — | — |
+| `aws-i4i.xlarge` | Storage NVMe | Durable I/O ceiling | — | — |
+| `bare-metal-large` | Dedicated NVMe | Reference upper bound | — | — |

@@ -1,0 +1,27 @@
+[package]
+name = "continuum-backend-sql-common"
+version = "0.1.0"
+edition = "2021"
+authors = ["Sean O'Rourke"]
+license = "MIT"
+repository = "https://github.com/deathbreakfast/continuum"
+description = "Shared SQL LogBackend for continuum transport log"
+
+[lints]
+workspace = true
+
+[features]
+default = ["sqlite", "postgres"]
+sqlite = ["sqlx/sqlite"]
+postgres = ["sqlx/postgres"]
+
+[dependencies]
+async-trait = { workspace = true }
+chrono = { workspace = true }
+continuum-core = { path = "../continuum-core" }
+sqlx = { workspace = true, default-features = false, features = ["runtime-tokio", "macros"] }
+uuid = { workspace = true, features = ["serde", "v4"] }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

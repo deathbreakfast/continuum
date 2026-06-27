@@ -1,0 +1,42 @@
+{
+  "experiment_id": "bm-c4",
+  "dimensions": {
+    "storage": "surreal-rocksdb",
+    "topology": "isolated-lab",
+    "telemetry": "off",
+    "hardware": "dev-wsl"
+  },
+  "hardware_detail": {
+    "cpu_model": "11th Gen Intel(R) Core(TM) i7-11700KF @ 3.60GHz",
+    "cpu_cores": 16,
+    "ram_gib": 19.530902862548828,
+    "os": "linux WSL2 (Linux 6.18.33.1-microsoft-standard-WSL2)",
+    "root_mount": {
+      "device": "/dev/sdd",
+      "mount_point": "/",
+      "fs_type": "ext4",
+      "size_gib": 1945.6
+    },
+    "host_drive": {
+      "model": "X16 SSD 2TB",
+      "media_type": "SSD",
+      "bus_type": "NVMe",
+      "size_gib": 1907.7,
+      "wsl_distro_path": "\\\\?\\J:\\wsl\\ubuntu"
+    }
+  },
+  "engine_path": "rocksdb:///tmp/.tmpeoFg91",
+  "started_at": "2026-06-25T14:49:08.061214851Z",
+  "elapsed_secs": 437.578035314,
+  "metrics": {
+    "disk_bytes_after": 213374087,
+    "post_truncate_p95_ms": 0.325787,
+    "pre_truncate_p95_ms": 0.348446,
+    "remaining_rows": 25001,
+    "removed_rows": 24999
+  },
+  "pass_criteria": "Read stable after truncate",
+  "pass": true,
+  "status": "completed",
+  "notes": "post/pre=0.93x PASS"
+}

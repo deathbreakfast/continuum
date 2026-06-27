@@ -1,0 +1,21 @@
+[package]
+name = "continuum-backend-mem"
+version = "0.1.0"
+edition = "2021"
+authors = ["Sean O'Rourke"]
+license = "MIT"
+repository = "https://github.com/deathbreakfast/continuum"
+description = "In-memory LogBackend for continuum tests and local dev"
+
+[lints]
+workspace = true
+
+[dependencies]
+async-trait = { workspace = true }
+continuum-core = { path = "../continuum-core" }
+uuid = { workspace = true, features = ["v4"] }
+
+[dev-dependencies]
+continuum-test-utils = { path = "../continuum-test-utils" }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+uuid = { workspace = true, features = ["v4"] }

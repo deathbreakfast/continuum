@@ -1,0 +1,16 @@
+[package]
+name = "continuum-test-utils"
+version = "0.1.0"
+edition = "2021"
+authors = ["Sean O'Rourke"]
+license = "MIT"
+repository = "https://github.com/deathbreakfast/continuum"
+description = "Shared fixtures and LogBackend contract tests for continuum"
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+continuum-core = { path = "../continuum-core" }
+uuid = { workspace = true, features = ["v4"] }

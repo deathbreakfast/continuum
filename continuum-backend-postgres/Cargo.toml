@@ -1,0 +1,23 @@
+[package]
+name = "continuum-backend-postgres"
+version = "0.1.0"
+edition = "2021"
+authors = ["Sean O'Rourke"]
+license = "MIT"
+repository = "https://github.com/deathbreakfast/continuum"
+description = "PostgreSQL LogBackend for continuum transport log"
+
+[lints]
+workspace = true
+
+[dependencies]
+async-trait = { workspace = true }
+continuum-backend-sql-common = { path = "../continuum-backend-sql-common" }
+continuum-core = { path = "../continuum-core" }
+sqlx = { workspace = true, default-features = false, features = ["runtime-tokio", "postgres"] }
+
+[dev-dependencies]
+continuum-test-utils = { path = "../continuum-test-utils" }
+sqlx = { workspace = true, default-features = false, features = ["runtime-tokio", "postgres"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+uuid = { workspace = true }

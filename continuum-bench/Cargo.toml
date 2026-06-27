@@ -1,0 +1,30 @@
+[package]
+name = "continuum-bench"
+version = "0.1.0"
+edition = "2021"
+authors = ["Sean O'Rourke"]
+license = "MIT"
+repository = "https://github.com/deathbreakfast/continuum"
+description = "Synthetic continuum benchmarks and experiment matrix runner"
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "continuum-bench"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+chrono = { workspace = true }
+clap = { workspace = true }
+continuum = { path = "../continuum", features = ["mem", "surreal-local", "sqlite", "postgres", "telemetry-console"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sqlx = { workspace = true, default-features = false, features = ["runtime-tokio", "sqlite", "postgres"] }
+surrealdb = { workspace = true, default-features = false, features = ["kv-mem", "kv-rocksdb"] }
+sysinfo = { workspace = true }
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time", "sync"] }
+uuid = { workspace = true, features = ["v4"] }

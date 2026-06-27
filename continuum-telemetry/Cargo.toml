@@ -1,0 +1,21 @@
+[package]
+name = "continuum-telemetry"
+version = "0.1.0"
+edition = "2021"
+authors = ["Sean O'Rourke"]
+license = "MIT"
+repository = "https://github.com/deathbreakfast/continuum"
+description = "TelemetrySink port and InstrumentedLogBackend for continuum"
+
+[lints]
+workspace = true
+
+[dependencies]
+async-trait = { workspace = true }
+continuum-core = { path = "../continuum-core" }
+
+[dev-dependencies]
+continuum-backend-mem = { path = "../continuum-backend-mem" }
+continuum-test-utils = { path = "../continuum-test-utils" }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+uuid = { workspace = true, features = ["v4"] }

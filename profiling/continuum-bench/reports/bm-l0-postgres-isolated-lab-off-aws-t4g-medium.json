@@ -1,0 +1,58 @@
+{
+  "experiment_id": "bm-l0",
+  "dimensions": {
+    "storage": "postgres",
+    "topology": "isolated-lab",
+    "telemetry": "off",
+    "hardware": "aws-t4g-medium"
+  },
+  "hardware_detail": {
+    "cpu_model": "unknown",
+    "cpu_cores": 2,
+    "ram_gib": 3.742095947265625,
+    "os": "linux (Linux 6.12.77-99.140.amzn2023.aarch64)",
+    "root_mount": {
+      "device": "/dev/nvme0n1p1",
+      "mount_point": "/",
+      "fs_type": "xfs",
+      "size_gib": 19.9
+    },
+    "host_drive": {
+      "model": null,
+      "media_type": null,
+      "bus_type": null,
+      "size_gib": null,
+      "wsl_distro_path": null
+    }
+  },
+  "engine_path": "postgres://postgres:bench@127.0.0.1:5432/bench",
+  "started_at": "2026-06-27T03:55:56.943774449Z",
+  "elapsed_secs": 60.471703781,
+  "metrics": {
+    "achieved_ops_per_sec": 100.00832469728077,
+    "duration_secs": 60.005004765,
+    "error_rate": 0.0,
+    "ops_err": 0,
+    "ops_ok": 6001,
+    "p50_ms": 4.258718,
+    "p95_ms": 4.710849,
+    "p99_ms": 7.168199,
+    "target_ops_per_sec": 100
+  },
+  "resource_profile": {
+    "process_rss_bytes_start": 29611786240,
+    "process_rss_bytes_end": 29611786240,
+    "process_rss_bytes_peak": 29611786240,
+    "process_cpu_percent_mean": 11.223803333333333,
+    "process_cpu_percent_peak": 16.2162,
+    "system_mem_used_bytes_start": 617922560,
+    "system_mem_used_bytes_peak": 627429376,
+    "system_mem_used_bytes_end": 627224576,
+    "sample_count": 60,
+    "sample_interval_ms": 1000
+  },
+  "pass_criteria": "error rate <0.1%",
+  "pass": true,
+  "status": "completed",
+  "notes": "p99=7.168ms 100/s err=0.0000% PASS"
+}

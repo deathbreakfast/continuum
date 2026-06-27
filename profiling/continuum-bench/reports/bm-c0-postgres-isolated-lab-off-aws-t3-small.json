@@ -1,0 +1,48 @@
+{
+  "experiment_id": "bm-c0",
+  "dimensions": {
+    "storage": "postgres",
+    "topology": "isolated-lab",
+    "telemetry": "off",
+    "hardware": "aws-t3-small"
+  },
+  "hardware_detail": {
+    "cpu_model": "Intel(R) Xeon(R) Platinum 8259CL CPU @ 2.50GHz",
+    "cpu_cores": 2,
+    "ram_gib": 1.8684539794921875,
+    "os": "linux (Linux 6.1.175-219.357.amzn2023.x86_64)",
+    "root_mount": {
+      "device": "/dev/nvme0n1p1",
+      "mount_point": "/",
+      "fs_type": "xfs",
+      "size_gib": 19.9
+    },
+    "host_drive": {
+      "model": null,
+      "media_type": null,
+      "bus_type": null,
+      "size_gib": null,
+      "wsl_distro_path": null
+    }
+  },
+  "engine_path": "",
+  "started_at": "2026-06-27T00:07:48.657256374Z",
+  "elapsed_secs": 0.237163657,
+  "metrics": {},
+  "resource_profile": {
+    "process_rss_bytes_start": 23119003648,
+    "process_rss_bytes_end": 23119003648,
+    "process_rss_bytes_peak": 23119003648,
+    "process_cpu_percent_mean": 0.0,
+    "process_cpu_percent_peak": 0.0,
+    "system_mem_used_bytes_start": 485134336,
+    "system_mem_used_bytes_peak": 485134336,
+    "system_mem_used_bytes_end": 484806656,
+    "sample_count": 0,
+    "sample_interval_ms": 1000
+  },
+  "pass_criteria": "Flat vs op count at 5k ops",
+  "pass": false,
+  "status": "failed",
+  "notes": "PostgresLogBackend::from_pool"
+}

@@ -1,0 +1,33 @@
+[package]
+name = "continuum"
+version = "0.1.0"
+edition = "2021"
+authors = ["Sean O'Rourke"]
+license = "MIT"
+repository = "https://github.com/deathbreakfast/continuum"
+description = "Append-only event/log substrate port and backends (facade)"
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[features]
+default = []
+mem = ["dep:continuum-backend-mem"]
+surreal-local = ["dep:continuum-backend-surreal"]
+postgres = ["dep:continuum-backend-postgres"]
+sqlite = ["dep:continuum-backend-sqlite"]
+telemetry-console = ["dep:continuum-telemetry"]
+
+[dependencies]
+continuum-core = { path = "../continuum-core" }
+continuum-telemetry = { path = "../continuum-telemetry", optional = true }
+continuum-backend-mem = { path = "../continuum-backend-mem", optional = true }
+continuum-backend-surreal = { path = "../continuum-backend-surreal", optional = true }
+continuum-backend-postgres = { path = "../continuum-backend-postgres", optional = true }
+continuum-backend-sqlite = { path = "../continuum-backend-sqlite", optional = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+tempfile = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }

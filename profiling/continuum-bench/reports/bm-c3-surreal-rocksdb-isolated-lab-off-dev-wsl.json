@@ -1,0 +1,44 @@
+{
+  "experiment_id": "bm-c3",
+  "dimensions": {
+    "storage": "surreal-rocksdb",
+    "topology": "isolated-lab",
+    "telemetry": "off",
+    "hardware": "dev-wsl"
+  },
+  "hardware_detail": {
+    "cpu_model": "11th Gen Intel(R) Core(TM) i7-11700KF @ 3.60GHz",
+    "cpu_cores": 16,
+    "ram_gib": 19.530902862548828,
+    "os": "linux WSL2 (Linux 6.18.33.1-microsoft-standard-WSL2)",
+    "root_mount": {
+      "device": "/dev/sdd",
+      "mount_point": "/",
+      "fs_type": "ext4",
+      "size_gib": 1945.6
+    },
+    "host_drive": {
+      "model": "X16 SSD 2TB",
+      "media_type": "SSD",
+      "bus_type": "NVMe",
+      "size_gib": 1907.7,
+      "wsl_distro_path": "\\\\?\\J:\\wsl\\ubuntu"
+    }
+  },
+  "engine_path": "rocksdb:///tmp/.tmpLF3dXs",
+  "started_at": "2026-06-25T14:38:52.934944388Z",
+  "elapsed_secs": 56.840700795,
+  "metrics": {
+    "decile_p95_slope": -0.07014446666666614,
+    "mean_ms": 5.327229364200012,
+    "p50_ms": 4.4761940000000005,
+    "p95_ms": 6.590622,
+    "p99_ms": 43.458608000000005,
+    "sample_count": 10000,
+    "slope_vs_index": -0.00007526126141060324
+  },
+  "pass_criteria": "Flat over 10k commits",
+  "pass": false,
+  "status": "completed",
+  "notes": "p95=6.591ms FAIL"
+}

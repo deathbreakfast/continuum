@@ -1,0 +1,55 @@
+{
+  "experiment_id": "bm-c2",
+  "dimensions": {
+    "storage": "mem",
+    "topology": "isolated-lab",
+    "telemetry": "off",
+    "hardware": "aws-t3-medium"
+  },
+  "hardware_detail": {
+    "cpu_model": "Intel(R) Xeon(R) Platinum 8259CL CPU @ 2.50GHz",
+    "cpu_cores": 2,
+    "ram_gib": 3.7495498657226562,
+    "os": "linux (Linux 6.1.175-219.357.amzn2023.x86_64)",
+    "root_mount": {
+      "device": "/dev/nvme0n1p1",
+      "mount_point": "/",
+      "fs_type": "xfs",
+      "size_gib": 19.9
+    },
+    "host_drive": {
+      "model": null,
+      "media_type": null,
+      "bus_type": null,
+      "size_gib": null,
+      "wsl_distro_path": null
+    }
+  },
+  "engine_path": "mem://",
+  "started_at": "2026-06-26T13:33:01.110229895Z",
+  "elapsed_secs": 1.26884577,
+  "metrics": {
+    "p50_poll_ms_100k": 0.31819,
+    "p50_poll_ms_10k": 0.00718,
+    "p50_poll_ms_1k": 0.002657,
+    "p95_poll_ms_100k": 0.502822,
+    "p95_poll_ms_10k": 0.008518000000000001,
+    "p95_poll_ms_1k": 0.002768
+  },
+  "resource_profile": {
+    "process_rss_bytes_start": 591065513984,
+    "process_rss_bytes_end": 565195046912,
+    "process_rss_bytes_peak": 591065513984,
+    "process_cpu_percent_mean": 91.3044,
+    "process_cpu_percent_peak": 91.3044,
+    "system_mem_used_bytes_start": 959520768,
+    "system_mem_used_bytes_peak": 959520768,
+    "system_mem_used_bytes_end": 881569792,
+    "sample_count": 1,
+    "sample_interval_ms": 1000
+  },
+  "pass_criteria": "Flat at 100k rows",
+  "pass": false,
+  "status": "completed",
+  "notes": "p95@100k=0.503ms FAIL"
+}

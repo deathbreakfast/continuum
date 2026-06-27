@@ -1,0 +1,56 @@
+{
+  "experiment_id": "bm-c0",
+  "dimensions": {
+    "storage": "surreal-rocksdb",
+    "topology": "isolated-lab",
+    "telemetry": "console",
+    "hardware": "aws-t4g-large"
+  },
+  "hardware_detail": {
+    "cpu_model": "unknown",
+    "cpu_cores": 2,
+    "ram_gib": 7.626922607421875,
+    "os": "linux (Linux 6.12.77-99.140.amzn2023.aarch64)",
+    "root_mount": {
+      "device": "/dev/nvme0n1p1",
+      "mount_point": "/",
+      "fs_type": "xfs",
+      "size_gib": 29.9
+    },
+    "host_drive": {
+      "model": null,
+      "media_type": null,
+      "bus_type": null,
+      "size_gib": null,
+      "wsl_distro_path": null
+    }
+  },
+  "engine_path": "rocksdb:///tmp/.tmpWdbodi",
+  "started_at": "2026-06-26T18:33:50.030995789Z",
+  "elapsed_secs": 13.293425475,
+  "metrics": {
+    "decile_p95_slope": 0.00002083030303021422,
+    "mean_ms": 2.552022753400004,
+    "p50_ms": 2.5117030000000002,
+    "p95_ms": 2.858574,
+    "p99_ms": 3.446036,
+    "sample_count": 5000,
+    "slope_vs_index": 3.832036395563292e-6
+  },
+  "resource_profile": {
+    "process_rss_bytes_start": 145546543104,
+    "process_rss_bytes_end": 205227294720,
+    "process_rss_bytes_peak": 205227294720,
+    "process_cpu_percent_mean": 101.07163846153846,
+    "process_cpu_percent_peak": 103.125,
+    "system_mem_used_bytes_start": 680136704,
+    "system_mem_used_bytes_peak": 803377152,
+    "system_mem_used_bytes_end": 803328000,
+    "sample_count": 13,
+    "sample_interval_ms": 1000
+  },
+  "pass_criteria": "Flat vs op count at 5k ops",
+  "pass": true,
+  "status": "completed",
+  "notes": "p50=2.512ms p95=2.859ms PASS"
+}

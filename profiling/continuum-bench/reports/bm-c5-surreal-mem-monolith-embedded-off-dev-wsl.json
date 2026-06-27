@@ -1,0 +1,40 @@
+{
+  "experiment_id": "bm-c5",
+  "dimensions": {
+    "storage": "surreal-mem",
+    "topology": "monolith-embedded",
+    "telemetry": "off",
+    "hardware": "dev-wsl"
+  },
+  "hardware_detail": {
+    "cpu_model": "11th Gen Intel(R) Core(TM) i7-11700KF @ 3.60GHz",
+    "cpu_cores": 16,
+    "ram_gib": 19.530902862548828,
+    "os": "linux WSL2 (Linux 6.18.33.1-microsoft-standard-WSL2)",
+    "root_mount": {
+      "device": "/dev/sdd",
+      "mount_point": "/",
+      "fs_type": "ext4",
+      "size_gib": 1945.6
+    },
+    "host_drive": {
+      "model": "X16 SSD 2TB",
+      "media_type": "SSD",
+      "bus_type": "NVMe",
+      "size_gib": 1907.7,
+      "wsl_distro_path": "\\\\?\\J:\\wsl\\ubuntu"
+    }
+  },
+  "engine_path": "shared-surreal-handle",
+  "started_at": "2026-06-25T14:49:22.626873886Z",
+  "elapsed_secs": 11.396248494,
+  "metrics": {
+    "growth_ratio_same_vs_isolated": 21.27485380116959,
+    "isolated_rss_delta_bytes": 1434451968,
+    "same_handle_rss_delta_bytes": 30517755904
+  },
+  "pass_criteria": "Growth only on same handle",
+  "pass": true,
+  "status": "completed",
+  "notes": "ratio=21.27 PASS"
+}
