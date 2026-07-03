@@ -44,6 +44,8 @@ pub use continuum_telemetry::{
 /// | `surreal-local` | `SurrealLocalLogBackend` | Ready — production (injected Surreal handle) |
 /// | `postgres` | `PostgresLogBackend` | Ready — `PostgreSQL` transport log |
 /// | `sqlite` | `SqliteLogBackend` | Ready — `SQLite` transport log |
+/// | `scylla` | `ScyllaLogBackend` | Ready — native ScyllaDB transport log |
+/// | `tikv-raw` | `TikvRawLogBackend` | Ready — native TiKV transport log |
 /// | `telemetry-console` | `InstrumentedLogBackend` | Optional diagnostics wrapper |
 ///
 /// Port-only build: `default-features = false` — trait, DTOs, and router without any backend linked.
@@ -59,6 +61,12 @@ pub mod backends {
 
     #[cfg(feature = "sqlite")]
     pub use continuum_backend_sqlite::*;
+
+    #[cfg(feature = "scylla")]
+    pub use continuum_backend_scylla::*;
+
+    #[cfg(feature = "tikv-raw")]
+    pub use continuum_backend_tikv_raw::*;
 }
 
 #[cfg(feature = "mem")]
@@ -72,3 +80,9 @@ pub use backends::PostgresLogBackend;
 
 #[cfg(feature = "sqlite")]
 pub use backends::SqliteLogBackend;
+
+#[cfg(feature = "scylla")]
+pub use backends::{ScyllaLogBackend, ScyllaLogConfig};
+
+#[cfg(feature = "tikv-raw")]
+pub use backends::{TikvRawLogBackend, TikvRawLogConfig};

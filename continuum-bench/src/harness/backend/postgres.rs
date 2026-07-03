@@ -33,7 +33,7 @@ pub async fn build_postgres(
         .context("PostgresLogBackend::from_pool")?;
 
     Ok(BackendHandle {
-        backend: wrap_postgres(inner, telemetry),
+        backend: Arc::new(wrap_postgres(inner, telemetry)),
         engine_path: url,
         _temp_dir: None,
         _shared: Some(SharedHandle::Postgres(pool)),

@@ -10,20 +10,20 @@
     "surreal_deployment": "colocated",
     "component_hardware": {
       "runtime": "aws-t3-medium",
-      "surreal": "aws-t3-medium",
+      "surreal": "aws-t3-small",
       "tikv": "aws-t3-medium"
     }
   },
   "hardware_detail": {
     "cpu_model": "Intel(R) Xeon(R) Platinum 8259CL CPU @ 2.50GHz",
     "cpu_cores": 2,
-    "ram_gib": 3.744556427001953,
-    "os": "linux (Linux 6.12.92-122.168.amzn2023.x86_64)",
+    "ram_gib": 3.7495574951171875,
+    "os": "linux (Linux 6.1.175-219.359.amzn2023.x86_64)",
     "root_mount": {
       "device": "/dev/nvme0n1p1",
       "mount_point": "/",
       "fs_type": "xfs",
-      "size_gib": 29.9
+      "size_gib": 19.9
     },
     "host_drive": {
       "model": null,
@@ -33,30 +33,30 @@
       "wsl_distro_path": null
     }
   },
-  "engine_path": "ws://127.0.0.1:8000",
-  "tikv_pd_endpoint": "http://127.0.0.1:2379",
-  "started_at": "2026-06-30T05:54:44.882353594Z",
-  "elapsed_secs": 451.886410757,
+  "engine_path": "ws://172.31.38.6:8000",
+  "tikv_pd_endpoint": "http://172.31.39.223:2379",
+  "started_at": "2026-06-30T19:20:12.934982900Z",
+  "elapsed_secs": 712.818285419,
   "metrics": {
-    "events_per_sec_batch_1": 43.10865706163427,
-    "events_per_sec_batch_10": 118.55365773836736,
-    "events_per_sec_batch_100": 156.64115748458016,
-    "events_per_sec_batch_1000": 142.23555402012337
+    "events_per_sec_batch_1": 25.199493245120703,
+    "events_per_sec_batch_10": 82.20751155155169,
+    "events_per_sec_batch_100": 103.52571766650958,
+    "events_per_sec_batch_1000": 102.92011637502827
   },
   "resource_profile": {
-    "process_rss_bytes_start": 25581060096,
-    "process_rss_bytes_end": 44610617344,
-    "process_rss_bytes_peak": 45428506624,
-    "process_cpu_percent_mean": 7.298304494382022,
-    "process_cpu_percent_peak": 16.2437,
-    "system_mem_used_bytes_start": 2599809024,
-    "system_mem_used_bytes_peak": 2852093952,
-    "system_mem_used_bytes_end": 2719232000,
-    "sample_count": 445,
+    "process_rss_bytes_start": 21978152960,
+    "process_rss_bytes_end": 43704647680,
+    "process_rss_bytes_peak": 44296044544,
+    "process_cpu_percent_mean": 4.345693644067796,
+    "process_cpu_percent_peak": 12.0603,
+    "system_mem_used_bytes_start": 541184000,
+    "system_mem_used_bytes_peak": 593453056,
+    "system_mem_used_bytes_end": 573100032,
+    "sample_count": 708,
     "sample_interval_ms": 1000
   },
   "pass_criteria": "Throughput scales with batch",
   "pass": true,
   "status": "completed",
-  "notes": "1=43/s 1000=142/s PASS"
+  "notes": "1=25/s 1000=103/s PASS"
 }

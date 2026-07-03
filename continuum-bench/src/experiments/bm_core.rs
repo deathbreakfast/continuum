@@ -9,7 +9,7 @@ use serde_json::{json, Value};
 use tokio::time::sleep;
 
 use crate::experiments::fixtures::{bench_record, bench_records, bench_stream, preload_stream};
-use crate::harness::{build_backend, open_shared_postgres, open_shared_sqlite, open_shared_surreal, BackendHandle, BenchBackend, SharedHandle, Storage};
+use crate::harness::{build_backend, open_shared_postgres, open_shared_scylla, open_shared_sqlite, open_shared_surreal, open_shared_tikv_raw, BackendHandle, BenchBackend, SharedHandle, Storage};
 use crate::harness::{RunDimensions, Topology};
 use crate::metrics::{growth_ratio, latency_to_json, process_rss_bytes, LatencySamples};
 use crate::util::{u64_to_f64, usize_to_f64};
@@ -33,6 +33,12 @@ pub async fn prepare_context(dims: RunDimensions) -> Result<ExperimentContext> {
                 Some(SharedHandle::Sqlite(pool))
             }
             Storage::Postgres => Some(SharedHandle::Postgres(open_shared_postgres().await?)),
+            Storage::Scylla => Some(SharedHandle::Scylla(
+                crate::harness::open_shared_scylla().await?,
+            )),
+            Storage::TikvRaw => Some(SharedHandle::TikvRaw(
+                crate::harness::open_shared_tikv_raw().await?,
+            )),
             Storage::SurrealTikv | Storage::Mem => None,
         }
     } else {
@@ -89,7 +95,7 @@ pub async fn run_bm_c2(ctx: &ExperimentContext) -> Result<Value> {
 
     for size in [1_000usize, 10_000, 100_000] {
         let stream = bench_stream(ctx.storage, &format!("bm-c2-{size}"));
-        let last = preload_stream(backend, stream.clone(), size).await?;
+        let last = preload_stream(backend.as_ref(), stream.clone(), size).await?;
         let mut samples = LatencySamples::with_capacity(200);
         for _ in 0..200 {
             let start = Instant::now();
@@ -141,7 +147,7 @@ pub async fn run_bm_c4(ctx: &ExperimentContext) -> Result<Value> {
     let backend = &ctx.handle.backend;
     let stream = bench_stream(ctx.storage, "bm-c4");
     let count = 50_000usize;
-    let last = preload_stream(backend, stream.clone(), count).await?;
+    let last = preload_stream(backend.as_ref(), stream.clone(), count).await?;
     let mid = Seq(last.0 / 2);
 
     let mut pre_samples = LatencySamples::with_capacity(100);
@@ -269,24 +275,28 @@ async fn measure_same_handle_growth(
     n_streams: usize,
     ops: usize,
 ) -> Result<u64> {
-    let (shared, temp) = if storage == Storage::Mem {
-        (None, None)
-    } else {
-        match storage {
-            Storage::SurrealMem | Storage::SurrealRocksdb => {
-                let (db, temp) = open_shared_surreal(storage).await?;
-                (Some(SharedHandle::Surreal(db)), temp)
-            }
-            Storage::Sqlite => {
-                let (pool, temp) = open_shared_sqlite().await?;
-                (Some(SharedHandle::Sqlite(pool)), Some(temp))
-            }
-            Storage::Postgres => (
-                Some(SharedHandle::Postgres(open_shared_postgres().await?)),
-                None,
-            ),
-            Storage::SurrealTikv | Storage::Mem => (None, None),
+    let (shared, temp) = match storage {
+        Storage::Mem | Storage::SurrealTikv => (None, None),
+        Storage::SurrealMem | Storage::SurrealRocksdb => {
+            let (db, temp) = open_shared_surreal(storage).await?;
+            (Some(SharedHandle::Surreal(db)), temp)
         }
+        Storage::Sqlite => {
+            let (pool, temp) = open_shared_sqlite().await?;
+            (Some(SharedHandle::Sqlite(pool)), Some(temp))
+        }
+        Storage::Postgres => (
+            Some(SharedHandle::Postgres(open_shared_postgres().await?)),
+            None,
+        ),
+        Storage::Scylla => (
+            Some(SharedHandle::Scylla(open_shared_scylla().await?)),
+            None,
+        ),
+        Storage::TikvRaw => (
+            Some(SharedHandle::TikvRaw(open_shared_tikv_raw().await?)),
+            None,
+        ),
     };
 
     let handle = build_backend(

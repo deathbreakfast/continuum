@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 
 use super::schema::RunReport;
-use crate::harness::{RunDimensions, Storage, TikvTopology};
+use crate::harness::{RunDimensions, ScyllaTopology, Storage, TikvTopology};
 
 /// Reports directory: `CONTINUUM_BENCH_REPORTS_DIR` or workspace default at build time.
 pub fn reports_dir() -> PathBuf {
@@ -18,25 +18,69 @@ pub fn reports_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../profiling/continuum-bench/reports")
 }
 
+fn report_env_suffix() -> String {
+    let mut tags = Vec::new();
+    if let Ok(v) = std::env::var("CONTINUUM_BENCH_LOAD_PARTITION_COUNT") {
+        if v.parse::<usize>().ok().filter(|&n| n > 1).is_some() {
+            tags.push(format!("k{v}"));
+        }
+    }
+    if let Ok(v) = std::env::var("CONTINUUM_BENCH_PARTITION_COUNT") {
+        tags.push(format!("pk{v}"));
+    }
+    if let Ok(v) = std::env::var("CONTINUUM_BENCH_CLIENT_COUNT") {
+        tags.push(format!("c{v}"));
+    }
+    if tags.is_empty() {
+        String::new()
+    } else {
+        format!("-{}", tags.join("-"))
+    }
+}
+
 /// Filename for a completed run.
 pub fn report_filename(experiment_id: &str, dims: RunDimensions) -> String {
+    let env_suffix = report_env_suffix();
     if dims.storage == Storage::SurrealTikv {
         let topo = dims
             .tikv_topology
             .map_or("tikv-unknown", TikvTopology::slug);
         return format!(
-            "{experiment_id}-surreal-tikv-{topo}-{}-{}.json",
+            "{experiment_id}-surreal-tikv-{topo}-{}-{}{env_suffix}.json",
+            dims.telemetry.slug(),
+            dims.hardware.slug()
+        );
+    }
+    if dims.storage == Storage::Scylla {
+        let topo = dims
+            .scylla_topology
+            .map_or("scylla-1", ScyllaTopology::slug);
+        return format!(
+            "{experiment_id}-scylla-{topo}-{}-{}-{}{env_suffix}.json",
+            dims.topology.slug(),
+            dims.telemetry.slug(),
+            dims.hardware.slug()
+        );
+    }
+    if dims.storage == Storage::TikvRaw {
+        let topo = dims
+            .tikv_topology
+            .map_or("tikv-minimal", TikvTopology::slug);
+        return format!(
+            "{experiment_id}-tikv-raw-{topo}-{}-{}-{}{env_suffix}.json",
+            dims.topology.slug(),
             dims.telemetry.slug(),
             dims.hardware.slug()
         );
     }
     format!(
-        "{}-{}-{}-{}-{}.json",
+        "{}-{}-{}-{}-{}{}.json",
         experiment_id,
         dims.storage.slug(),
         dims.topology.slug(),
         dims.telemetry.slug(),
-        dims.hardware.slug()
+        dims.hardware.slug(),
+        env_suffix
     )
 }
 
@@ -84,10 +128,27 @@ mod tests {
             telemetry: Telemetry::Off,
             hardware: Hardware::DevWsl,
             tikv_topology: Some(TikvTopology::Ha3),
+            scylla_topology: None,
             surreal_deployment: Some(SurrealDeployment::Colocated),
             surreal_instances: 1,
         };
         let name = report_filename("bm-l1", dims);
         assert!(name.contains("surreal-tikv-tikv-ha-3"));
+    }
+
+    #[test]
+    fn scylla_filename_includes_topology() {
+        let dims = RunDimensions {
+            storage: Storage::Scylla,
+            topology: Topology::IsolatedLab,
+            telemetry: Telemetry::Off,
+            hardware: Hardware::AwsT3Medium,
+            tikv_topology: None,
+            scylla_topology: Some(crate::harness::ScyllaTopology::ThreeNode),
+            surreal_deployment: None,
+            surreal_instances: 1,
+        };
+        let name = report_filename("bm-l3", dims);
+        assert!(name.contains("scylla-scylla-3n"));
     }
 }

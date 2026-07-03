@@ -30,7 +30,7 @@ pub async fn build_sqlite(
         .context("SqliteLogBackend::from_pool")?;
 
     Ok(BackendHandle {
-        backend: wrap_sqlite(inner, telemetry),
+        backend: Arc::new(wrap_sqlite(inner, telemetry)),
         engine_path,
         _temp_dir: temp_dir,
         _shared: Some(SharedHandle::Sqlite(pool)),

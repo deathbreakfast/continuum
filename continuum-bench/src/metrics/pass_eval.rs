@@ -79,6 +79,31 @@ pub fn evaluate_pass(id: ExperimentId, metrics: &serde_json::Value) -> bool {
                 .unwrap_or(1.0);
             error_rate < 0.001
         }
+        ExperimentId::BmP1 => {
+            let ops = metrics
+                .get("achieved_ops_per_sec")
+                .and_then(serde_json::Value::as_f64)
+                .unwrap_or(0.0);
+            ops > 0.0
+        }
+        ExperimentId::BmP2 => {
+            let expected = metrics
+                .get("expected_rows")
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(0);
+            let read = metrics
+                .get("rows_read")
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(0);
+            read == expected && expected > 0
+        }
+        ExperimentId::BmM1 | ExperimentId::BmM2 => {
+            let error_rate = metrics
+                .get("error_rate")
+                .and_then(serde_json::Value::as_f64)
+                .unwrap_or(1.0);
+            error_rate < 0.001
+        }
     }
 }
 
@@ -151,6 +176,47 @@ pub fn results_summary(id: ExperimentId, metrics: &serde_json::Value, pass: bool
         | ExperimentId::BmL3 => format!(
             "p99={:.3}ms {:.0}/s err={:.4}% {}",
             metrics.get("p99_ms").and_then(serde_json::Value::as_f64).unwrap_or(0.0),
+            metrics
+                .get("achieved_ops_per_sec")
+                .and_then(serde_json::Value::as_f64)
+                .unwrap_or(0.0),
+            metrics
+                .get("error_rate")
+                .and_then(serde_json::Value::as_f64)
+                .unwrap_or(0.0)
+                * 100.0,
+            status
+        ),
+        ExperimentId::BmP1 => format!(
+            "K={} {:.0}/s {}",
+            metrics
+                .get("partition_count")
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(0),
+            metrics
+                .get("achieved_ops_per_sec")
+                .and_then(serde_json::Value::as_f64)
+                .unwrap_or(0.0),
+            status
+        ),
+        ExperimentId::BmP2 => format!(
+            "read={}/{} {}",
+            metrics
+                .get("rows_read")
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(0),
+            metrics
+                .get("expected_rows")
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(0),
+            status
+        ),
+        ExperimentId::BmM1 | ExperimentId::BmM2 => format!(
+            "C={} {:.0}/s err={:.4}% {}",
+            metrics
+                .get("client_count")
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(0),
             metrics
                 .get("achieved_ops_per_sec")
                 .and_then(serde_json::Value::as_f64)

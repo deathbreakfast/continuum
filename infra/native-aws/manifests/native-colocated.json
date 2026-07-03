@@ -1,0 +1,20 @@
+{
+  "topology": "native-colocated",
+  "region": "us-west-2",
+  "instance_type": "t3.medium",
+  "created_at": "2026-07-01T14:10:35.732257Z",
+  "instances": [
+    {
+      "role": "scylla",
+      "instance_id": "i-0fb7f6490c80bdade",
+      "public_ip": "44.244.52.225",
+      "private_ip": ""
+    },
+    {
+      "role": "tikv",
+      "instance_id": "i-08a6e19d3ef201f79",
+      "public_ip": "54.200.148.97",
+      "private_ip": ""
+    }
+  ]
+}

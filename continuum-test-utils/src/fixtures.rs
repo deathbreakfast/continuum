@@ -37,6 +37,18 @@ impl BackendEnv {
         logical_dest: "default",
     };
 
+    /// Scylla backend test environment.
+    pub const SCYLLA: Self = Self {
+        kind: LogBackendKind::Scylla,
+        logical_dest: "default",
+    };
+
+    /// Raw TiKV backend test environment.
+    pub const TIKV_RAW: Self = Self {
+        kind: LogBackendKind::TikvRaw,
+        logical_dest: "default",
+    };
+
     /// Default destination for this environment.
     #[must_use]
     pub fn destination(&self) -> LogDestination {

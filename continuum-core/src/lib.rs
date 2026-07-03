@@ -41,8 +41,8 @@ pub mod validation;
 pub use backend::LogBackend;
 pub use error::{LogError, Result};
 pub use router::{
-    log_router_key, LogEvaluator, LogFromDestination, LogResolverContext, LogRouter,
-    LogTopicRouter,
+    log_router_key, KeyHashEvaluator, LogEvaluator, LogFromDestination, LogResolverContext,
+    LogRouter, LogTopicRouter,
 };
 pub use types::{
     AppendRecord, CheckpointKey, EventRecord, LogBackendKind, LogDestination, LogStreamId,

@@ -17,6 +17,8 @@ mem = ["dep:continuum-backend-mem"]
 surreal-local = ["dep:continuum-backend-surreal"]
 postgres = ["dep:continuum-backend-postgres"]
 sqlite = ["dep:continuum-backend-sqlite"]
+scylla = ["dep:continuum-backend-scylla"]
+tikv-raw = ["dep:continuum-backend-tikv-raw"]
 telemetry-console = ["dep:continuum-telemetry"]
 
 [dependencies]
@@ -26,6 +28,8 @@ continuum-backend-mem = { path = "../continuum-backend-mem", optional = true }
 continuum-backend-surreal = { path = "../continuum-backend-surreal", optional = true }
 continuum-backend-postgres = { path = "../continuum-backend-postgres", optional = true }
 continuum-backend-sqlite = { path = "../continuum-backend-sqlite", optional = true }
+continuum-backend-scylla = { path = "../continuum-backend-scylla", optional = true }
+continuum-backend-tikv-raw = { path = "../continuum-backend-tikv-raw", optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

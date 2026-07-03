@@ -41,7 +41,7 @@ The same benchmark suite serves **smaller deployments** on cost-effective hardwa
 
 ### 1.4 Scope
 
-- **In scope:** Continuum-only harness (`continuum-bench`); adapters `mem`, `surreal-mem`, `surreal-rocksdb`, `surreal-tikv` (TiKV-backed remote Surreal), `sqlite`, `postgres` (when `CONTINUUM_BENCH_POSTGRES_URL` set).
+- **In scope:** Continuum-only harness (`continuum-bench`); adapters `mem`, `surreal-mem`, `surreal-rocksdb`, `surreal-tikv` (TiKV-backed remote Surreal), `sqlite`, `postgres`, **`scylla`** (native CQL), **`tikv-raw`** (PD client, no Surreal).
 - **Out of scope:** In-repo competitor harnesses; `stub` telemetry (not implemented); claiming current systems reach 1B/s aggregate; BM-R0 reopen-after-crash (future).
 
 ### 1.5 Contributions
@@ -83,6 +83,8 @@ Payloads are opaque ciphertext; encryption is above the port ([`README.md`](../R
 | `surreal-mem` | SurrealDB `mem://` | Engine overhead without disk |
 | `surreal-rocksdb` | SurrealDB `rocksdb://{tempdir}` | Durable embedded path |
 | `surreal-tikv` | Remote SurrealDB → TiKV (`CONTINUUM_BENCH_SURREAL_URL`) | Distributed durable path (campaign §7.2) |
+| **`scylla`** | Native ScyllaDB CQL (`continuum-backend-scylla`) | Purpose-built distributed adapter; LWT seq per partition |
+| **`tikv-raw`** | Native TiKV transactional KV (`continuum-backend-tikv-raw`) | Direct PD client; single txn per append batch |
 | postgres | Supported when `CONTINUUM_BENCH_POSTGRES_URL` set | Requires external Postgres |
 | sqlite | Supported | Embedded temp file in matrix |
 
@@ -98,7 +100,52 @@ Continuum (port)  →  SurrealDB (compute)  →  TiKV (storage)
 - **SurrealDB** is stateless at the query layer; durability and replication are delegated to TiKV.
 - **TiKV** topology (PD count, TiKV node count) is a first-class benchmark dimension (`tikv_topology` in report JSON).
 
-Continuum never talks to TiKV directly. TiKV affects port-level metrics only through Surreal latency and throughput. Lab provisioning: [`infra/surreal-tikv/README.md`](../infra/surreal-tikv/README.md).
+Continuum never talks to TiKV directly in the Surreal path. TiKV affects port-level metrics only through Surreal latency and throughput. Lab provisioning: [`infra/surreal-tikv/README.md`](../infra/surreal-tikv/README.md).
+
+### 2.6 Native distributed adapters (Scylla + raw TiKV)
+
+For fleet-scale campaigns, Continuum ships **native** adapters that collapse append to one logical write path per batch (vs 3–4 sequential queries on SQL/Surreal paths):
+
+```
+Host (LogStreamId.key)  →  ScyllaLogBackend / TikvRawLogBackend  →  token ring / TiKV regions
+```
+
+| Layer | Mechanism | Owner |
+|-------|-----------|-------|
+| Logical partition | `LogStreamId.key` → `storage_key()` | App / caller |
+| Multi-cell (optional) | `KeyHashEvaluator`: `hash(key) % N` → `LogDestination` | Host at boot |
+| Physical shard | Scylla partition key / TiKV key prefix | Storage engine |
+
+**One cluster = one backend instance** (contact points or PD endpoint); drivers route by `stream_key`. Scale out cells only when a single cluster saturates — register N backends and use `KeyHashEvaluator`.
+
+Benchmarks: `native-lab` (parity vs sqlite), `native-scale` (BM-P1/P2/M1/M2 partition and client sweeps). Infra: [`infra/scylla/`](../infra/scylla/), [`infra/tikv-raw/`](../infra/tikv-raw/), [`infra/native-aws/`](../infra/native-aws/) (AWS t3.medium campaigns).
+
+**aws-t3-medium Phase A (July 2026):** colocated `scylla-1` and `tikv-minimal` on separate t3.medium hosts. Native C1 batch throughput **~1.6–1.8k/s** (≈ sqlite); hot-stream L3 **~64/s scylla**, **~45/s tikv-raw** without partition keys. See Appendix F and [`EXPERIMENTS.md`](EXPERIMENTS.md) native-lab section.
+
+```mermaid
+flowchart TB
+  subgraph app [Host]
+    Eval["KeyHashEvaluator\noptional"]
+    Router["LogRouter"]
+    Stream["LogStreamId\n topic + key"]
+  end
+  subgraph adapter [Native adapters]
+    Scylla["ScyllaLogBackend"]
+    Tikv["TikvRawLogBackend"]
+  end
+  subgraph storage [Automatic sharding]
+    Ring["Scylla token ring"]
+    Regions["TiKV regions"]
+  end
+  Eval --> Router
+  Stream --> Router
+  Router --> Scylla
+  Router --> Tikv
+  Scylla --> Ring
+  Tikv --> Regions
+```
+
+Fleet projection: `partitions_for_1e9 = ceil(1e9 / per_partition_ceiling)` using BM-L3 (single-partition ceiling) and BM-M2 (multi-client aggregate) from `project-fleet --storage scylla|tikv-raw`.
 
 ### 2.3 Topology
 
@@ -583,6 +630,8 @@ Early partial (8 reports at stall): BM-C0–C1 mem/surreal-mem/surreal-rocksdb o
 
 **Headlines:** mem ~100k/s L3; sqlite ~1909/s L2 with flat replay (BM-C2 PASS 0.089 ms @100k); surreal-rocksdb BM-C6 FAIL (109.77× soak). Postgres all invalid on this profile.
 
+**Native adapters (July 2026):** colocated scylla/tikv-raw Phase A — see **Appendix F**. Batch C1 ~1766/s scylla, ~1577/s tikv-raw; hot-stream L3 ~64/s and ~45/s without partition keys.
+
 ### D.1.3 `aws-t4g-medium` — full matrix + SQL subset
 
 **Instance:** `t4g.medium`, us-west-2, ARM, 2 vCPU, ~3.7 GiB RAM, gp3 EBS. Postgres via co-located Docker (`postgres:16-alpine`).
@@ -705,4 +754,55 @@ Compute $/hr at 1B/s (nodes × hourly rate): t4g ~$892k/hr; t3 ~$956k/hr. Exclud
 ```bash
 cargo run -p continuum-bench -- project-fleet \
   --hardware aws-t4g-medium --storage surreal-tikv --tikv-topology tikv-minimal
+```
+
+---
+
+## Appendix F — Native adapters (Scylla + tikv-raw, aws-t3-medium — July 2026)
+
+Source: [`infra/native-aws/`](../infra/native-aws/) Phase A colocated campaign. **18** reports (`9` scylla + `9` tikv-raw). Compare to June 2026 sqlite baseline on the same hardware (Appendix D) and surreal-tikv colocated path (Appendix E).
+
+**Layout:** 2× `t3.medium` (us-west-2, AL2023): Scylla `scylla-1` colocated on host A; PD + TiKV `tikv-minimal` colocated on host B. Bench binary built in Amazon Linux 2023 Docker (`build-al2023.sh`).
+
+### Table F.1 — Core experiments (telemetry off, isolated-lab)
+
+| ID | sqlite (June) | scylla | tikv-raw |
+|----|---------------|--------|----------|
+| **BM-C0** p50/p95 (ms) | 0.50/0.56 P | 15.3/16.4 P | 10.2/13.0 P |
+| **BM-C1** 1→1000 (events/s) | 1951→4102 P | 64→**1766** P | 60→**1577** P |
+| **BM-C2** p95@100k (ms) | 0.089 P | 0.228 P | 0.683 P |
+| **BM-C3** p95 ck (ms) | 0.315 P | 0.397 P | **6.211 F** |
+| **BM-C4** post/pre | 1.35× P | 0.79× P | 0.96× P |
+
+P = PASS, F = FAIL.
+
+### Table F.2 — Load-tier ceilings (hot stream, `key=None`)
+
+| Storage | Topology | BM-L1 | BM-L2 | BM-L3 | Notes |
+|---------|----------|-------|-------|-------|-------|
+| sqlite | — | 1000/s | 1909/s | **1898/s** | June baseline, same hardware |
+| scylla | scylla-1 colocated | 64/s | 64/s | **64/s** | Flat ceiling — single partition |
+| tikv-raw | tikv-minimal colocated | 58/s | 51/s | **45/s** | Declining with depth |
+| surreal-tikv | tikv-minimal colocated | 43/s | 43/s | **43/s** | Appendix E — Surreal query path |
+
+### Table F.3 — Fleet projection (`project-fleet`, BM-L3 ceiling)
+
+| Storage | Topology | Per-shard ceiling | Partitions for 1B/s | $/M ops (compute) |
+|---------|----------|-------------------|---------------------|-------------------|
+| scylla | scylla-1 | 64/s | 15,706,538 | $0.18 |
+| tikv-raw | tikv-minimal | 45/s | 22,417,736 | $0.26 |
+| sqlite | — | 1898/s | 527,397 | $0.006 |
+
+### F.1 Findings
+
+1. **Native adapters close the batch gap:** BM-C1 @1000 reaches **~90% of sqlite** — the primary win over surreal-tikv (~40/s single-stream) is eliminating multi-query Surreal/SQL paths.
+2. **Hot-stream gap remains:** BM-L3 without partition keys stays **~30× below sqlite** (~64/s vs ~1900/s). This is expected — one logical stream maps to one Scylla/TiKV partition regardless of cluster size.
+3. **Scylla vs tikv-raw on colocated t3.medium:** Scylla slightly higher L3 ceiling (64 vs 45/s) and lower append latency (C0); tikv-raw BM-C3 checkpoint failed (investigate PD/TiKV colocation tuning).
+4. **Canonical baseline:** use **aws-t3-medium** native-lab results — not dev-wsl (~15/s scylla L3) — for fleet sizing comparisons.
+
+**Pending:** Track P partition sweeps (`partition-campaign`), Phase B multi-node topologies (`native-scylla-3n`, `native-tikv-ha-3`, `native-tikv-scale-5`).
+
+```bash
+cargo run -p continuum-bench -- project-fleet --hardware aws-t3-medium --storage scylla
+cargo run -p continuum-bench -- project-fleet --hardware aws-t3-medium --storage tikv-raw --tikv-topology tikv-minimal
 ```

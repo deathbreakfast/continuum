@@ -28,7 +28,7 @@ pub async fn build_surreal(
         .context("SurrealLocalLogBackend::new")?;
 
     Ok(BackendHandle {
-        backend: wrap_surreal(backend, telemetry),
+        backend: Arc::new(wrap_surreal(backend, telemetry)),
         engine_path,
         _temp_dir: temp_dir,
         _shared: Some(SharedHandle::Surreal(db)),
@@ -48,7 +48,7 @@ pub async fn build_surreal_tikv(
         .context("SurrealLocalLogBackend::new")?;
 
     Ok(BackendHandle {
-        backend: wrap_surreal(backend, telemetry),
+        backend: Arc::new(wrap_surreal(backend, telemetry)),
         engine_path,
         _temp_dir: temp_dir,
         _shared: Some(SharedHandle::Surreal(db)),

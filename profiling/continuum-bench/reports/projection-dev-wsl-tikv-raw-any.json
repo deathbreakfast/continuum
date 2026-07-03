@@ -1,0 +1,16 @@
+{
+  "hardware": "dev-wsl",
+  "storage": "tikv-raw",
+  "tikv_topology": null,
+  "per_shard_ops_per_sec": 19.164665541480133,
+  "surreal_instances": 1,
+  "partitions_modeled": 64,
+  "clients_modeled": 64,
+  "aggregate_ops_per_sec": 183.60134276707316,
+  "partitions_for_1e9": 52179361,
+  "nodes_required": 52179361,
+  "fleet_aggregate_ops_per_sec": 183.60134276707316,
+  "cost_per_million_ops_usd": null,
+  "target_ops_per_sec": 1000000000,
+  "disclaimer": "Projection from measured BM-L* ceilings; not a 1B/s demonstration."
+}

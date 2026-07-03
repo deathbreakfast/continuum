@@ -2,6 +2,8 @@
 
 mod bm_core;
 mod bm_load;
+mod bm_multi_client;
+mod bm_partition;
 pub mod fixtures;
 
 use std::time::Instant;
@@ -15,6 +17,8 @@ use bm_core::{
     run_bm_c0, run_bm_c1, run_bm_c2, run_bm_c3, run_bm_c4, run_bm_c5, run_bm_c6,
 };
 use bm_load::run_load;
+use bm_multi_client::run_multi_client;
+use bm_partition::run_partition;
 
 use crate::harness::{capture_hardware, ExperimentId, RunDimensions};
 use crate::metrics::{evaluate_pass, results_summary, ResourceProfiler};
@@ -42,6 +46,8 @@ async fn run_experiment_metrics(id: ExperimentId, ctx: &bm_core::ExperimentConte
         ExperimentId::BmL0 | ExperimentId::BmL1 | ExperimentId::BmL2 | ExperimentId::BmL3 => {
             run_load(ctx, id).await
         }
+        ExperimentId::BmP1 | ExperimentId::BmP2 => run_partition(ctx, id).await,
+        ExperimentId::BmM1 | ExperimentId::BmM2 => run_multi_client(ctx, id).await,
     }
 }
 
@@ -106,6 +112,28 @@ pub async fn run_experiment(id: ExperimentId, dims: RunDimensions) -> Result<Run
             hardware_detail,
             ReportStatus::SkippedNoRemote,
             "CONTINUUM_BENCH_SURREAL_URL not set",
+        ));
+    }
+    if dims.needs_remote_scylla()
+        && std::env::var("CONTINUUM_BENCH_SCYLLA_CONTACT_POINTS")
+            .or_else(|_| std::env::var("CONTINUUM_BENCH_SCYLLA_URL"))
+            .is_err()
+    {
+        return Ok(skipped_report(
+            id,
+            dims,
+            hardware_detail,
+            ReportStatus::SkippedNoRemote,
+            "CONTINUUM_BENCH_SCYLLA_CONTACT_POINTS not set",
+        ));
+    }
+    if dims.needs_remote_tikv_raw() && std::env::var("CONTINUUM_BENCH_TIKV_PD_ENDPOINT").is_err() {
+        return Ok(skipped_report(
+            id,
+            dims,
+            hardware_detail,
+            ReportStatus::SkippedNoRemote,
+            "CONTINUUM_BENCH_TIKV_PD_ENDPOINT not set",
         ));
     }
 

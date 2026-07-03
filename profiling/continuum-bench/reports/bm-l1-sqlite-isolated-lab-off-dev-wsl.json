@@ -1,0 +1,47 @@
+{
+  "experiment_id": "bm-l1",
+  "dimensions": {
+    "storage": "sqlite",
+    "topology": "isolated-lab",
+    "telemetry": "off",
+    "hardware": "dev-wsl"
+  },
+  "hardware_detail": {
+    "cpu_model": "11th Gen Intel(R) Core(TM) i7-11700KF @ 3.60GHz",
+    "cpu_cores": 16,
+    "ram_gib": 19.53091049194336,
+    "os": "linux WSL2 (Linux 6.18.33.2-microsoft-standard-WSL2)",
+    "root_mount": {
+      "device": "/dev/sdd",
+      "mount_point": "/",
+      "fs_type": "ext4",
+      "size_gib": 1945.6
+    },
+    "host_drive": {
+      "model": "X16 SSD 2TB",
+      "media_type": "SSD",
+      "bus_type": "NVMe",
+      "size_gib": 1907.7,
+      "wsl_distro_path": "\\\\?\\J:\\wsl\\ubuntu"
+    }
+  },
+  "engine_path": "sqlite:///tmp/.tmpXaoXHB/bench.db?mode=rwc",
+  "tikv_pd_endpoint": "127.0.0.1:2379",
+  "started_at": "2026-07-01T11:35:17.885439962Z",
+  "elapsed_secs": 60.141885902,
+  "metrics": {
+    "achieved_ops_per_sec": 26.704231163582943,
+    "duration_secs": 60.027940523,
+    "error_rate": 0.0,
+    "ops_err": 0,
+    "ops_ok": 1603,
+    "p50_ms": 34.524166,
+    "p95_ms": 59.985424,
+    "p99_ms": 101.52828799999999,
+    "target_ops_per_sec": 1000
+  },
+  "pass_criteria": "error rate <0.1%",
+  "pass": true,
+  "status": "completed",
+  "notes": "p99=101.528ms 27/s err=0.0000% PASS"
+}

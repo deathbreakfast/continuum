@@ -1,0 +1,46 @@
+# PD + TiKV only (no Surreal) for continuum-backend-tikv-raw benchmarks.
+# Uses host networking so PD/TiKV and host bench clients share 127.0.0.1:2379.
+
+services:
+  pd0:
+    profiles: [tikv-raw-minimal]
+    image: pingcap/pd:v8.5.0
+    network_mode: host
+    command:
+      - --name=pd0
+      - --client-urls=http://127.0.0.1:2379
+      - --peer-urls=http://127.0.0.1:2380
+      - --advertise-client-urls=http://127.0.0.1:2379
+      - --advertise-peer-urls=http://127.0.0.1:2380
+      - --initial-cluster=pd0=http://127.0.0.1:2380
+      - --data-dir=/data/pd0
+    volumes:
+      - pd0-data:/data/pd0
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:2379/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  tikv0:
+    profiles: [tikv-raw-minimal]
+    image: pingcap/tikv:v8.5.0
+    network_mode: host
+    command:
+      - --addr=127.0.0.1:20160
+      - --advertise-addr=127.0.0.1:20160
+      - --data-dir=/data/tikv0
+      - --pd=127.0.0.1:2379
+    depends_on:
+      pd0:
+        condition: service_healthy
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    volumes:
+      - tikv0-data:/data/tikv0
+
+volumes:
+  pd0-data:
+  tikv0-data:

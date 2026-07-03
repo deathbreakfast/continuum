@@ -6,15 +6,20 @@
 
 mod disk;
 pub mod postgres;
+pub mod scylla;
 pub mod sqlite;
 pub mod surreal;
+pub mod tikv_raw;
 
 use std::fmt::Debug;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
 use continuum::backend::LogBackend;
-use continuum::backends::{InMemoryLogBackend, PostgresLogBackend, SqliteLogBackend, SurrealLocalLogBackend};
+use continuum::backends::{
+    InMemoryLogBackend, PostgresLogBackend, ScyllaLogBackend, SqliteLogBackend,
+    SurrealLocalLogBackend, TikvRawLogBackend,
+};
 use continuum::types::LogBackendKind;
 use continuum::{ConsoleTelemetry, InstrumentedLogBackend, NoTelemetry};
 use surrealdb::engine::any::Any;
@@ -25,8 +30,10 @@ use super::dimensions::{Storage, Telemetry, Topology};
 
 pub use disk::{dir_size_bytes, storage_disk_path};
 pub use postgres::open_shared_postgres;
+pub use scylla::open_shared_scylla;
 pub use sqlite::open_shared_sqlite;
 pub use surreal::open_shared_surreal;
+pub use tikv_raw::open_shared_tikv_raw;
 
 /// Shared engine handle for co-tenancy experiments.
 #[derive(Clone)]
@@ -37,11 +44,15 @@ pub enum SharedHandle {
     Sqlite(Arc<sqlx::SqlitePool>),
     /// Shared `PostgreSQL` pool.
     Postgres(Arc<sqlx::PgPool>),
+    /// Shared Scylla backend.
+    Scylla(Arc<ScyllaLogBackend>),
+    /// Shared raw TiKV backend.
+    TikvRaw(Arc<TikvRawLogBackend>),
 }
 
 /// Holds backend plus metadata needed for reporting and lifetime management.
 pub struct BackendHandle {
-    pub backend: BenchBackend,
+    pub backend: Arc<BenchBackend>,
     pub engine_path: String,
     _temp_dir: Option<TempDir>,
     pub _shared: Option<SharedHandle>,
@@ -57,6 +68,10 @@ pub enum BenchBackend {
     SqliteConsole(InstrumentedLogBackend<SqliteLogBackend, ConsoleTelemetry>),
     PostgresOff(InstrumentedLogBackend<PostgresLogBackend, NoTelemetry>),
     PostgresConsole(InstrumentedLogBackend<PostgresLogBackend, ConsoleTelemetry>),
+    ScyllaOff(InstrumentedLogBackend<ScyllaLogBackend, NoTelemetry>),
+    ScyllaConsole(InstrumentedLogBackend<ScyllaLogBackend, ConsoleTelemetry>),
+    TikvRawOff(InstrumentedLogBackend<TikvRawLogBackend, NoTelemetry>),
+    TikvRawConsole(InstrumentedLogBackend<TikvRawLogBackend, ConsoleTelemetry>),
 }
 
 impl BenchBackend {
@@ -70,6 +85,10 @@ impl BenchBackend {
             BenchBackend::SqliteConsole(b) => b,
             BenchBackend::PostgresOff(b) => b,
             BenchBackend::PostgresConsole(b) => b,
+            BenchBackend::ScyllaOff(b) => b,
+            BenchBackend::ScyllaConsole(b) => b,
+            BenchBackend::TikvRawOff(b) => b,
+            BenchBackend::TikvRawConsole(b) => b,
         }
     }
 }
@@ -161,13 +180,15 @@ pub async fn build_backend(
         Storage::SurrealTikv => surreal::build_surreal_tikv(telemetry, shared).await,
         Storage::Sqlite => sqlite::build_sqlite(topology, telemetry, shared).await,
         Storage::Postgres => postgres::build_postgres(topology, telemetry, shared).await,
+        Storage::Scylla => scylla::build_scylla(topology, telemetry, shared).await,
+        Storage::TikvRaw => tikv_raw::build_tikv_raw(topology, telemetry, shared).await,
     }
 }
 
 fn build_mem(telemetry: Telemetry) -> BackendHandle {
     let inner = InMemoryLogBackend::new();
     BackendHandle {
-        backend: wrap_mem(inner, telemetry),
+        backend: Arc::new(wrap_mem(inner, telemetry)),
         engine_path: "mem://".into(),
         _temp_dir: None,
         _shared: None,
@@ -221,6 +242,30 @@ pub(crate) fn wrap_postgres(inner: PostgresLogBackend, telemetry: Telemetry) -> 
     }
 }
 
+pub(crate) fn wrap_tikv_raw(inner: TikvRawLogBackend, telemetry: Telemetry) -> BenchBackend {
+    match telemetry {
+        Telemetry::Off | Telemetry::Stub => {
+            BenchBackend::TikvRawOff(InstrumentedLogBackend::new(inner, NoTelemetry))
+        }
+        Telemetry::Console => BenchBackend::TikvRawConsole(InstrumentedLogBackend::new(
+            inner,
+            ConsoleTelemetry,
+        )),
+    }
+}
+
+pub(crate) fn wrap_scylla(inner: ScyllaLogBackend, telemetry: Telemetry) -> BenchBackend {
+    match telemetry {
+        Telemetry::Off | Telemetry::Stub => {
+            BenchBackend::ScyllaOff(InstrumentedLogBackend::new(inner, NoTelemetry))
+        }
+        Telemetry::Console => BenchBackend::ScyllaConsole(InstrumentedLogBackend::new(
+            inner,
+            ConsoleTelemetry,
+        )),
+    }
+}
+
 /// Destination kind matching storage for stream construction.
 pub fn backend_kind(storage: Storage) -> LogBackendKind {
     match storage {
@@ -230,5 +275,7 @@ pub fn backend_kind(storage: Storage) -> LogBackendKind {
         }
         Storage::Postgres => LogBackendKind::Postgres,
         Storage::Sqlite => LogBackendKind::Sqlite,
+        Storage::Scylla => LogBackendKind::Scylla,
+        Storage::TikvRaw => LogBackendKind::TikvRaw,
     }
 }

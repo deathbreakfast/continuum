@@ -15,7 +15,7 @@ use clap::Parser;
 
 use cli::{Cli, Command};
 use experiments::{print_catalog, run_and_report};
-use harness::{capture_hardware, surreal_instances_from_env, Hardware, RunDimensions, Storage, SurrealDeployment, Topology, TikvTopology};
+use harness::{capture_hardware, surreal_instances_from_env, Hardware, RunDimensions, ScyllaTopology, Storage, SurrealDeployment, Topology, TikvTopology};
 use matrix::run_matrix;
 
 #[tokio::main]
@@ -43,6 +43,7 @@ async fn main() -> Result<()> {
             storages,
             skip_experiments,
             tikv_topology,
+            scylla_topology,
         } => {
             run_matrix(matrix::MatrixOptions {
                 hardware,
@@ -52,6 +53,7 @@ async fn main() -> Result<()> {
                 storages,
                 skip_experiments,
                 tikv_topology,
+                scylla_topology,
             })
             .await?;
         }
@@ -68,6 +70,7 @@ async fn main() -> Result<()> {
             hardware,
             storage,
             tikv_topology,
+            scylla_topology,
             reports_dir,
             out,
         } => {
@@ -80,6 +83,7 @@ async fn main() -> Result<()> {
                 hardware.slug(),
                 storage.slug(),
                 tikv_topology.map(TikvTopology::slug),
+                scylla_topology.map(ScyllaTopology::slug),
                 &reports_path,
                 out,
             )?;
@@ -108,5 +112,11 @@ fn build_run_dimensions(
     }
     let mut dims = RunDimensions::isolated(storage, telemetry, hardware);
     dims.topology = topology;
+    if storage == Storage::Scylla {
+        dims.scylla_topology = ScyllaTopology::from_env().or(Some(ScyllaTopology::One));
+    }
+    if storage == Storage::TikvRaw {
+        dims.tikv_topology = TikvTopology::from_env().or(Some(TikvTopology::Minimal));
+    }
     dims
 }

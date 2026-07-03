@@ -10,7 +10,7 @@ Pre-registered experiment IDs, dimension matrix, Results log, and runner command
 
 | Dimension | Values |
 |-----------|--------|
-| Storage | `mem`, `surreal-rocksdb`, `surreal-mem`, `surreal-tikv`, `postgres`, `sqlite` |
+| Storage | `mem`, `surreal-rocksdb`, `surreal-mem`, `surreal-tikv`, `postgres`, `sqlite`, **`scylla`**, **`tikv-raw`** |
 | Topology | `isolated-lab`, `shared-handle`, `remote-surreal` |
 | Telemetry | `off`, `console`, `stub` |
 | Hardware | `dev-wsl`, `ci-small`, `bare-metal-{small,medium,large}`, `aws-t3-medium`, `aws-t3-small`, `aws-t4g-{small,medium,large}`, `aws-i4i-xlarge`, `aws-c7i-4xlarge` |
@@ -49,9 +49,109 @@ Each run JSON records CPU, RAM, root mount, host drive, and `engine_path` in `ha
 | BM-L1 | Load 1k ops/s | sustained p99 | error rate &lt;0.1% | p99=0.143ms 1000/s err=0.0000% PASS (mem/console); p99=0.054ms 1000/s err=0.0000% PASS (mem/off); p99=1.826ms 832/s err=0.0000% PASS (surreal-mem/console); p99=1.633ms 955/s err=0.0000% PASS (surreal-mem/off); p99=27.319ms 93/s err=0.0000% PASS (surreal-rocksdb/console); p99=14.675ms 110/s err=0.0000% PASS (surreal-rocksdb/off) |
 | BM-L2 | Load 10k ops/s | sustained p99 | error rate &lt;0.1% | p99=0.032ms 10000/s err=0.0000% PASS (mem/off); p99=2.723ms 783/s err=0.0000% PASS (surreal-mem/off); p99=519.498ms 25/s err=0.0000% PASS (surreal-rocksdb/off) |
 | BM-L3 | Load 100k ops/s | sustained p99 | error rate &lt;0.1% | p99=0.014ms 99998/s err=0.0000% PASS (mem/off); p99=2.107ms 849/s err=0.0000% PASS (surreal-mem/off); p99=18.601ms 101/s err=0.0000% PASS (surreal-rocksdb/off) |
+| **BM-P1** | Multi-partition append (round-robin) | aggregate ops/s | error rate &lt;0.1% | *(native-scale campaign — see §Native adapters)* |
+| **BM-P2** | Multi-partition tail read | poll p95 ms | error rate &lt;0.1% | *(native-scale campaign)* |
+| **BM-M1** | Multi-client append (C workers) | aggregate ops/s | error rate &lt;0.1% | *(native-scale campaign)* |
+| **BM-M2** | Multi-client ceiling (default C=64) | aggregate ops/s + p99 | error rate &lt;0.1%; feeds fleet projection | *(native-scale campaign)* |
 ---
 
-## Cloud results
+## Native adapters (ScyllaDB + raw TiKV)
+
+**Infra:** [`infra/scylla/`](../infra/scylla/) (profiles `scylla-1`, `scylla-3`), [`infra/tikv-raw/`](../infra/tikv-raw/) (profile `tikv-raw-minimal`, host networking on Linux/WSL).
+
+| Env | Purpose |
+|-----|---------|
+| `CONTINUUM_BENCH_SCYLLA_CONTACT_POINTS` | Comma-separated CQL contact points |
+| `CONTINUUM_BENCH_SCYLLA_KEYSPACE` | Keyspace (default `continuum`) |
+| `CONTINUUM_BENCH_TIKV_PD_ENDPOINT` | PD URL (default `127.0.0.1:2379`) |
+| `CONTINUUM_BENCH_PARTITION_COUNT` | BM-P* partition sweep (default 10) |
+| `CONTINUUM_BENCH_CLIENT_COUNT` | BM-M* client sweep (default 8 / 64) |
+| `CONTINUUM_BENCH_LOAD_PARTITION_COUNT` | BM-L* partitioned load (default 1 = hot stream) |
+| `CONTINUUM_BENCH_SCYLLA_TOPOLOGY` | `scylla-1`, `scylla-3n` (report dimension) |
+| `CONTINUUM_BENCH_TIKV_TOPOLOGY` | `tikv-minimal`, `tikv-ha-3`, `tikv-scale-5` |
+
+**Matrix subsets:** `native-lab` (BM-C0–C4, BM-L0–L3), **`native-lab-partitioned`** (BM-L0–L3 with load partition env), `native-scale` (BM-P1/P2/M1/M2), `native-projection-inputs` (BM-L0–L3 + BM-M2), **`native-topology`** (projection + scale for Phase B).
+
+**Canonical hardware (July 2026 campaign):** **`aws-t3-medium` only** for native + partitioning + scale-out. Reuse June 2026 sqlite/surreal baselines on the same profile. `dev-wsl` / `aws-t4g-*` / `aws-t3-small` are out of scope for this study.
+
+**AWS infra:** [`infra/native-aws/`](../infra/native-aws/) — Phase A colocated (2× t3.medium), Phase B topologies (`native-scylla-3n`, `native-tikv-ha-3`, `native-tikv-scale-5`, all t3.medium).
+
+```bash
+# Phase A
+infra/native-aws/scripts/provision-colocated.sh both
+infra/native-aws/scripts/bootstrap.sh native-colocated scylla   # parallel
+infra/native-aws/scripts/bootstrap.sh native-colocated tikv
+infra/native-aws/scripts/build-al2023.sh
+infra/native-aws/scripts/deploy-bench.sh native-colocated target/al2023/continuum-bench
+infra/native-aws/scripts/run-campaign.sh native-lab
+infra/native-aws/scripts/run-campaign.sh partition-campaign
+infra/native-aws/scripts/fetch-reports.sh
+
+# Phase B (one topology at a time)
+infra/native-aws/scripts/provision-topology.sh native-scylla-3n
+infra/native-aws/scripts/bootstrap-topology.sh native-scylla-3n
+infra/native-aws/scripts/deploy-bench.sh native-scylla-3n target/al2023/continuum-bench bench
+infra/native-aws/scripts/run-topology-campaign.sh native-scylla-3n native-topology
+infra/native-aws/scripts/teardown.sh native-scylla-3n
+```
+
+**Sharding (three layers):** logical partition (`LogStreamId.key` → `storage_key()`), optional multi-cell routing (`KeyHashEvaluator` in `continuum-core`), physical shard placement inside Scylla/TiKV clusters (driver/PD — not Continuum). One 8-node Scylla cluster = one `ScyllaLogBackend`; spread load with partition keys, not per-node backends.
+
+**dev-wsl native-lab (July 2026, partial):** native adapters exceed the **>10× surreal-tikv** gate (~40/s single-stream). Sample results:
+
+| ID | sqlite | scylla | tikv-raw |
+|----|--------|--------|----------|
+| BM-C0 p50/p95 | 34/80 ms | 75/100 ms | 41/58 ms |
+| BM-C1 batch 1→1000 | 26→51/s | 13→374/s | 21→138/s |
+| BM-L3 achieved | — | 15/s | 19/s |
+
+**dev-wsl native-scale (July 2026):**
+
+| ID | scylla | tikv-raw |
+|----|--------|----------|
+| BM-P1 (K=10) | 13/s | 24/s |
+| BM-M1 (C=8) | 26/s | 68/s |
+| BM-M2 (C=64) | 25/s (55% err FAIL) | 184/s PASS |
+
+Fleet projections: `projection-dev-wsl-scylla-any.json`, `projection-dev-wsl-tikv-raw-any.json`.
+
+### `aws-t3-medium` native-lab Phase A (July 2026)
+
+**Campaign:** Phase A colocated via [`infra/native-aws/`](../infra/native-aws/) — **2× t3.medium** (us-west-2, AL2023): Scylla `scylla-1` on host A, TiKV `tikv-minimal` on host B. Binary built with `build-al2023.sh`, deployed with `deploy-bench.sh`. Subset: `native-lab` (BM-C0–C4, BM-L0–L3).
+
+**Reports:** **18** JSON (`9` scylla + `9` tikv-raw). **17/18** PASS — tikv-raw **BM-C3** checkpoint p95 FAIL (6.2 ms vs gate).
+
+| ID | sqlite (June baseline) | scylla (`scylla-1` colocated) | tikv-raw (`tikv-minimal` colocated) |
+|----|------------------------|-------------------------------|--------------------------------------|
+| **BM-C0** p50 / p95 (ms) | 0.500 / 0.562 PASS | 15.3 / 16.4 PASS | 10.2 / 13.0 PASS |
+| **BM-C1** batch 1 → 1000 (events/s) | 1951 → 4102 PASS | 64 → **1766** PASS | 60 → **1577** PASS |
+| **BM-C2** p95 @100k (ms) | 0.089 PASS | 0.228 PASS | 0.683 PASS |
+| **BM-C3** p95 checkpoint (ms) | 0.315 PASS | 0.397 PASS | **6.211 FAIL** |
+| **BM-C4** post/pre read ratio | 1.35× PASS | 0.79× PASS | 0.96× PASS |
+| **BM-L0** achieved / p99 | 100 / 6.5 ms | 63 / 23.8 ms | 74 / 29.2 ms |
+| **BM-L1** achieved / p99 | 1000 / 0.9 ms | 64 / 23.8 ms | 58 / 30.0 ms |
+| **BM-L2** achieved / p99 | 1909 / 0.8 ms | 64 / 23.4 ms | 51 / 29.4 ms |
+| **BM-L3** achieved / p99 | **1898** / 0.8 ms | **64** / 23.2 ms | **45** / 38.9 ms |
+
+**Interpretation:**
+
+- **Batch path (BM-C1 @1000):** native scylla/tikv-raw reach **~90% of sqlite** batch throughput on the same instance class — the native adapters remove SQL/Surreal query overhead.
+- **Hot stream (BM-L3, `key=None`):** single-partition ceiling **~64/s scylla**, **~45/s tikv-raw** vs sqlite **~1900/s** — multi-node clusters do not help until callers set partition keys (`CONTINUUM_BENCH_LOAD_PARTITION_COUNT` / Track P).
+- **vs dev-wsl native-lab:** Scylla L3 **64/s** here vs **~15/s** on dev-wsl — colocated AWS + AL2023 binary is the canonical native baseline.
+- **vs surreal-tikv (Appendix E):** tikv-raw L3 **~45/s** ≈ surreal-tikv **~43/s**, but C1 batch **1577/s** vs surreal-tikv **~40/s** single-stream.
+
+**Fleet projections** (BM-L3 ceiling, compute only):
+
+| Storage | Topology | Per-shard ceiling | Partitions for 1B/s | $/M ops |
+|---------|----------|-------------------|---------------------|---------|
+| scylla | scylla-1 | 64/s | 15,706,538 | $0.18 |
+| tikv-raw | tikv-minimal | 45/s | 22,417,736 | $0.26 |
+
+JSON: `projection-aws-t3-medium-scylla-any.json`, `projection-aws-t3-medium-tikv-raw-tikv-minimal.json`.
+
+**Pending:** `partition-campaign` (Track P K/C sweeps), Phase B topologies (`native-scylla-3n`, `native-tikv-ha-3`, `native-tikv-scale-5`).
+
+---
 
 Research-question coverage and interpretation: [`PERFORMANCE_STUDY.md`](PERFORMANCE_STUDY.md) §1.3, §5.5, Appendix D.
 
@@ -253,6 +353,15 @@ cargo run -p continuum-bench -- hardware
 
 # Fleet projection from BM-L* reports
 cargo run -p continuum-bench -- project-fleet --storage surreal-tikv --tikv-topology tikv-ha-3
+cargo run -p continuum-bench -- project-fleet --storage scylla
+cargo run -p continuum-bench -- project-fleet --storage tikv-raw
+
+# Native adapter campaigns (scylla + tikv-raw; require infra env)
+source infra/scylla/scripts/export-env.sh scylla-1
+source infra/tikv-raw/scripts/export-env.sh
+continuum-bench/scripts/run-native-preset.sh dev-wsl native-lab
+continuum-bench/scripts/run-native-preset.sh dev-wsl native-scale
+# Scale sweeps: CONTINUUM_BENCH_PARTITION_COUNT=10,100,1000  CONTINUUM_BENCH_CLIENT_COUNT=8,64,128
 
 # TiKV campaign slices (require CONTINUUM_BENCH_SURREAL_URL; budget cloud default)
 continuum-bench/scripts/run-tikv-preset.sh tikv-minimal aws-t4g-medium --skip-c6

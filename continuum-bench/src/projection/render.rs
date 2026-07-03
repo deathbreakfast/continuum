@@ -17,6 +17,15 @@ pub fn render_markdown(p: &FleetProjection) -> String {
     if let Some(r) = p.per_shard_ops_per_sec {
         lines.push(format!("- per-shard ceiling: {r:.0} ops/s"));
     }
+    if let Some(n) = p.partitions_modeled {
+        lines.push(format!("- partitions modeled (BM-M2): {n}"));
+    }
+    if let Some(n) = p.clients_modeled {
+        lines.push(format!("- clients modeled (BM-M2): {n}"));
+    }
+    if let Some(r) = p.aggregate_ops_per_sec {
+        lines.push(format!("- measured aggregate: {r:.0} ops/s"));
+    }
     if let Some(n) = p.partitions_for_1e9 {
         lines.push(format!("- partitions for 1B/s: {n}"));
     }

@@ -2,10 +2,11 @@
 
 use anyhow::{bail, Result};
 
+use crate::experiments::fixtures::load_partition_count;
 use crate::experiments::run_and_report;
 use crate::harness::{
     matrix_for_subset, subset_needs_remote_surreal, ExperimentId, Hardware, MatrixSubset,
-    RunDimensions, TikvTopology,
+    RunDimensions, ScyllaTopology, TikvTopology,
 };
 use crate::report::{report_filename, reports_dir};
 
@@ -18,6 +19,7 @@ pub struct MatrixOptions {
     pub storages: Option<Vec<crate::harness::Storage>>,
     pub skip_experiments: Option<Vec<String>>,
     pub tikv_topology: Option<TikvTopology>,
+    pub scylla_topology: Option<ScyllaTopology>,
 }
 
 /// Execute matrix runs sequentially.
@@ -28,6 +30,12 @@ pub async fn run_matrix(opts: MatrixOptions) -> Result<Vec<(ExperimentId, RunDim
         bail!(
             "matrix subset {:?} requires CONTINUUM_BENCH_SURREAL_URL — start infra/surreal-tikv stack first",
             opts.subset
+        );
+    }
+
+    if opts.subset == MatrixSubset::NativeLabPartitioned && load_partition_count() <= 1 {
+        bail!(
+            "matrix subset native-lab-partitioned requires CONTINUUM_BENCH_LOAD_PARTITION_COUNT > 1"
         );
     }
 
@@ -62,6 +70,10 @@ pub async fn run_matrix(opts: MatrixOptions) -> Result<Vec<(ExperimentId, RunDim
 
     if let Some(filter) = opts.tikv_topology {
         runs.retain(|(_, dims)| dims.tikv_topology == Some(filter));
+    }
+
+    if let Some(filter) = opts.scylla_topology {
+        runs.retain(|(_, dims)| dims.scylla_topology == Some(filter));
     }
 
     let mut outcomes = Vec::new();

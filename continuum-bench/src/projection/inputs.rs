@@ -13,11 +13,13 @@ pub fn load_from_dir(
     hardware: &str,
     storage: &str,
     tikv_topology: Option<&str>,
+    scylla_topology: Option<&str>,
 ) -> Result<FleetProjectionInputs> {
     let mut inputs = FleetProjectionInputs {
         hardware: hardware.into(),
         storage: storage.into(),
         tikv_topology: tikv_topology.map(str::to_string),
+        scylla_topology: scylla_topology.map(str::to_string),
         ..FleetProjectionInputs::default()
     };
 
@@ -28,22 +30,28 @@ pub fn load_from_dir(
         }
         let text = std::fs::read_to_string(&path)?;
         let v: Value = serde_json::from_str(&text)?;
-        if !matches_dimensions(&v, hardware, storage, tikv_topology) {
+        if !matches_dimensions(&v, hardware, storage, tikv_topology, scylla_topology) {
             continue;
         }
         merge_report(&mut inputs, &v);
     }
 
-    if inputs.per_shard_ceiling.is_none() {
+    if inputs.per_shard_ceiling.is_none() && inputs.aggregate_ops_per_sec.is_none() {
         bail!(
-            "missing BM-L* achieved_ops_per_sec for {hardware}/{storage} in {}",
+            "missing BM-L* or BM-M2 achieved_ops_per_sec for {hardware}/{storage} in {}",
             reports_dir.display()
         );
     }
     Ok(inputs)
 }
 
-fn matches_dimensions(v: &Value, hardware: &str, storage: &str, tikv_topology: Option<&str>) -> bool {
+fn matches_dimensions(
+    v: &Value,
+    hardware: &str,
+    storage: &str,
+    tikv_topology: Option<&str>,
+    scylla_topology: Option<&str>,
+) -> bool {
     let dims = v.get("dimensions").and_then(|d| d.as_object());
     let Some(d) = dims else {
         return false;
@@ -59,6 +67,19 @@ fn matches_dimensions(v: &Value, hardware: &str, storage: &str, tikv_topology: O
             return false;
         }
     }
+    if let Some(topo) = scylla_topology {
+        if d.get("scylla_topology").and_then(|t| t.as_str()) != Some(topo) {
+            return false;
+        }
+    }
+    // Skip partitioned load-tier reports when projecting hot-stream ceiling.
+    if scylla_topology.is_none() && tikv_topology.is_none() {
+        if let Some(k) = v.pointer("/metrics/load_partition_count").and_then(|x| x.as_u64()) {
+            if k > 1 {
+                return false;
+            }
+        }
+    }
     true
 }
 
@@ -71,6 +92,19 @@ fn merge_report(inputs: &mut FleetProjectionInputs, v: &Value) {
         "bm-l3" => inputs.per_shard_ceiling = rate.or(inputs.per_shard_ceiling),
         "bm-l2" | "bm-l1" | "bm-l0" if inputs.per_shard_ceiling.is_none() => {
             inputs.per_shard_ceiling = rate;
+        }
+        "bm-m2" => {
+            inputs.aggregate_ops_per_sec = rate.or(inputs.aggregate_ops_per_sec);
+            inputs.partitions_modeled = v
+                .pointer("/metrics/partitions_modeled")
+                .or_else(|| v.pointer("/metrics/partition_count"))
+                .and_then(serde_json::Value::as_u64)
+                .or(inputs.partitions_modeled);
+            inputs.clients_modeled = v
+                .pointer("/metrics/clients_modeled")
+                .or_else(|| v.pointer("/metrics/client_count"))
+                .and_then(serde_json::Value::as_u64)
+                .or(inputs.clients_modeled);
         }
         _ => {}
     }

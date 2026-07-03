@@ -10,20 +10,20 @@
     "surreal_deployment": "colocated",
     "component_hardware": {
       "runtime": "aws-t3-medium",
-      "surreal": "aws-t3-medium",
+      "surreal": "aws-t3-small",
       "tikv": "aws-t3-medium"
     }
   },
   "hardware_detail": {
     "cpu_model": "Intel(R) Xeon(R) Platinum 8259CL CPU @ 2.50GHz",
     "cpu_cores": 2,
-    "ram_gib": 3.744556427001953,
-    "os": "linux (Linux 6.12.92-122.168.amzn2023.x86_64)",
+    "ram_gib": 3.7495574951171875,
+    "os": "linux (Linux 6.1.175-219.359.amzn2023.x86_64)",
     "root_mount": {
       "device": "/dev/nvme0n1p1",
       "mount_point": "/",
       "fs_type": "xfs",
-      "size_gib": 29.9
+      "size_gib": 19.9
     },
     "host_drive": {
       "model": null,
@@ -33,33 +33,33 @@
       "wsl_distro_path": null
     }
   },
-  "engine_path": "ws://127.0.0.1:8000",
-  "tikv_pd_endpoint": "http://127.0.0.1:2379",
-  "started_at": "2026-06-30T06:43:48.039887494Z",
-  "elapsed_secs": 254.426665209,
+  "engine_path": "ws://172.31.38.6:8000",
+  "tikv_pd_endpoint": "http://172.31.39.223:2379",
+  "started_at": "2026-06-30T20:36:20.163023130Z",
+  "elapsed_secs": 326.271993951,
   "metrics": {
-    "decile_p95_slope": -0.2690709696969696,
-    "mean_ms": 12.3076157929,
-    "p50_ms": 11.464419,
-    "p95_ms": 15.332141,
-    "p99_ms": 23.293485999999998,
+    "decile_p95_slope": 0.27226552727272396,
+    "mean_ms": 18.93786243609995,
+    "p50_ms": 17.755763,
+    "p95_ms": 23.402899,
+    "p99_ms": 38.213629999999995,
     "sample_count": 10000,
-    "slope_vs_index": -0.00014188211369043675
+    "slope_vs_index": 0.00013293001536807673
   },
   "resource_profile": {
-    "process_rss_bytes_start": 35739664384,
-    "process_rss_bytes_end": 67230498816,
-    "process_rss_bytes_peak": 187229536256,
-    "process_cpu_percent_mean": 5.5701868,
-    "process_cpu_percent_peak": 48.9583,
-    "system_mem_used_bytes_start": 2843865088,
-    "system_mem_used_bytes_peak": 3719094272,
-    "system_mem_used_bytes_end": 2548723712,
-    "sample_count": 250,
+    "process_rss_bytes_start": 34942746624,
+    "process_rss_bytes_end": 57449381888,
+    "process_rss_bytes_peak": 205705445376,
+    "process_cpu_percent_mean": 3.802348456790124,
+    "process_cpu_percent_peak": 32.3232,
+    "system_mem_used_bytes_start": 571211776,
+    "system_mem_used_bytes_peak": 749088768,
+    "system_mem_used_bytes_end": 618622976,
+    "sample_count": 324,
     "sample_interval_ms": 1000
   },
   "pass_criteria": "Flat over 10k commits",
   "pass": false,
   "status": "completed",
-  "notes": "p95=15.332ms FAIL"
+  "notes": "p95=23.403ms FAIL"
 }

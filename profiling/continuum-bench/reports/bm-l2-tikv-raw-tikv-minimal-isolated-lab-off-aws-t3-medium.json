@@ -1,13 +1,12 @@
 {
   "experiment_id": "bm-l2",
   "dimensions": {
-    "storage": "surreal-tikv",
-    "topology": "remote-surreal",
+    "storage": "tikv-raw",
+    "topology": "isolated-lab",
     "telemetry": "off",
     "hardware": "aws-t3-medium",
     "tikv_topology": "tikv-minimal",
     "surreal_instances": 1,
-    "surreal_deployment": "colocated",
     "component_hardware": {
       "runtime": "aws-t3-medium",
       "surreal": "aws-t3-medium",
@@ -17,13 +16,13 @@
   "hardware_detail": {
     "cpu_model": "Intel(R) Xeon(R) Platinum 8259CL CPU @ 2.50GHz",
     "cpu_cores": 2,
-    "ram_gib": 3.744556427001953,
-    "os": "linux (Linux 6.12.92-122.168.amzn2023.x86_64)",
+    "ram_gib": 3.7495498657226562,
+    "os": "linux (Linux 6.1.175-219.359.amzn2023.x86_64)",
     "root_mount": {
       "device": "/dev/nvme0n1p1",
       "mount_point": "/",
       "fs_type": "xfs",
-      "size_gib": 29.9
+      "size_gib": 19.9
     },
     "host_drive": {
       "model": null,
@@ -33,35 +32,36 @@
       "wsl_distro_path": null
     }
   },
-  "engine_path": "ws://127.0.0.1:8000",
+  "engine_path": "tikv://http://127.0.0.1:2379",
   "tikv_pd_endpoint": "http://127.0.0.1:2379",
-  "started_at": "2026-06-30T05:45:56.698682693Z",
-  "elapsed_secs": 61.097602665,
+  "started_at": "2026-07-01T17:41:14.670147673Z",
+  "elapsed_secs": 61.006153464,
   "metrics": {
-    "achieved_ops_per_sec": 42.62956076356725,
-    "duration_secs": 60.005309794,
+    "achieved_ops_per_sec": 50.78213813617898,
+    "duration_secs": 60.02110411,
     "error_rate": 0.0,
+    "load_partition_count": 1,
     "ops_err": 0,
-    "ops_ok": 2558,
-    "p50_ms": 22.359022999999997,
-    "p95_ms": 29.119669000000002,
-    "p99_ms": 35.70893,
+    "ops_ok": 3048,
+    "p50_ms": 19.216974,
+    "p95_ms": 21.710515,
+    "p99_ms": 29.44079,
     "target_ops_per_sec": 10000
   },
   "resource_profile": {
-    "process_rss_bytes_start": 27992784896,
-    "process_rss_bytes_end": 28009562112,
-    "process_rss_bytes_peak": 28009562112,
-    "process_cpu_percent_mean": 6.377854999999999,
-    "process_cpu_percent_peak": 9.0909,
-    "system_mem_used_bytes_start": 2582769664,
-    "system_mem_used_bytes_peak": 2585026560,
-    "system_mem_used_bytes_end": 2584682496,
+    "process_rss_bytes_start": 105184755712,
+    "process_rss_bytes_end": 105184755712,
+    "process_rss_bytes_peak": 105184755712,
+    "process_cpu_percent_mean": 19.335026666666668,
+    "process_cpu_percent_peak": 21.7617,
+    "system_mem_used_bytes_start": 2992779264,
+    "system_mem_used_bytes_peak": 2996666368,
+    "system_mem_used_bytes_end": 2988310528,
     "sample_count": 60,
     "sample_interval_ms": 1000
   },
   "pass_criteria": "error rate <0.1%",
   "pass": true,
   "status": "completed",
-  "notes": "p99=35.709ms 43/s err=0.0000% PASS"
+  "notes": "p99=29.441ms 51/s err=0.0000% PASS"
 }

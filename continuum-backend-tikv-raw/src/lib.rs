@@ -1,0 +1,441 @@
+//! Raw TiKV [`LogBackend`](continuum_core::backend::LogBackend) (PD client, no Surreal).
+
+mod error_map;
+mod keys;
+
+use std::fmt;
+use std::sync::Arc;
+
+use async_trait::async_trait;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use tikv_client::{KvPair, TransactionClient, Value};
+use uuid::Uuid;
+
+use continuum_core::backend::LogBackend;
+use continuum_core::error::{LogError, Result};
+use continuum_core::types::{AppendRecord, EventRecord, LogStreamId, Seq, SubscriptionId};
+use continuum_core::validation::{validate_read_limit, validate_topic};
+
+use error_map::map_err;
+use keys::{checkpoint_key, event_key, idempotency_key, meta_key, scan_end, topic_stream_key};
+
+/// Connection settings for [`TikvRawLogBackend`].
+#[derive(Debug, Clone, Default)]
+pub struct TikvRawLogConfig {
+    /// PD endpoint(s), e.g. `127.0.0.1:2379`.
+    pub pd_endpoints: Vec<String>,
+}
+
+/// TiKV-backed transport log using transactional RawKV-style keys.
+pub struct TikvRawLogBackend {
+    client: Arc<TransactionClient>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct StreamMeta {
+    next_seq: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct StoredEvent {
+    event_id: Uuid,
+    ts_millis: i64,
+    attempt: u32,
+    actor_ref: Option<String>,
+    payload_ciphertext: Vec<u8>,
+}
+
+impl TikvRawLogBackend {
+    /// Connect to TiKV via PD and return a backend.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the PD client cannot be created.
+    pub async fn connect(config: TikvRawLogConfig) -> Result<Self> {
+        let endpoints = if config.pd_endpoints.is_empty() {
+            vec!["127.0.0.1:2379".into()]
+        } else {
+            config.pd_endpoints
+        };
+        let client = TransactionClient::new(endpoints)
+            .await
+            .map_err(map_err)?;
+        Ok(Self {
+            client: Arc::new(client),
+        })
+    }
+
+    /// Wrap an existing TiKV transaction client.
+    #[must_use]
+    pub fn from_client(client: Arc<TransactionClient>) -> Self {
+        Self { client }
+    }
+
+    /// Underlying TiKV client.
+    #[must_use]
+    pub fn client(&self) -> &Arc<TransactionClient> {
+        &self.client
+    }
+
+    async fn get_meta(&self, stream_key: &str) -> Result<i64> {
+        let key = meta_key(stream_key);
+        let mut txn = self.client.begin_optimistic().await.map_err(map_err)?;
+        let value = match txn.get(key).await {
+            Ok(v) => v,
+            Err(e) => {
+                let _ = txn.rollback().await;
+                return Err(map_err(e));
+            }
+        };
+        if let Err(e) = txn.commit().await {
+            let _ = txn.rollback().await;
+            return Err(map_err(e));
+        }
+        Ok(value
+            .and_then(|v| decode_meta(&v))
+            .map_or(0, |m| m.next_seq))
+    }
+
+    async fn existing_seq(&self, stream_key: &str, event_id: &Uuid) -> Result<Option<Seq>> {
+        let key = idempotency_key(stream_key, event_id);
+        let mut txn = self.client.begin_optimistic().await.map_err(map_err)?;
+        let value = match txn.get(key).await {
+            Ok(v) => v,
+            Err(e) => {
+                let _ = txn.rollback().await;
+                return Err(map_err(e));
+            }
+        };
+        if let Err(e) = txn.commit().await {
+            let _ = txn.rollback().await;
+            return Err(map_err(e));
+        }
+        Ok(value.and_then(|v| decode_seq(&v).ok()))
+    }
+
+    fn topic_prefix(stream: &LogStreamId) -> String {
+        format!(
+            "{}{}{}{}",
+            stream.destination.router_key(),
+            continuum_core::types::STORAGE_KEY_SEP,
+            stream.topic,
+            continuum_core::types::STORAGE_KEY_SEP,
+        )
+    }
+}
+
+#[async_trait]
+impl LogBackend for TikvRawLogBackend {
+    async fn append(
+        &self,
+        stream: LogStreamId,
+        records: &[AppendRecord],
+    ) -> Result<Vec<Seq>> {
+        if records.is_empty() {
+            return Ok(vec![]);
+        }
+        validate_topic(&stream.topic)?;
+
+        let stream_key = stream.storage_key();
+        let topic_prefix = Self::topic_prefix(&stream);
+        let mut out = Vec::with_capacity(records.len());
+        let mut new_records: Vec<(usize, &AppendRecord)> = Vec::new();
+
+        for (idx, rec) in records.iter().enumerate() {
+            if let Some(seq) = self.existing_seq(&stream_key, &rec.event_id).await? {
+                out.push(seq);
+            } else {
+                new_records.push((idx, rec));
+                out.push(Seq(0));
+            }
+        }
+
+        if new_records.is_empty() {
+            return Ok(out);
+        }
+
+        for attempt in 0..16 {
+            let current = self.get_meta(&stream_key).await?;
+            let count = new_records.len();
+            let end = current + i64::try_from(count).unwrap_or(i64::MAX);
+            let mut txn = self.client.begin_optimistic().await.map_err(map_err)?;
+
+            let attempt_result: Result<Vec<Seq>> = async {
+                let meta_k = meta_key(&stream_key);
+                if let Some(existing) = txn.get(meta_k.clone()).await.map_err(map_err)? {
+                    let existing_seq = decode_meta(&existing).map_or(0, |m| m.next_seq);
+                    if existing_seq != current {
+                        return Err(LogError::Conflict("tikv meta changed".into()));
+                    }
+                } else if current != 0 {
+                    return Err(LogError::Conflict("tikv meta missing".into()));
+                }
+
+                let mut seqs = Vec::with_capacity(count);
+                for (offset, (_, rec)) in new_records.iter().enumerate() {
+                    let seq = Seq(current + i64::try_from(offset + 1).unwrap_or(0));
+                    seqs.push(seq);
+                    let stored = StoredEvent {
+                        event_id: rec.event_id,
+                        ts_millis: rec.ts.timestamp_millis(),
+                        attempt: rec.attempt,
+                        actor_ref: rec.actor_ref.clone(),
+                        payload_ciphertext: rec.payload_ciphertext.clone(),
+                    };
+                    txn.put(
+                        event_key(&stream_key, seq),
+                        encode_event(&stored),
+                    )
+                    .await
+                    .map_err(map_err)?;
+                    txn.put(
+                        idempotency_key(&stream_key, &rec.event_id),
+                        encode_seq(seq),
+                    )
+                    .await
+                    .map_err(map_err)?;
+                }
+
+                txn.put(meta_k, encode_meta(StreamMeta { next_seq: end }))
+                    .await
+                    .map_err(map_err)?;
+                txn.put(
+                    topic_stream_key(&topic_prefix, &stream_key),
+                    Value::from([] as [u8; 0]),
+                )
+                .await
+                .map_err(map_err)?;
+                txn.commit().await.map_err(map_err)?;
+                Ok(seqs)
+            }
+            .await;
+
+            match attempt_result {
+                Ok(seqs) => {
+                    for ((idx, _), seq) in new_records.iter().zip(seqs) {
+                        out[*idx] = seq;
+                    }
+                    return Ok(out);
+                }
+                Err(LogError::Conflict(_)) if attempt + 1 < 16 => {
+                    let _ = txn.rollback().await;
+                    continue;
+                }
+                Err(LogError::Backend(msg))
+                    if attempt + 1 < 16
+                        && (msg.contains("write conflict") || msg.contains("Conflict")) =>
+                {
+                    let _ = txn.rollback().await;
+                    continue;
+                }
+                Err(e) => {
+                    let _ = txn.rollback().await;
+                    return Err(e);
+                }
+            }
+        }
+
+        Err(LogError::Conflict(
+            "tikv stream seq allocation exhausted retries".into(),
+        ))
+    }
+
+    async fn read_from(
+        &self,
+        stream: LogStreamId,
+        after: Seq,
+        limit: usize,
+    ) -> Result<Vec<EventRecord>> {
+        validate_read_limit(limit)?;
+        if limit == 0 {
+            return Ok(vec![]);
+        }
+
+        let stream_key = stream.storage_key();
+        let start = event_key(&stream_key, Seq(after.as_i64() + 1));
+        let end = scan_end(&keys::event_prefix(&stream_key));
+        let mut txn = self.client.begin_optimistic().await.map_err(map_err)?;
+        let pairs: Vec<KvPair> = txn
+            .scan((start, end), u32::try_from(limit).unwrap_or(u32::MAX))
+            .await
+            .map_err(map_err)?
+            .collect();
+        txn.commit().await.map_err(map_err)?;
+
+        let mut out = Vec::new();
+        for pair in pairs {
+            let key_bytes: Vec<u8> = pair.0.clone().into();
+            let seq = keys::seq_from_event_key(&key_bytes)?;
+            if let Ok(stored) = decode_event(&pair.1) {
+                out.push(EventRecord {
+                    destination: stream.destination.clone(),
+                    event_id: stored.event_id,
+                    topic: stream.topic.clone(),
+                    key: stream.key.clone(),
+                    seq,
+                    ts: DateTime::from_timestamp_millis(stored.ts_millis)
+                        .unwrap_or_else(Utc::now),
+                    attempt: stored.attempt,
+                    actor_ref: stored.actor_ref,
+                    payload_ciphertext: stored.payload_ciphertext,
+                });
+            }
+        }
+        out.sort_by_key(|r| r.seq);
+        Ok(out)
+    }
+
+    async fn read_from_topic(
+        &self,
+        stream: LogStreamId,
+        topic_key: Option<&str>,
+        after: Seq,
+        limit: usize,
+    ) -> Result<Vec<EventRecord>> {
+        validate_read_limit(limit)?;
+        if limit == 0 {
+            return Ok(vec![]);
+        }
+
+        if let Some(key) = topic_key {
+            return self
+                .read_from(
+                    LogStreamId::new(
+                        stream.destination.clone(),
+                        stream.topic.clone(),
+                        Some(key.to_string()),
+                    ),
+                    after,
+                    limit,
+                )
+                .await;
+        }
+
+        let topic_prefix = Self::topic_prefix(&stream);
+        let start = topic_stream_key(&topic_prefix, "");
+        let end = scan_end(&keys::topic_index_prefix(&topic_prefix));
+        let mut txn = self.client.begin_optimistic().await.map_err(map_err)?;
+        let index_pairs: Vec<KvPair> = txn
+            .scan((start, end), 10_000)
+            .await
+            .map_err(map_err)?
+            .collect();
+        txn.commit().await.map_err(map_err)?;
+
+        let mut rows = Vec::new();
+        for pair in index_pairs {
+            let key_bytes: Vec<u8> = pair.0.clone().into();
+            let stream_key = keys::stream_key_from_topic_index(&key_bytes, &topic_prefix)?;
+            let key_suffix = stream_key.strip_prefix(&topic_prefix).and_then(|rest| {
+                if rest.is_empty() {
+                    None
+                } else {
+                    Some(rest.to_string())
+                }
+            });
+            let partial = self
+                .read_from(
+                    LogStreamId::new(
+                        stream.destination.clone(),
+                        stream.topic.clone(),
+                        key_suffix,
+                    ),
+                    after,
+                    limit,
+                )
+                .await?;
+            rows.extend(partial);
+            if rows.len() >= limit {
+                break;
+            }
+        }
+        rows.sort_by_key(|r| r.seq);
+        rows.truncate(limit);
+        Ok(rows)
+    }
+
+    async fn commit_checkpoint(
+        &self,
+        subscription: &SubscriptionId,
+        stream: LogStreamId,
+        seq: Seq,
+    ) -> Result<()> {
+        if let Some(current) = self.load_checkpoint(subscription, stream.clone()).await? {
+            if seq <= current {
+                return Ok(());
+            }
+        }
+        let key = checkpoint_key(subscription, &stream.storage_key());
+        let mut txn = self.client.begin_optimistic().await.map_err(map_err)?;
+        txn.put(key, encode_seq(seq)).await.map_err(map_err)?;
+        txn.commit().await.map_err(map_err)?;
+        Ok(())
+    }
+
+    async fn load_checkpoint(
+        &self,
+        subscription: &SubscriptionId,
+        stream: LogStreamId,
+    ) -> Result<Option<Seq>> {
+        let key = checkpoint_key(subscription, &stream.storage_key());
+        let mut txn = self.client.begin_optimistic().await.map_err(map_err)?;
+        let value = txn.get(key).await.map_err(map_err)?;
+        txn.commit().await.map_err(map_err)?;
+        Ok(value.and_then(|v| decode_seq(&v).ok()))
+    }
+
+    async fn truncate_before(&self, stream: LogStreamId, seq: Seq) -> Result<u64> {
+        let stream_key = stream.storage_key();
+        let start = event_key(&stream_key, Seq(1));
+        let end = event_key(&stream_key, seq);
+        let mut txn = self.client.begin_optimistic().await.map_err(map_err)?;
+        let pairs: Vec<KvPair> = txn
+            .scan((start, end), 10_000)
+            .await
+            .map_err(map_err)?
+            .collect();
+        let removed = u64::try_from(pairs.len()).unwrap_or(0);
+        for pair in pairs {
+            txn.delete(pair.0).await.map_err(map_err)?;
+        }
+        txn.commit().await.map_err(map_err)?;
+        Ok(removed)
+    }
+}
+
+impl fmt::Debug for TikvRawLogBackend {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("TikvRawLogBackend").finish_non_exhaustive()
+    }
+}
+
+fn encode_meta(meta: StreamMeta) -> Value {
+    Value::from(bincode::serialize(&meta).unwrap_or_default())
+}
+
+fn decode_meta(value: &Value) -> Option<StreamMeta> {
+    bincode::deserialize(value.as_ref()).ok()
+}
+
+fn encode_event(event: &StoredEvent) -> Value {
+    Value::from(bincode::serialize(event).unwrap_or_default())
+}
+
+fn decode_event(value: &Value) -> std::result::Result<StoredEvent, bincode::Error> {
+    bincode::deserialize(value.as_ref())
+}
+
+fn encode_seq(seq: Seq) -> Value {
+    Value::from(seq.as_i64().to_le_bytes().to_vec())
+}
+
+fn decode_seq(value: &Value) -> std::result::Result<Seq, ()> {
+    let bytes: &[u8] = value.as_ref();
+    if bytes.len() != 8 {
+        return Err(());
+    }
+    let mut arr = [0u8; 8];
+    arr.copy_from_slice(bytes);
+    Ok(Seq(i64::from_le_bytes(arr)))
+}

@@ -7,7 +7,7 @@ use continuum::backend::LogBackend;
 use serde_json::{json, Value};
 use tokio::time::sleep;
 
-use crate::experiments::fixtures::{bench_record, bench_stream};
+use crate::experiments::fixtures::{bench_record, bench_stream_for_load, load_partition_count};
 use crate::experiments::bm_core::ExperimentContext;
 use crate::harness::ExperimentId;
 use crate::metrics::LatencySamples;
@@ -25,7 +25,8 @@ pub async fn run_load(ctx: &ExperimentContext, id: ExperimentId) -> Result<Value
     };
 
     let backend = &ctx.handle.backend;
-    let stream = bench_stream(ctx.storage, id.slug());
+    let topic = id.slug();
+    let partition_k = load_partition_count();
     let duration = Duration::from_secs(LOAD_DURATION_SECS);
     let start = Instant::now();
     let mut samples = LatencySamples::new();
@@ -39,8 +40,9 @@ pub async fn run_load(ctx: &ExperimentContext, id: ExperimentId) -> Result<Value
         }
         next_tick += Duration::from_nanos(1_000_000_000 / u64::try_from(target_ops).unwrap_or(1));
 
+        let stream = bench_stream_for_load(ctx.storage, topic, ops_ok + ops_err);
         let op_start = Instant::now();
-        match backend.append(stream.clone(), &[bench_record()]).await {
+        match backend.append(stream, &[bench_record()]).await {
             Ok(_) => {
                 ops_ok += 1;
                 samples.record(op_start.elapsed());
@@ -59,6 +61,7 @@ pub async fn run_load(ctx: &ExperimentContext, id: ExperimentId) -> Result<Value
 
     Ok(json!({
         "target_ops_per_sec": target_ops,
+        "load_partition_count": partition_k,
         "achieved_ops_per_sec": u64_to_f64(ops_ok) / elapsed,
         "duration_secs": elapsed,
         "ops_ok": ops_ok,

@@ -16,6 +16,10 @@ pub enum Storage {
     SurrealTikv,
     Postgres,
     Sqlite,
+    #[value(name = "scylla")]
+    Scylla,
+    #[value(name = "tikv-raw")]
+    TikvRaw,
 }
 
 impl Storage {
@@ -29,7 +33,19 @@ impl Storage {
                 | Storage::SurrealTikv
                 | Storage::Sqlite
                 | Storage::Postgres
+                | Storage::Scylla
+                | Storage::TikvRaw
         )
+    }
+
+    /// Whether this storage requires a remote Scylla cluster.
+    pub fn needs_remote_scylla(self) -> bool {
+        matches!(self, Storage::Scylla)
+    }
+
+    /// Whether this storage requires a remote TiKV PD endpoint (raw client).
+    pub fn needs_remote_tikv_raw(self) -> bool {
+        matches!(self, Storage::TikvRaw)
     }
 
     /// Whether this storage requires a remote Surreal endpoint.
@@ -46,6 +62,8 @@ impl Storage {
             Storage::SurrealTikv => "surreal-tikv",
             Storage::Postgres => "postgres",
             Storage::Sqlite => "sqlite",
+            Storage::Scylla => "scylla",
+            Storage::TikvRaw => "tikv-raw",
         }
     }
 }

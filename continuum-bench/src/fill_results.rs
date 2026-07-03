@@ -24,6 +24,10 @@ fn row_key(id: ExperimentId) -> &'static str {
         ExperimentId::BmL1 => "BM-L1",
         ExperimentId::BmL2 => "BM-L2",
         ExperimentId::BmL3 => "BM-L3",
+        ExperimentId::BmP1 => "BM-P1",
+        ExperimentId::BmP2 => "BM-P2",
+        ExperimentId::BmM1 => "BM-M1",
+        ExperimentId::BmM2 => "BM-M2",
     }
 }
 

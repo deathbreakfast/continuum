@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
 
-use crate::harness::{Hardware, MatrixSubset, Storage, Telemetry, Topology, TikvTopology};
+use crate::harness::{Hardware, MatrixSubset, ScyllaTopology, Storage, Telemetry, Topology, TikvTopology};
 
 /// Synthetic continuum benchmarks and experiment matrix runner.
 #[derive(Parser)]
@@ -54,6 +54,9 @@ pub enum Command {
         /// Retain only runs whose `tikv_topology` matches (e.g. tikv-minimal).
         #[arg(long)]
         tikv_topology: Option<TikvTopology>,
+        /// Retain only runs whose `scylla_topology` matches (e.g. scylla-3n).
+        #[arg(long)]
+        scylla_topology: Option<ScyllaTopology>,
     },
     /// Fill EXPERIMENTS.md Results columns from latest JSON reports.
     FillResults,
@@ -72,6 +75,8 @@ pub enum Command {
         storage: Storage,
         #[arg(long)]
         tikv_topology: Option<TikvTopology>,
+        #[arg(long)]
+        scylla_topology: Option<ScyllaTopology>,
         #[arg(long, default_value = "profiling/continuum-bench/reports")]
         reports_dir: PathBuf,
         #[arg(long)]
