@@ -119,6 +119,56 @@ async fn topic_index_cache_skips_repeat_index_write() {
 }
 
 #[tokio::test]
+#[ignore = "requires CONTINUUM_TEST_SCYLLA_CONTACT_POINTS"]
+async fn topic_index_legacy_writes_each_append_when_cache_off() {
+    use continuum_core::backend::LogBackend;
+
+    let Some(points) = contact_points() else {
+        return;
+    };
+    std::env::set_var("CONTINUUM_APPEND_DEBUG_OPS", "1");
+    continuum_backend_scylla::append_debug_reset();
+
+    let b = ScyllaLogBackend::connect(ScyllaLogConfig {
+        contact_points: points,
+        keyspace: std::env::var("CONTINUUM_TEST_SCYLLA_KEYSPACE")
+            .unwrap_or_else(|_| "continuum_test".into()),
+        topic_index_cache: false,
+        ..Default::default()
+    })
+    .await
+    .expect("scylla connect");
+
+    let scope = Box::leak(format!("topic-legacy-{}", Uuid::new_v4()).into_boxed_str());
+    let env = BackendEnv {
+        kind: BackendEnv::SCYLLA.kind,
+        logical_dest: scope,
+    };
+    let stream = env.stream_with_key("bench", "k1");
+    let rec = continuum_test_utils::fixtures::sample_record();
+
+    b.append(stream.clone(), std::slice::from_ref(&rec))
+        .await
+        .expect("first append");
+    let (rt1, _) = continuum_backend_scylla::append_debug_snapshot();
+    continuum_backend_scylla::append_debug_reset();
+
+    let rec2 = continuum_test_utils::fixtures::sample_record();
+    b.append(stream, std::slice::from_ref(&rec2))
+        .await
+        .expect("second append");
+    let (rt2, _) = continuum_backend_scylla::append_debug_snapshot();
+
+    std::env::remove_var("CONTINUUM_APPEND_DEBUG_OPS");
+
+    assert!(rt1 >= 3, "first append should include index write (rt1={rt1})");
+    assert!(
+        rt2 >= rt1.saturating_sub(1),
+        "legacy mode should not skip index RT (rt1={rt1}, rt2={rt2})"
+    );
+}
+
+#[tokio::test]
 async fn schema_idempotent_in_memory_skipped_without_env() {
     if contact_points().is_none() {
         return;

@@ -59,7 +59,7 @@ pub struct ScyllaLogConfig {
     pub password: Option<String>,
     /// L1: idempotency policy (default exactly-once via LWT).
     pub idempotency: IdempotencyPolicy,
-    /// L2: skip repeat `stream_index` writes after first sighting per topic+stream.
+    /// L2: skip repeat `stream_index` writes after first sighting per topic+stream (default on).
     pub topic_index_cache: bool,
     /// L4: optional write consistency override on event/index inserts.
     pub write_consistency: Option<Consistency>,
@@ -78,7 +78,7 @@ impl Default for ScyllaLogConfig {
             username: None,
             password: None,
             idempotency: IdempotencyPolicy::default(),
-            topic_index_cache: false,
+            topic_index_cache: true,
             write_consistency: None,
             replication_factor: 1,
             seq_block_size: 64,
@@ -493,8 +493,15 @@ impl LogBackend for ScyllaLogBackend {
             }
         }
 
-        self.register_topic_stream(&topic_prefix, &stream_key)
-            .await?;
+        if !self.topic_index_cache
+            || !self.stream_index_seen.contains_key(&config::stream_index_cache_key(
+                &topic_prefix,
+                &stream_key,
+            ))
+        {
+            self.register_topic_stream(&topic_prefix, &stream_key)
+                .await?;
+        }
 
         Ok(out)
     }

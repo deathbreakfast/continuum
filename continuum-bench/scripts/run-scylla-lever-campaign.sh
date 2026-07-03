@@ -43,7 +43,7 @@ case "$LEVER" in
     run_one "${LEVER}-treatment-none" "CONTINUUM_SCYLLA_IDEMPOTENCY=none"
     ;;
   z2)
-    run_one "${LEVER}-baseline"
+    run_one "${LEVER}-baseline" "CONTINUUM_SCYLLA_TOPIC_INDEX_CACHE=0"
     run_one "${LEVER}-treatment" "CONTINUUM_SCYLLA_TOPIC_INDEX_CACHE=1"
     ;;
   z3)

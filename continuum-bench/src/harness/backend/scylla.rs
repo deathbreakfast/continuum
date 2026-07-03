@@ -17,6 +17,16 @@ fn env_flag(name: &str) -> bool {
         .is_some_and(|v| v == "1" || v.eq_ignore_ascii_case("true"))
 }
 
+/// Env bool with default when unset; explicit `0`/`false` disables.
+fn env_flag_default(name: &str, default: bool) -> bool {
+    match std::env::var(name).ok() {
+        Some(v) if v == "1" || v.eq_ignore_ascii_case("true") => true,
+        Some(v) if v == "0" || v.eq_ignore_ascii_case("false") => false,
+        Some(_) => default,
+        None => default,
+    }
+}
+
 fn idempotency_policy_from_env() -> IdempotencyPolicy {
     if let Ok(none_topics) = std::env::var("CONTINUUM_SCYLLA_IDEMPOTENCY_NONE_TOPICS") {
         let overrides: HashMap<String, IdempotencyMode> = none_topics
@@ -71,7 +81,7 @@ fn scylla_config() -> Result<ScyllaLogConfig> {
         keyspace: std::env::var("CONTINUUM_BENCH_SCYLLA_KEYSPACE")
             .unwrap_or_else(|_| "continuum".into()),
         idempotency: idempotency_policy_from_env(),
-        topic_index_cache: env_flag("CONTINUUM_SCYLLA_TOPIC_INDEX_CACHE"),
+        topic_index_cache: env_flag_default("CONTINUUM_SCYLLA_TOPIC_INDEX_CACHE", true),
         write_consistency,
         replication_factor: 1,
         seq_block_size,

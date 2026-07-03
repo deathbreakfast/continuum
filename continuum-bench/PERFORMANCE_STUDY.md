@@ -907,12 +907,29 @@ From `resource_profile` on the dedicated **bench EC2** (`aws-t3-medium`: 2 vCPU,
 
 | Instance class | Storage nodes | Topology | Peak BM-M4 ops/s | C=K @ peak | vs t3-medium same N | ops/s per node | $/M ops |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| aws-c7i-4xlarge | 1 | scylla-1 | TBD | TBD | TBD | TBD | TBD |
-| aws-c7i-4xlarge | 2 | scylla-2n | TBD | TBD | TBD | TBD | TBD |
-| aws-c7i-4xlarge | 4 | scylla-4n | TBD | TBD | TBD | TBD | TBD |
-| aws-c7i-4xlarge | 4 | tikv-scale-4 | TBD | TBD | TBD | TBD | TBD |
+| aws-c7i-4xlarge | 1 | scylla-1 | **Deferred** | — | — | — | — |
+| aws-c7i-4xlarge | 2 | scylla-2n | **Deferred** | — | — | — | — |
+| aws-c7i-4xlarge | 4 | scylla-4n | **Deferred** | — | — | — | — |
+| aws-c7i-4xlarge | 4 | tikv-scale-4 | **Deferred** | — | — | — | — |
 
-Manifests: `native-scylla-4n-c7i`, `native-tikv-scale-4-c7i`. Start only after manual verification of Phase B.
+**Status (July 2, 2026):** `run-scylla-ceilings.sh` Phase B blocked at `1n_provision_c7i` — `VcpuLimitExceeded` (account limit 16 vCPU; each `c7i.4xlarge` = 16 vCPU, topology needs bench + storage). **Not re-attempted** to avoid failed provision churn. Request quota ≥32 vCPU before resuming: `run-scylla-ceilings.sh --from-step 1n_provision_c7i --skip-artifact`.
+
+Manifests: `native-scylla-1n-c7i`, `native-scylla-2n-c7i`, `native-scylla-4n-c7i`.
+
+### Table G.3 — Ceiling matrix + fleet cost (`aws-t3-medium`, Z1 on/off @ C=256)
+
+From `run-scylla-ceilings.sh` Phase A + prior Z1 colocated runs. Monthly $ = `ceil(target / peak) × nodes × $0.0416/hr × 730` (storage nodes only).
+
+| Topology | Z1 | Peak ops/s | $/mo @ 10k | $/mo @ 50k | $/mo @ 100k | $/mo @ 1M |
+| --- | --- | --- | --- | --- | --- | --- |
+| scylla-1 | on | 3,112 | $91 | $456 | $912 | $8,304 |
+| scylla-1 | off | 14,164 | $30 | $121 | $243 | $2,156 |
+| scylla-2n | on | 3,636 | $122 | $608 | $1,216 | $11,680 |
+| scylla-2n | off | 18,517 | $61 | $182 | $364 | $3,340 |
+| scylla-4n | on | 3,987 | $364 | $1,579 | $3,158 | $30,489 |
+| scylla-4n | off | 20,118 | $121 | $364 | $607 | $6,074 |
+
+**Cost takeaway:** At production Z1-on, **avoid 4n** for $/ops — peak barely rises vs 2n but node count doubles. Z1-off shifts optimal tier to 2n–4n for throughput/$; policy must accept at-least-once on those topics.
 
 ## Appendix H — Bottleneck verdict (Tracks U–Y + Z, Scylla)
 
@@ -928,27 +945,27 @@ Consolidated diagnosis after Track T plateau (~3.3–3.5k ops/s BM-M4 spread-key
 | X — dual process ~2× throughput | Dual 3,345 vs single 3,561 (0.94×) | — | **Yes** | **No** |
 | Y — larger seq block reduces RT | blk64 3.03 vs blk256 3.01 rt/append | — | **No effect** | — |
 | Z1 — idempotency LWT | `none`: 14.2k ops/s, rt 2.03 vs `lwt` 3.1k / 3.03 | — | **Yes (LWT)** | — |
-| Z2 — topic-index cache | rt 3.04→2.04; ops flat ~3.5k | — | **Yes (RT only)** | — |
+| Z2 — topic-index cache | Z1 on: rt 3.04→2.04, ops flat ~3.5k; Z1 off (Track AA): 2n 24k→33k | — | **Yes (index write)** | — |
 | Z3/Z5 — pipeline / pool | No throughput gain | — | **Yes (ceiling elsewhere)** | **No** |
 
 ### Table H.2 — Recommended next action
 
 | Verdict | Next step |
 | --- | --- |
-| **Primary: Adapter/coordination + LWT** | **L1** (`IDEMPOTENCY=none`) is the largest lever (~4.5×) if at-least-once is acceptable; **L2** (topic-index cache) is safe and removes ~1 RT/append but does not raise the ~3.5k ops/s ceiling alone |
+| **Primary: Adapter/coordination + LWT** | **L1** (`IDEMPOTENCY=none`) is the largest lever (~4.5×) if at-least-once is acceptable; **L2** (topic-index cache, **default on**) removes ~1 RT/append and is required for multi-node Z1-off scale (Track AA: 2n ~31k ops/s) |
 | Storage saturated | Larger Scylla nodes / tune compaction *(not indicated by Track U)* |
 | Bench/client bound | **Ruled out** by Track X re-run (dual process 0.94× single) |
 | Network/topology | VPC placement, driver pooling *(Z5 pool=4 did not help)* |
 
 ### Appendix H.1 — Optimization lever catalog (post-distillation)
 
-Configuration is via [`ScyllaLogConfig`](../../continuum-backend-scylla/src/lib.rs) builder fields (bench campaigns still map env vars in the harness). Defaults preserve prior production behavior.
+Configuration is via [`ScyllaLogConfig`](../../continuum-backend-scylla/src/lib.rs) builder fields (bench campaigns still map env vars in the harness). L1 stays default LWT; **L2 defaults on** after Track AA (opt out with `CONTINUUM_SCYLLA_TOPIC_INDEX_CACHE=0`).
 
 | Lever | Builder field | Status | Safe? | Guarantee impact |
 | --- | --- | --- | --- | --- |
 | Seq-block cache | *(core, always on)* | **Keep** | Yes | none |
 | L1 Idempotency | `idempotency: IdempotencyPolicy` | **Optional, default ON (LWT)** | No if `None` | exactly-once → at-least-once; per-topic overrides supported |
-| L2 Topic-index cache | `topic_index_cache: bool` | **Optional, default off** | Yes | none (discovery edge case if index deleted) |
+| L2 Topic-index cache | `topic_index_cache: bool` | **Optional, default on** | Yes | none (discovery edge case if index deleted) |
 | L3 Pipelined writes | — | **Removed** (no measured gain) | — | — |
 | L4 Write CL | `write_consistency: Option<Consistency>` | **Optional, default None** | At RF>1 only | inert at RF=1; weaker durability if RF>1 |
 | L5 Pool per shard | — | **Removed** (no measured gain) | — | — |
@@ -958,7 +975,32 @@ Configuration is via [`ScyllaLogConfig`](../../continuum-backend-scylla/src/lib.
 
 **Suggested experiment order:** Z2 → Z3 → re-run X/Y → Z5 → Z1 (if policy allows) → Z4 (when RF>1). **Completed** via `run-scylla-levers.sh` (July 2, 2026).
 
-**Z lever outcomes (summary):** L1 dominates (4.5× if at-least-once OK); L2 removes 1 RT/append safely but not throughput ceiling; L3/L5 no gain; L4 noisy at RF=1; X re-run confirms not client-bound.
+**Z lever outcomes (summary):** L1 dominates under Z1 on (4.5× if at-least-once OK); L2 removes 1 RT/append and, with Z1 off, unlocks multi-node scale (Track AA / H.4); L3/L5 no gain; L4 noisy at RF=1; X re-run confirms not client-bound.
+
+### Table H.3 — Parallelism verdict (BM-M5, July 2026)
+
+| Experiment | Signal | Bench/client bound? | Adapter/coordination? |
+| --- | --- | --- | --- |
+| Topic fan-out T∈{1,8,64} | ~3.4–4.1k ops/s flat | **No** | **Yes** (LWT path) |
+| Mixed per-topic idempotency | ~11k ops/s @ T=64 (50% `none`) | — | **Yes (LWT per topic)** |
+| Multi-publisher N∈{1,2,4} | N=2–4 **below** N=1 (0.86–0.91×) | **No** | **Yes (shared coordinator)** |
+
+Topic count and publisher count do not unlock higher throughput — same ~3.5k ops/s ceiling as Tracks X/Z with Z1 on. See Table P5.* in [`EXPERIMENTS.md`](EXPERIMENTS.md).
+
+### Appendix H.4 — Index hotspot verdict (Track AA, July 2026)
+
+Track AA: BM-M4/M5 × L2 on/off × Z1 off on `aws-t3-medium` dedicated bench + N Scylla nodes.
+
+| Signal | Finding |
+| --- | --- |
+| Single-topic m4, L2 off, 2n | 24.4k ops/s — sub-linear vs 1n (20k); prior ceiling 18.5k |
+| Single-topic m4, L2 on, 2n | **33.1k ops/s** — matches/exceeds raw cassandra-stress 2n (29.5k) |
+| Topic fan-out T=64, L2 off, 2n | 21.5k — **does not** beat single-topic; index spread alone insufficient |
+| rt/append L2 off → on | 2.03 → 1.03 — repeat index INSERT was ~1 RT/append |
+
+**Verdict:** Multi-node Z1-off scaling is **index-write bound** when L2 is off. **Default L2 on** is the minimal fix (no schema migration). Topic sharding and schema re-partition remain Phase 3 if single-topic + L2 off must scale further.
+
+**Phase 2 validation (default config, Z1 off BM-M4):** 2n **30,682** ops/s (rt 1.03) — 1.66× prior L2-off ceiling, **≥ raw 2n 29.5k**. 4n **29,583** ops/s (rt 1.03) — no further gain vs 2n on t3.medium. Harness fix: `env_flag_default("CONTINUUM_SCYLLA_TOPIC_INDEX_CACHE", true)` so unset env keeps L2 on.
 
 ```bash
 nohup infra/native-aws/scripts/run-scylla-levers.sh > /tmp/scylla-levers.log 2>&1 &

@@ -29,6 +29,8 @@ run_topic() {
     export CONTINUUM_BENCH_REPORT_TAG="$tag"
     if [[ "$l2" == "on" ]]; then
       export CONTINUUM_SCYLLA_TOPIC_INDEX_CACHE=1
+    else
+      export CONTINUUM_SCYLLA_TOPIC_INDEX_CACHE=0
     fi
     "$BENCH" run bm-m5 --storage "$STORAGE" --hardware "$HARDWARE"
   )

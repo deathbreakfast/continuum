@@ -769,7 +769,7 @@ Reports use `CONTINUUM_BENCH_REPORT_TAG` (`z2-baseline`, `z2-treatment`, …) to
 
 **Question:** Does skipping repeat `stream_index` writes remove the hot-partition RT?
 
-**Flag:** `CONTINUUM_SCYLLA_TOPIC_INDEX_CACHE=1` (default off).
+**Flag:** `CONTINUUM_SCYLLA_TOPIC_INDEX_CACHE=0|1` (**default on** after Track AA; Z2 A/B used explicit off/on).
 
 **Risk:** **Low** — stale cache if index rows deleted out-of-band.
 
@@ -777,10 +777,10 @@ Reports use `CONTINUUM_BENCH_REPORT_TAG` (`z2-baseline`, `z2-treatment`, …) to
 
 | Variant | ops/s | rt/append | p99 ms |
 | --- | --- | --- | --- |
-| baseline | 3,500 | 3.04 | 173.9 |
-| treatment | 3,504 | 2.04 | 153.5 |
+| baseline (L2 off) | 3,500 | 3.04 | 173.9 |
+| treatment (L2 on) | 3,504 | 2.04 | 153.5 |
 
-**Result:** **RT hypothesis confirmed** — topic-index cache removes ~1 RT/append (3.04→2.04) but throughput is flat (~3.5k ops/s). Hot-partition index write was an RT cost, not the throughput ceiling.
+**Result:** **RT hypothesis confirmed** under Z1 on — topic-index cache removes ~1 RT/append (3.04→2.04) but throughput stays ~3.5k ops/s (LWT-bound). Track AA later showed L2 **does** raise multi-node throughput when Z1 is off (~24k→33k on 2n); L2 is now **default on**.
 
 ### Track Z3 — Pipelined writes (L3)
 
@@ -832,4 +832,129 @@ Reports use `CONTINUUM_BENCH_REPORT_TAG` (`z2-baseline`, `z2-treatment`, …) to
 | treatment (`=4`) | 2,973 | 3.03 | 170.3 |
 
 **Result:** **No benefit** — `POOL_PER_SHARD=4` does not raise throughput; driver pool was not the limiter (consistent with Track X not being client-bound).
+
+---
+
+## Ceilings — Z1 on/off × topology (`aws-t3-medium`, July 2026)
+
+Full ceiling matrix: Z1 LWT on vs off at C=K=256 on dedicated bench + N Scylla nodes. Executed via `run-scylla-ceilings.sh` Phase A (t3). Phase B (`aws-c7i-4xlarge`) **deferred** — account vCPU limit (16) insufficient for 2× `c7i.4xlarge` per topology.
+
+```bash
+infra/native-aws/scripts/run-scylla-ceilings.sh --skip-artifact
+continuum-bench/scripts/analyze-scylla-ceilings.py --reports-dir profiling/continuum-bench/reports
+```
+
+#### Table Ceiling.1 — Peak BM-M4 by topology and Z1 mode (July 2026)
+
+| Topology | Z1 | ops/s | p99 ms |
+| --- | --- | --- | --- |
+| scylla-1 (colocated) | on (`lwt`) | 3,112 | 165.5 |
+| scylla-1 (colocated) | off (`none`) | 14,164 | 87.4 |
+| scylla-2n | on | 3,636 | 184.5 |
+| scylla-2n | off | 18,517 | 67.2 |
+| scylla-4n | on | 3,987 | 194.8 |
+| scylla-4n | off | 20,118 | 57.4 |
+
+**Result:** Z1-off raises ceiling ~4.5–5× at every N; multi-node Z1-on peaks stay flat (~3.1–4.0k ops/s). Z1-off 4n (20.1k) is only ~8% above 2n (18.5k) — storage/coordination still sub-linear. **4n Z1-on regresses** vs 2n (3,987 vs 3,636) — extra coordination cost without LWT removal. **Note:** Ceiling runs used L2 off (pre–Track AA); with L2 default on, Z1-off multi-node peaks are ~31k ops/s (Table AA.3).
+
+#### Table Ceiling.2 — Monthly compute cost projection (`aws-t3-medium`, Z1-off peaks)
+
+Model: `clusters = ceil(target_ops / peak_ops)`; `monthly_usd = clusters × nodes × $0.0416/hr × 730`. Storage nodes only (bench amortized).
+
+| Topology | Peak ops/s | 10k/s | 50k/s | 100k/s | 1M/s |
+| --- | --- | --- | --- | --- | --- |
+| scylla-1 | 14,164 | $30 | $121 | $243 | $2,156 |
+| scylla-2n | 18,517 | $61 | $182 | $364 | $3,340 |
+| scylla-4n | 20,118 | $121 | $364 | $607 | $6,074 |
+
+With Z1-on (production default), 4n is the worst $/ops tier at scale — prefer 1n–2n until LWT cost is addressed.
+
+---
+
+## Track AA — Index scaling (BM-M4/M5 × L2 × Z1 off, July 2026)
+
+Validates whether `continuum_stream_index` hot-partition writes limit multi-node throughput when Z1 (LWT) is off. Executed via `run-scylla-index-scaling-master.sh` on `native-scylla-{1n,2n,4n}` (`aws-t3-medium`, C=K=256, Z1 off).
+
+```bash
+infra/native-aws/scripts/run-scylla-index-scaling-master.sh --skip-artifact
+continuum-bench/scripts/analyze-scylla-index-scaling.py --reports-dir profiling/continuum-bench/reports
+```
+
+#### Table AA.1 — Index scaling matrix (Z1 off, peak ops/s)
+
+| Topology | m4 L2 off | m4 L2 on | t64 L2 off | t64 L2 on | rt/append (m4 off→on) |
+| --- | --- | --- | --- | --- | --- |
+| scylla-1 | 20,054 | 24,279 | 17,517 | 23,412 | 2.03 → 1.03 |
+| scylla-2n | 24,399 | **33,137** | 21,468 | 31,257 | 2.03 → 1.03 |
+| scylla-4n | 23,979 | **33,811** | 21,475 | 34,133 | 2.03 → 1.03 |
+
+Prior ceiling (m4 z1off, L2 off): 2n 18,517; 4n 20,118. Raw cassandra-stress 2n: 29,524.
+
+#### Table AA.2 — Pre-registered verdict
+
+| Criterion | Outcome |
+| --- | --- |
+| T=64 spreads index load vs single topic (2n, L2 off) | **No** — t64 21.5k ≤ m4 24.4k |
+| L2 on vs off at Z1 off (2n m4) | **Yes** — L2 on +36% (33.1k vs 24.4k); removes ~1 RT/append |
+| 2n approaches raw with L2 on | **Yes** — 33.1k ≥ raw 29.5k on 2n |
+
+**Result:** Per-append `stream_index` INSERT (L2 off) is the multi-node bottleneck when Z1 is off — not fixed by topic fan-out alone. **L2 (topic-index cache) default-on** removes repeat index writes and raises 2n/4n Z1-off throughput ~33–34k ops/s (~1.8× prior ceiling). Topic sharding remains operational guidance for single-topic deployments until schema re-partition (Phase 3).
+
+**Fix applied:** `ScyllaLogConfig.topic_index_cache` default `true`; bench harness uses `env_flag_default(..., true)` so unset env keeps L2 on; campaigns set `CONTINUUM_SCYLLA_TOPIC_INDEX_CACHE=0` for L2-off baselines.
+
+#### Table AA.3 — Phase 2 validation (default config, Z1 off, BM-M4)
+
+Re-run after fix via `run-scylla-index-scaling-phase2-master.sh` (env unset → L2 on).
+
+| Topology | ops/s | rt/append | vs prior ceiling (L2 off) | vs Phase 1 L2 on | vs raw 2n |
+| --- | --- | --- | --- | --- | --- |
+| scylla-2n | **30,682** | 1.03 | 1.66× (18,517) | 0.93× (33,137) | **1.04×** (29,524) |
+| scylla-4n | **29,583** | 1.03 | 1.47× (20,118) | 0.87× (33,811) | — |
+
+**Result:** Default L2 on is live and effective — 2n meets/exceeds raw cassandra-stress; both topologies drop to ~1 RT/append. 4n does not gain further over 2n (bench/driver bound at ~30k on t3.medium). Track W 4n raw baseline still failed (incomplete stress log).
+
+---
+
+## Parallelism — topic fan-out + multi-publisher (BM-M5, July 2026)
+
+Executed via `run-scylla-parallelism.sh` on `native-scylla-1n` and `native-scylla-2n` (`aws-t3-medium`, Z1 on, C=K=256). All instances torn down; `SCYLLA_PARALLELISM_COMPLETE`.
+
+```bash
+infra/native-aws/scripts/run-scylla-parallelism.sh --skip-artifact
+```
+
+#### Table P5.1 — Topic fan-out (T topics × K keys, L2 on/off)
+
+| Topology | T | L2 off | L2 on |
+| --- | --- | --- | --- |
+| scylla-1 | 1 | 3,663 | 3,690 |
+| scylla-1 | 8 | 3,832 | 3,605 |
+| scylla-1 | 64 | 3,376 | 3,699 |
+| scylla-2n | 1 | 3,797 | 4,073 |
+| scylla-2n | 8 | 3,759 | 3,856 |
+| scylla-2n | 64 | 3,412 | 3,831 |
+
+**Result:** Topic count does not materially change throughput (~3.4–4.1k ops/s) — fan-out is not the bottleneck at T≤64.
+
+#### Table P5.2 — Per-topic idempotency (mixed LWT/none @ T=64)
+
+| Topology | Policy | ops/s | p99 ms |
+| --- | --- | --- | --- |
+| scylla-1 | Global LWT + 50% topics `none` | 11,036 | 102.2 |
+| scylla-2n | Global LWT + 50% topics `none` | 10,625 | 103.7 |
+
+**Result:** Partial LWT removal raises throughput ~3× vs all-LWT baseline — confirms LWT is per-topic cost, not global partition hot-spot alone.
+
+#### Table P5.3 — Multi-publisher aggregate (N processes, sum ops/s)
+
+| Topology | N publishers | Aggregate ops/s | vs N=1 |
+| --- | --- | --- | --- |
+| scylla-1 | 1 | 3,200 | 1.00× |
+| scylla-1 | 2 | 2,829 | 0.88× |
+| scylla-1 | 4 | 2,916 | 0.91× |
+| scylla-2n | 1 | 3,314 | 1.00× |
+| scylla-2n | 2 | 2,890 | 0.87× |
+| scylla-2n | 4 | 2,857 | 0.86× |
+
+**Result:** **Not publisher-bound** — more processes reduce aggregate throughput (contention on shared Scylla/coordinator path). Consistent with Track X (dual process 0.94×).
 
