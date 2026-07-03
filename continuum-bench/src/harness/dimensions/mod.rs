@@ -105,6 +105,8 @@ pub enum ExperimentId {
     BmP2,
     BmM1,
     BmM2,
+    BmM3,
+    BmM4,
 }
 
 impl ExperimentId {
@@ -126,6 +128,8 @@ impl ExperimentId {
             ExperimentId::BmP2,
             ExperimentId::BmM1,
             ExperimentId::BmM2,
+            ExperimentId::BmM3,
+            ExperimentId::BmM4,
         ]
     }
 
@@ -147,6 +151,8 @@ impl ExperimentId {
             ExperimentId::BmP2 => "bm-p2",
             ExperimentId::BmM1 => "bm-m1",
             ExperimentId::BmM2 => "bm-m2",
+            ExperimentId::BmM3 => "bm-m3",
+            ExperimentId::BmM4 => "bm-m4",
         }
     }
 
@@ -168,6 +174,8 @@ impl ExperimentId {
             "bm-p2" => Some(ExperimentId::BmP2),
             "bm-m1" => Some(ExperimentId::BmM1),
             "bm-m2" => Some(ExperimentId::BmM2),
+            "bm-m3" => Some(ExperimentId::BmM3),
+            "bm-m4" => Some(ExperimentId::BmM4),
             _ => None,
         }
     }
@@ -187,7 +195,9 @@ impl ExperimentId {
             }
             ExperimentId::BmP1 => "aggregate ops scales with partition count",
             ExperimentId::BmP2 => "read completes for all partitions",
-            ExperimentId::BmM1 | ExperimentId::BmM2 => "error rate <0.1%",
+            ExperimentId::BmM1 | ExperimentId::BmM2 | ExperimentId::BmM3 | ExperimentId::BmM4 => {
+                "error rate <0.1%"
+            }
         }
     }
 
@@ -207,7 +217,10 @@ impl ExperimentId {
             | ExperimentId::BmL3 => "sustained p99",
             ExperimentId::BmP1 => "aggregate ops/s",
             ExperimentId::BmP2 => "read ops/s",
-            ExperimentId::BmM1 | ExperimentId::BmM2 => "aggregate ops/s",
+            ExperimentId::BmM1
+            | ExperimentId::BmM2
+            | ExperimentId::BmM3
+            | ExperimentId::BmM4 => "aggregate ops/s",
         }
     }
 }
@@ -344,6 +357,9 @@ pub enum MatrixSubset {
     /// BM-C*/BM-L* parity on scylla + tikv-raw (+ sqlite baseline).
     #[value(name = "native-lab")]
     NativeLab,
+    /// BM-M3 concurrency ladder on native adapters (hot stream).
+    #[value(name = "native-concurrency")]
+    NativeConcurrency,
     /// BM-P*/BM-M* partition and client sweeps on native adapters.
     #[value(name = "native-scale")]
     NativeScale,
@@ -549,7 +565,7 @@ pub fn native_lab_partitioned_matrix(hardware: Hardware) -> Vec<(ExperimentId, R
     runs
 }
 
-/// Native scale matrix: BM-P1/P2/M1/M2 on scylla + tikv-raw when configured.
+/// Native scale matrix: BM-P1/P2/M1/M2/M4 on scylla + tikv-raw when configured.
 pub fn native_scale_matrix(hardware: Hardware) -> Vec<(ExperimentId, RunDimensions)> {
     let storages: Vec<Storage> = native_storages()
         .into_iter()
@@ -560,12 +576,26 @@ pub fn native_scale_matrix(hardware: Hardware) -> Vec<(ExperimentId, RunDimensio
         ExperimentId::BmP2,
         ExperimentId::BmM1,
         ExperimentId::BmM2,
+        ExperimentId::BmM4,
     ];
     let mut runs = Vec::new();
     for &storage in &storages {
         for &exp in &exps {
             runs.push((exp, native_dims(storage, hardware)));
         }
+    }
+    runs
+}
+
+/// BM-M3 hot-stream concurrency sweep on configured native storages.
+pub fn native_concurrency_matrix(hardware: Hardware) -> Vec<(ExperimentId, RunDimensions)> {
+    let storages: Vec<Storage> = native_storages()
+        .into_iter()
+        .filter(|s| matches!(s, Storage::Scylla | Storage::TikvRaw))
+        .collect();
+    let mut runs = Vec::new();
+    for &storage in &storages {
+        runs.push((ExperimentId::BmM3, native_dims(storage, hardware)));
     }
     runs
 }
@@ -620,6 +650,7 @@ pub fn matrix_for_subset(subset: MatrixSubset, hardware: Hardware) -> Vec<(Exper
         MatrixSubset::NativeLab => native_lab_matrix(hardware),
         MatrixSubset::NativeLabPartitioned => native_lab_partitioned_matrix(hardware),
         MatrixSubset::NativeScale => native_scale_matrix(hardware),
+        MatrixSubset::NativeConcurrency => native_concurrency_matrix(hardware),
         MatrixSubset::NativeProjectionInputs => native_projection_inputs_matrix(hardware),
         MatrixSubset::NativeTopology => native_topology_matrix(hardware),
     }
@@ -632,6 +663,7 @@ pub fn subset_needs_remote_scylla(subset: MatrixSubset) -> bool {
         MatrixSubset::NativeLab
             | MatrixSubset::NativeLabPartitioned
             | MatrixSubset::NativeScale
+            | MatrixSubset::NativeConcurrency
             | MatrixSubset::NativeProjectionInputs
             | MatrixSubset::NativeTopology
     )
@@ -644,6 +676,7 @@ pub fn subset_needs_remote_tikv_raw(subset: MatrixSubset) -> bool {
         MatrixSubset::NativeLab
             | MatrixSubset::NativeLabPartitioned
             | MatrixSubset::NativeScale
+            | MatrixSubset::NativeConcurrency
             | MatrixSubset::NativeProjectionInputs
             | MatrixSubset::NativeTopology
     )

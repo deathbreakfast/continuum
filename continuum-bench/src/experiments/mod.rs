@@ -47,7 +47,9 @@ async fn run_experiment_metrics(id: ExperimentId, ctx: &bm_core::ExperimentConte
             run_load(ctx, id).await
         }
         ExperimentId::BmP1 | ExperimentId::BmP2 => run_partition(ctx, id).await,
-        ExperimentId::BmM1 | ExperimentId::BmM2 => run_multi_client(ctx, id).await,
+        ExperimentId::BmM1 | ExperimentId::BmM2 | ExperimentId::BmM3 | ExperimentId::BmM4 => {
+            run_multi_client(ctx, id).await
+        }
     }
 }
 

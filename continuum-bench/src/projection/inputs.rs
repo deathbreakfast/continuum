@@ -93,7 +93,7 @@ fn merge_report(inputs: &mut FleetProjectionInputs, v: &Value) {
         "bm-l2" | "bm-l1" | "bm-l0" if inputs.per_shard_ceiling.is_none() => {
             inputs.per_shard_ceiling = rate;
         }
-        "bm-m2" => {
+        "bm-m2" | "bm-m4" => {
             inputs.aggregate_ops_per_sec = rate.or(inputs.aggregate_ops_per_sec);
             inputs.partitions_modeled = v
                 .pointer("/metrics/partitions_modeled")

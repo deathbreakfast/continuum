@@ -17,6 +17,7 @@ chrono = { workspace = true }
 continuum-core = { path = "../continuum-core" }
 serde = { workspace = true, features = ["derive"] }
 tikv-client = { workspace = true }
+dashmap = "6"
 uuid = { workspace = true, features = ["serde", "v4"] }
 
 [dev-dependencies]

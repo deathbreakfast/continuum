@@ -97,7 +97,7 @@ pub fn evaluate_pass(id: ExperimentId, metrics: &serde_json::Value) -> bool {
                 .unwrap_or(0);
             read == expected && expected > 0
         }
-        ExperimentId::BmM1 | ExperimentId::BmM2 => {
+        ExperimentId::BmM1 | ExperimentId::BmM2 | ExperimentId::BmM3 | ExperimentId::BmM4 => {
             let error_rate = metrics
                 .get("error_rate")
                 .and_then(serde_json::Value::as_f64)
@@ -211,23 +211,42 @@ pub fn results_summary(id: ExperimentId, metrics: &serde_json::Value, pass: bool
                 .unwrap_or(0),
             status
         ),
-        ExperimentId::BmM1 | ExperimentId::BmM2 => format!(
-            "C={} {:.0}/s err={:.4}% {}",
-            metrics
-                .get("client_count")
-                .and_then(serde_json::Value::as_u64)
-                .unwrap_or(0),
-            metrics
-                .get("achieved_ops_per_sec")
-                .and_then(serde_json::Value::as_f64)
-                .unwrap_or(0.0),
-            metrics
-                .get("error_rate")
-                .and_then(serde_json::Value::as_f64)
-                .unwrap_or(0.0)
-                * 100.0,
-            status
-        ),
+        ExperimentId::BmM1 | ExperimentId::BmM2 | ExperimentId::BmM3 | ExperimentId::BmM4 => {
+            let hot = metrics
+                .get("hot_stream")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false);
+            let k = metrics
+                .get("partition_count")
+                .or_else(|| metrics.get("partitions_modeled"))
+                .and_then(serde_json::Value::as_u64);
+            let prefix = if hot {
+                "hot".to_string()
+            } else if let Some(k) = k {
+                format!("K={k}")
+            } else {
+                String::new()
+            };
+            format!(
+                "C={}{}{} {:.0}/s err={:.4}% {}",
+                metrics
+                    .get("client_count")
+                    .and_then(serde_json::Value::as_u64)
+                    .unwrap_or(0),
+                if prefix.is_empty() { String::new() } else { format!(" {prefix}") },
+                String::new(),
+                metrics
+                    .get("achieved_ops_per_sec")
+                    .and_then(serde_json::Value::as_f64)
+                    .unwrap_or(0.0),
+                metrics
+                    .get("error_rate")
+                    .and_then(serde_json::Value::as_f64)
+                    .unwrap_or(0.0)
+                    * 100.0,
+                status
+            )
+        }
     }
 }
 

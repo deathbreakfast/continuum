@@ -1,15 +1,19 @@
 //! ScyllaDB [`LogBackend`](continuum_core::backend::LogBackend) for the continuum transport log.
 
+mod append_ops;
 mod error_map;
 mod schema;
 
 use std::fmt;
 use std::sync::Arc;
 
+use dashmap::DashMap;
+
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use scylla::client::session::Session;
 use scylla::client::session_builder::SessionBuilder;
+use scylla::serialize::row::SerializeRow;
 use scylla::DeserializeRow;
 use uuid::Uuid;
 
@@ -19,6 +23,15 @@ use continuum_core::types::{AppendRecord, EventRecord, LogStreamId, Seq, Subscri
 use continuum_core::validation::{validate_read_limit, validate_topic};
 
 use error_map::map_err;
+
+/// Reserved seq numbers per stream (client-side block after one LWT).
+const SEQ_BLOCK_SIZE: i64 = 64;
+
+#[derive(Debug, Clone, Copy)]
+struct SeqBlock {
+    next: i64,
+    end: i64,
+}
 
 /// Connection settings for [`ScyllaLogBackend`].
 #[derive(Debug, Clone)]
@@ -53,7 +66,7 @@ pub struct ScyllaLogBackend {
     keyspace: String,
     select_event_id: scylla::statement::prepared::PreparedStatement,
     insert_event: scylla::statement::prepared::PreparedStatement,
-    insert_event_id: scylla::statement::prepared::PreparedStatement,
+    insert_event_id_lwt: scylla::statement::prepared::PreparedStatement,
     select_stream_seq: scylla::statement::prepared::PreparedStatement,
     insert_stream: scylla::statement::prepared::PreparedStatement,
     update_stream_lwt: scylla::statement::prepared::PreparedStatement,
@@ -64,6 +77,7 @@ pub struct ScyllaLogBackend {
     delete_truncate: scylla::statement::prepared::PreparedStatement,
     insert_stream_index: scylla::statement::prepared::PreparedStatement,
     select_stream_keys: scylla::statement::prepared::PreparedStatement,
+    seq_blocks: DashMap<String, SeqBlock>,
 }
 
 #[derive(DeserializeRow)]
@@ -136,9 +150,9 @@ impl ScyllaLogBackend {
                 ))
                 .await
                 .map_err(map_err)?,
-            insert_event_id: session
+            insert_event_id_lwt: session
                 .prepare(q(
-                    "INSERT INTO continuum.continuum_event_id (stream_key, event_id, seq) VALUES (?, ?, ?)",
+                    "INSERT INTO continuum.continuum_event_id (stream_key, event_id, seq) VALUES (?, ?, ?) IF NOT EXISTS",
                 ))
                 .await
                 .map_err(map_err)?,
@@ -190,7 +204,7 @@ impl ScyllaLogBackend {
                 .map_err(map_err)?,
             insert_stream_index: session
                 .prepare(q(
-                    "INSERT INTO continuum.continuum_stream_index (topic_prefix, stream_key) VALUES (?, ?) IF NOT EXISTS",
+                    "INSERT INTO continuum.continuum_stream_index (topic_prefix, stream_key) VALUES (?, ?)",
                 ))
                 .await
                 .map_err(map_err)?,
@@ -200,6 +214,7 @@ impl ScyllaLogBackend {
                 ))
                 .await
                 .map_err(map_err)?,
+            seq_blocks: DashMap::new(),
         };
         Ok(backend)
     }
@@ -216,59 +231,134 @@ impl ScyllaLogBackend {
         &self.keyspace
     }
 
+    async fn execute_unpaged(
+        &self,
+        stmt: &scylla::statement::prepared::PreparedStatement,
+        values: impl SerializeRow,
+    ) -> Result<scylla::response::query_result::QueryResult> {
+        append_ops::record_round_trip(1);
+        self.session
+            .execute_unpaged(stmt, values)
+            .await
+            .map_err(map_err)
+    }
+
+    async fn write_event_new(
+        &self,
+        stream_key: &str,
+        seq: Seq,
+        rec: &AppendRecord,
+    ) -> Result<bool> {
+        let id_result = self
+            .execute_unpaged(
+                &self.insert_event_id_lwt,
+                (stream_key, rec.event_id, seq.as_i64()),
+            )
+            .await?;
+        if !lwt_applied(&id_result) {
+            return Ok(false);
+        }
+        self.execute_unpaged(
+            &self.insert_event,
+            (
+                stream_key,
+                seq.as_i64(),
+                rec.event_id,
+                rec.ts.timestamp_millis(),
+                i32::try_from(rec.attempt).unwrap_or(i32::MAX),
+                rec.actor_ref.as_deref(),
+                rec.payload_ciphertext.as_slice(),
+            ),
+        )
+        .await?;
+        Ok(true)
+    }
+
     async fn existing_seq(&self, stream_key: &str, event_id: &Uuid) -> Result<Option<Seq>> {
         let rows = self
-            .session
             .execute_unpaged(&self.select_event_id, (stream_key, *event_id))
-            .await
-            .map_err(map_err)?;
+            .await?;
         Ok(maybe_first_row::<SeqRow>(rows).map(|r| Seq(r.seq)))
     }
 
     async fn ensure_stream_row(&self, stream_key: &str) -> Result<()> {
-        self.session
-            .execute_unpaged(&self.insert_stream, (stream_key, 0_i64))
-            .await
-            .map_err(map_err)?;
+        self.execute_unpaged(&self.insert_stream, (stream_key, 0_i64))
+            .await?;
         Ok(())
+    }
+
+    async fn reserve_seq_block_lwt(&self, stream_key: &str, block_size: i64) -> Result<SeqBlock> {
+        for _ in 0..64 {
+            let current = self
+                .execute_unpaged(&self.select_stream_seq, (stream_key,))
+                .await?;
+            let current = maybe_first_row::<NextSeqRow>(current)
+                .map(|r| r.next_seq)
+                .unwrap_or(0);
+            let end = current + block_size;
+            let applied = self
+                .execute_unpaged(&self.update_stream_lwt, (end, stream_key, current))
+                .await?;
+            if lwt_applied(&applied) {
+                return Ok(SeqBlock {
+                    next: current,
+                    end,
+                });
+            }
+            if lwt_missing_row(&applied) {
+                self.ensure_stream_row(stream_key).await?;
+            }
+        }
+        Err(LogError::Conflict(
+            "scylla seq block reservation CAS exhausted retries".into(),
+        ))
     }
 
     async fn allocate_seq_batch(&self, stream_key: &str, count: usize) -> Result<Vec<Seq>> {
         if count == 0 {
             return Ok(vec![]);
         }
-        self.ensure_stream_row(stream_key).await?;
-        for _ in 0..64 {
-            let current = self
-                .session
-                .execute_unpaged(&self.select_stream_seq, (stream_key,))
-                .await
-                .map_err(map_err)?;
-            let current = maybe_first_row::<NextSeqRow>(current)
-                .map(|r| r.next_seq)
-                .unwrap_or(0);
-            let end = current + i64::try_from(count).unwrap_or(i64::MAX);
-            let applied = self
-                .session
-                .execute_unpaged(&self.update_stream_lwt, (end, stream_key, current))
-                .await
-                .map_err(map_err)?;
-            if lwt_applied(applied) {
-                return Ok((1..=count)
-                    .map(|offset| Seq(current + i64::try_from(offset).unwrap_or(0)))
-                    .collect());
+        let mut out = Vec::with_capacity(count);
+        while out.len() < count {
+            let remaining = count - out.len();
+            if let Some(mut cached) = self.seq_blocks.get_mut(stream_key) {
+                let available = (cached.end - cached.next) as usize;
+                if available > 0 {
+                    let take = remaining.min(available);
+                    for offset in 0..take {
+                        out.push(Seq(cached.next + i64::try_from(offset + 1).unwrap_or(0)));
+                    }
+                    cached.next += i64::try_from(take).unwrap_or(0);
+                    continue;
+                }
+            }
+            let block = self
+                .reserve_seq_block_lwt(stream_key, SEQ_BLOCK_SIZE)
+                .await?;
+            let available = (block.end - block.next) as usize;
+            let take = remaining.min(available);
+            for offset in 0..take {
+                out.push(Seq(block.next + i64::try_from(offset + 1).unwrap_or(0)));
+            }
+            let consumed = block.next + i64::try_from(take).unwrap_or(0);
+            if consumed < block.end {
+                self.seq_blocks.insert(
+                    stream_key.to_string(),
+                    SeqBlock {
+                        next: consumed,
+                        end: block.end,
+                    },
+                );
+            } else {
+                self.seq_blocks.remove(stream_key);
             }
         }
-        Err(LogError::Conflict(
-            "scylla stream seq allocation CAS exhausted retries".into(),
-        ))
+        Ok(out)
     }
 
     async fn register_topic_stream(&self, topic_prefix: &str, stream_key: &str) -> Result<()> {
-        self.session
-            .execute_unpaged(&self.insert_stream_index, (topic_prefix, stream_key))
-            .await
-            .map_err(map_err)?;
+        self.execute_unpaged(&self.insert_stream_index, (topic_prefix, stream_key))
+            .await?;
         Ok(())
     }
 
@@ -302,53 +392,29 @@ impl LogBackend for ScyllaLogBackend {
 
         let stream_key = stream.storage_key();
         let topic_prefix = Self::topic_prefix(&stream);
+        let seqs = self
+            .allocate_seq_batch(&stream_key, records.len())
+            .await?;
         let mut out = Vec::with_capacity(records.len());
-        let mut new_records: Vec<(usize, &AppendRecord)> = Vec::new();
 
-        for (idx, rec) in records.iter().enumerate() {
-            if let Some(seq) = self.existing_seq(&stream_key, &rec.event_id).await? {
+        for (rec, seq) in records.iter().zip(seqs) {
+            if self.write_event_new(&stream_key, seq, rec).await? {
                 out.push(seq);
             } else {
-                new_records.push((idx, rec));
-                out.push(Seq(0));
+                let existing = self
+                    .existing_seq(&stream_key, &rec.event_id)
+                    .await?
+                    .ok_or_else(|| {
+                        LogError::Conflict(
+                            "idempotency insert not applied but seq row missing".into(),
+                        )
+                    })?;
+                out.push(existing);
             }
         }
 
-        if new_records.is_empty() {
-            return Ok(out);
-        }
-
-        let seqs = self
-            .allocate_seq_batch(&stream_key, new_records.len())
-            .await?;
         self.register_topic_stream(&topic_prefix, &stream_key)
             .await?;
-
-        for ((idx, rec), seq) in new_records.into_iter().zip(seqs) {
-            out[idx] = seq;
-            self.session
-                .execute_unpaged(
-                    &self.insert_event,
-                    (
-                        stream_key.as_str(),
-                        seq.as_i64(),
-                        rec.event_id,
-                        rec.ts.timestamp_millis(),
-                        i32::try_from(rec.attempt).unwrap_or(i32::MAX),
-                        rec.actor_ref.as_deref(),
-                        rec.payload_ciphertext.as_slice(),
-                    ),
-                )
-                .await
-                .map_err(map_err)?;
-            self.session
-                .execute_unpaged(
-                    &self.insert_event_id,
-                    (stream_key.as_str(), rec.event_id, seq.as_i64()),
-                )
-                .await
-                .map_err(map_err)?;
-        }
 
         Ok(out)
     }
@@ -518,13 +584,23 @@ impl fmt::Debug for ScyllaLogBackend {
     }
 }
 
-fn lwt_applied(result: scylla::response::query_result::QueryResult) -> bool {
+fn lwt_applied(result: &scylla::response::query_result::QueryResult) -> bool {
     result
+        .clone()
         .into_rows_result()
         .ok()
         .and_then(|rows| rows.maybe_first_row::<AppliedRow>().ok().flatten())
         .map(|r| r.applied)
-        .unwrap_or(false)
+        .unwrap_or(true)
+}
+
+fn lwt_missing_row(result: &scylla::response::query_result::QueryResult) -> bool {
+    result
+        .clone()
+        .into_rows_result()
+        .ok()
+        .and_then(|rows| rows.maybe_first_row::<AppliedRow>().ok().flatten())
+        .is_some_and(|r| !r.applied && r.next_seq.is_none())
 }
 
 fn maybe_first_row<R>(result: scylla::response::query_result::QueryResult) -> Option<R>

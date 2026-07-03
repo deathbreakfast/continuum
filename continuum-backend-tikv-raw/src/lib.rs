@@ -1,10 +1,13 @@
 //! Raw TiKV [`LogBackend`](continuum_core::backend::LogBackend) (PD client, no Surreal).
 
+mod append_ops;
 mod error_map;
 mod keys;
 
 use std::fmt;
 use std::sync::Arc;
+
+use dashmap::DashMap;
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -20,6 +23,14 @@ use continuum_core::validation::{validate_read_limit, validate_topic};
 use error_map::map_err;
 use keys::{checkpoint_key, event_key, idempotency_key, meta_key, scan_end, topic_stream_key};
 
+const SEQ_BLOCK_SIZE: i64 = 64;
+
+#[derive(Debug, Clone, Copy)]
+struct SeqBlock {
+    next: i64,
+    end: i64,
+}
+
 /// Connection settings for [`TikvRawLogBackend`].
 #[derive(Debug, Clone, Default)]
 pub struct TikvRawLogConfig {
@@ -30,6 +41,7 @@ pub struct TikvRawLogConfig {
 /// TiKV-backed transport log using transactional RawKV-style keys.
 pub struct TikvRawLogBackend {
     client: Arc<TransactionClient>,
+    seq_blocks: DashMap<String, SeqBlock>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -63,55 +75,23 @@ impl TikvRawLogBackend {
             .map_err(map_err)?;
         Ok(Self {
             client: Arc::new(client),
+            seq_blocks: DashMap::new(),
         })
     }
 
     /// Wrap an existing TiKV transaction client.
     #[must_use]
     pub fn from_client(client: Arc<TransactionClient>) -> Self {
-        Self { client }
+        Self {
+            client,
+            seq_blocks: DashMap::new(),
+        }
     }
 
     /// Underlying TiKV client.
     #[must_use]
     pub fn client(&self) -> &Arc<TransactionClient> {
         &self.client
-    }
-
-    async fn get_meta(&self, stream_key: &str) -> Result<i64> {
-        let key = meta_key(stream_key);
-        let mut txn = self.client.begin_optimistic().await.map_err(map_err)?;
-        let value = match txn.get(key).await {
-            Ok(v) => v,
-            Err(e) => {
-                let _ = txn.rollback().await;
-                return Err(map_err(e));
-            }
-        };
-        if let Err(e) = txn.commit().await {
-            let _ = txn.rollback().await;
-            return Err(map_err(e));
-        }
-        Ok(value
-            .and_then(|v| decode_meta(&v))
-            .map_or(0, |m| m.next_seq))
-    }
-
-    async fn existing_seq(&self, stream_key: &str, event_id: &Uuid) -> Result<Option<Seq>> {
-        let key = idempotency_key(stream_key, event_id);
-        let mut txn = self.client.begin_optimistic().await.map_err(map_err)?;
-        let value = match txn.get(key).await {
-            Ok(v) => v,
-            Err(e) => {
-                let _ = txn.rollback().await;
-                return Err(map_err(e));
-            }
-        };
-        if let Err(e) = txn.commit().await {
-            let _ = txn.rollback().await;
-            return Err(map_err(e));
-        }
-        Ok(value.and_then(|v| decode_seq(&v).ok()))
     }
 
     fn topic_prefix(stream: &LogStreamId) -> String {
@@ -122,6 +102,73 @@ impl TikvRawLogBackend {
             stream.topic,
             continuum_core::types::STORAGE_KEY_SEP,
         )
+    }
+
+    fn block_has_seq(&self, stream_key: &str) -> bool {
+        self.seq_blocks
+            .get(stream_key)
+            .is_some_and(|entry| entry.next < entry.end)
+    }
+
+    fn take_seq_from_block(&self, stream_key: &str) -> Option<Seq> {
+        let mut entry = self.seq_blocks.get_mut(stream_key)?;
+        if entry.next >= entry.end {
+            return None;
+        }
+        entry.next += 1;
+        Some(Seq(entry.next))
+    }
+
+    async fn reserve_seq_block(&self, stream_key: &str) -> Result<()> {
+        for attempt in 0..16 {
+            let mut txn = self.client.begin_optimistic().await.map_err(map_err)?;
+            append_ops::record_round_trip(1);
+            let meta_k = meta_key(stream_key);
+            let current = match txn.get(meta_k.clone()).await.map_err(map_err)? {
+                Some(v) => decode_meta(&v).map_or(0, |m| m.next_seq),
+                None => 0,
+            };
+            let end = current + SEQ_BLOCK_SIZE;
+            txn.put(meta_k, encode_meta(StreamMeta { next_seq: end }))
+                .await
+                .map_err(map_err)?;
+            match txn.commit().await.map_err(map_err) {
+                Ok(_) => {
+                    self.seq_blocks.insert(
+                        stream_key.to_string(),
+                        SeqBlock {
+                            next: current,
+                            end,
+                        },
+                    );
+                    return Ok(());
+                }
+                Err(e) if attempt + 1 < 16 => {
+                    let _ = txn.rollback().await;
+                    let msg = e.to_string();
+                    if msg.contains("write conflict") || msg.contains("Conflict") {
+                        continue;
+                    }
+                    return Err(e);
+                }
+                Err(e) => {
+                    let _ = txn.rollback().await;
+                    return Err(e);
+                }
+            }
+        }
+        Err(LogError::Conflict(
+            "tikv seq block reservation exhausted retries".into(),
+        ))
+    }
+
+    async fn allocate_seq(&self, stream_key: &str) -> Result<Seq> {
+        if !self.block_has_seq(stream_key) {
+            self.reserve_seq_block(stream_key).await?;
+        }
+        self.take_seq_from_block(stream_key).ok_or_else(|| {
+            LogError::Backend("tikv seq block empty after reservation".into())
+        })
     }
 }
 
@@ -139,43 +186,52 @@ impl LogBackend for TikvRawLogBackend {
 
         let stream_key = stream.storage_key();
         let topic_prefix = Self::topic_prefix(&stream);
-        let mut out = Vec::with_capacity(records.len());
-        let mut new_records: Vec<(usize, &AppendRecord)> = Vec::new();
+        let mut out = vec![Seq(0); records.len()];
 
-        for (idx, rec) in records.iter().enumerate() {
-            if let Some(seq) = self.existing_seq(&stream_key, &rec.event_id).await? {
-                out.push(seq);
-            } else {
-                new_records.push((idx, rec));
-                out.push(Seq(0));
+        // Pass 1: idempotency read txn.
+        {
+            let mut txn = self.client.begin_optimistic().await.map_err(map_err)?;
+            append_ops::record_round_trip(1);
+            for (idx, rec) in records.iter().enumerate() {
+                let id_key = idempotency_key(&stream_key, &rec.event_id);
+                if let Some(existing) = txn.get(id_key).await.map_err(map_err)? {
+                    out[idx] = decode_seq(&existing).map_err(|()| {
+                        LogError::Backend("invalid idempotency seq bytes".into())
+                    })?;
+                }
             }
+            txn.commit().await.map_err(map_err)?;
         }
+
+        let mut new_records: Vec<(usize, &AppendRecord)> = records
+            .iter()
+            .enumerate()
+            .filter(|(idx, _)| out[*idx] == Seq(0))
+            .collect();
 
         if new_records.is_empty() {
             return Ok(out);
         }
 
+        let mut seqs = Vec::with_capacity(new_records.len());
+        for _ in &new_records {
+            seqs.push(self.allocate_seq(&stream_key).await?);
+        }
+
+        // Pass 2: write txn (no meta CAS — seq blocks reserved out-of-band).
         for attempt in 0..16 {
-            let current = self.get_meta(&stream_key).await?;
-            let count = new_records.len();
-            let end = current + i64::try_from(count).unwrap_or(i64::MAX);
             let mut txn = self.client.begin_optimistic().await.map_err(map_err)?;
+            append_ops::record_round_trip(1);
 
-            let attempt_result: Result<Vec<Seq>> = async {
-                let meta_k = meta_key(&stream_key);
-                if let Some(existing) = txn.get(meta_k.clone()).await.map_err(map_err)? {
-                    let existing_seq = decode_meta(&existing).map_or(0, |m| m.next_seq);
-                    if existing_seq != current {
-                        return Err(LogError::Conflict("tikv meta changed".into()));
+            let attempt_result: Result<()> = async {
+                for ((idx, rec), seq) in new_records.iter().zip(&seqs) {
+                    let id_key = idempotency_key(&stream_key, &rec.event_id);
+                    if txn.get(id_key.clone()).await.map_err(map_err)?.is_some() {
+                        return Err(LogError::Conflict(
+                            "tikv idempotency race during write".into(),
+                        ));
                     }
-                } else if current != 0 {
-                    return Err(LogError::Conflict("tikv meta missing".into()));
-                }
-
-                let mut seqs = Vec::with_capacity(count);
-                for (offset, (_, rec)) in new_records.iter().enumerate() {
-                    let seq = Seq(current + i64::try_from(offset + 1).unwrap_or(0));
-                    seqs.push(seq);
+                    out[*idx] = *seq;
                     let stored = StoredEvent {
                         event_id: rec.event_id,
                         ts_millis: rec.ts.timestamp_millis(),
@@ -183,23 +239,11 @@ impl LogBackend for TikvRawLogBackend {
                         actor_ref: rec.actor_ref.clone(),
                         payload_ciphertext: rec.payload_ciphertext.clone(),
                     };
-                    txn.put(
-                        event_key(&stream_key, seq),
-                        encode_event(&stored),
-                    )
-                    .await
-                    .map_err(map_err)?;
-                    txn.put(
-                        idempotency_key(&stream_key, &rec.event_id),
-                        encode_seq(seq),
-                    )
-                    .await
-                    .map_err(map_err)?;
+                    txn.put(event_key(&stream_key, *seq), encode_event(&stored))
+                        .await
+                        .map_err(map_err)?;
+                    txn.put(id_key, encode_seq(*seq)).await.map_err(map_err)?;
                 }
-
-                txn.put(meta_k, encode_meta(StreamMeta { next_seq: end }))
-                    .await
-                    .map_err(map_err)?;
                 txn.put(
                     topic_stream_key(&topic_prefix, &stream_key),
                     Value::from([] as [u8; 0]),
@@ -207,17 +251,12 @@ impl LogBackend for TikvRawLogBackend {
                 .await
                 .map_err(map_err)?;
                 txn.commit().await.map_err(map_err)?;
-                Ok(seqs)
+                Ok(())
             }
             .await;
 
             match attempt_result {
-                Ok(seqs) => {
-                    for ((idx, _), seq) in new_records.iter().zip(seqs) {
-                        out[*idx] = seq;
-                    }
-                    return Ok(out);
-                }
+                Ok(()) => return Ok(out),
                 Err(LogError::Conflict(_)) if attempt + 1 < 16 => {
                     let _ = txn.rollback().await;
                     continue;
@@ -237,7 +276,7 @@ impl LogBackend for TikvRawLogBackend {
         }
 
         Err(LogError::Conflict(
-            "tikv stream seq allocation exhausted retries".into(),
+            "tikv append write exhausted retries".into(),
         ))
     }
 

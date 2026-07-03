@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Run Phase A colocated campaign on colocated fleet via SSH.
-# Usage: run-campaign.sh <native-lab|native-scale|native-lab-partitioned|partition-campaign> [role]
+# Usage: run-campaign.sh <native-lab|native-scale|native-lab-partitioned|concurrency-campaign|partition-campaign> [role]
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -39,17 +39,43 @@ run_matrix() {
   '"
 }
 
+start_detached_script() {
+  local role="$1"
+  local script="$2"
+  local storage="$3"
+  local done_marker="$4"
+  local host
+  host="$(manifest_host "$role")"
+  echo ">>> detached $script on $role ($host)"
+  ssh_cmd "$host" "bash -lc '
+    set -euo pipefail
+    eval \"\$(bash ~/continuum/infra/native-aws/scripts/export-env.sh $role)\"
+    export PATH=\"\$HOME/continuum-bench:\$PATH\"
+    mkdir -p ~/continuum-bench
+    rm -f ~/continuum-bench/$done_marker ~/continuum-bench/campaign-${done_marker%.done}.log
+    nohup bash ~/continuum/continuum-bench/scripts/$script aws-t3-medium $storage \
+      > ~/continuum-bench/campaign-${done_marker%.done}.log 2>&1 &
+    echo \$! > ~/continuum-bench/campaign-${done_marker%.done}.pid
+    echo \"started pid=\$(cat ~/continuum-bench/campaign-${done_marker%.done}.pid)\"
+  '"
+}
+
+if [[ "$CAMPAIGN" == "concurrency-campaign" ]]; then
+  for role in scylla tikv; do
+    [[ -n "$ROLE" && "$ROLE" != "$role" ]] && continue
+    storage="scylla"
+    [[ "$role" == "tikv" ]] && storage="tikv-raw"
+    start_detached_script "$role" "run-concurrency-campaign.sh" "$storage" "campaign-concurrency.done"
+  done
+  exit 0
+fi
+
 if [[ "$CAMPAIGN" == "partition-campaign" ]]; then
   for role in scylla tikv; do
     [[ -n "$ROLE" && "$ROLE" != "$role" ]] && continue
-    host="$(manifest_host "$role")"
     storage="scylla"
     [[ "$role" == "tikv" ]] && storage="tikv-raw"
-    ssh_cmd "$host" "bash -lc '
-      eval \"\$(bash ~/continuum/infra/native-aws/scripts/export-env.sh $role)\"
-      export PATH=\"\$HOME/continuum-bench:\$PATH\"
-      bash ~/continuum/continuum-bench/scripts/run-partition-campaign.sh aws-t3-medium $storage
-    '"
+    start_detached_script "$role" "run-partition-campaign.sh" "$storage" "campaign-partition.done"
   done
   exit 0
 fi

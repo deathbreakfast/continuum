@@ -18,10 +18,10 @@ pub fn render_markdown(p: &FleetProjection) -> String {
         lines.push(format!("- per-shard ceiling: {r:.0} ops/s"));
     }
     if let Some(n) = p.partitions_modeled {
-        lines.push(format!("- partitions modeled (BM-M2): {n}"));
+        lines.push(format!("- partitions modeled (Track P): {n}"));
     }
     if let Some(n) = p.clients_modeled {
-        lines.push(format!("- clients modeled (BM-M2): {n}"));
+        lines.push(format!("- clients modeled (Track M): {n}"));
     }
     if let Some(r) = p.aggregate_ops_per_sec {
         lines.push(format!("- measured aggregate: {r:.0} ops/s"));

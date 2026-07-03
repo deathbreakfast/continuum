@@ -36,7 +36,7 @@ done
 for C in 8 64 128; do
   export CONTINUUM_BENCH_CLIENT_COUNT=$C
   export CONTINUUM_BENCH_PARTITION_COUNT=$C
-  run_matrix native-scale --skip-experiments bm-p1,bm-p2
+  run_matrix native-scale --skip-experiments bm-p1,bm-p2,bm-m1,bm-m2
 done
 
 unset CONTINUUM_BENCH_PARTITION_COUNT CONTINUUM_BENCH_CLIENT_COUNT

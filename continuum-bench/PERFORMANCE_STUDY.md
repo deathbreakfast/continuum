@@ -760,7 +760,65 @@ cargo run -p continuum-bench -- project-fleet \
 
 ## Appendix F — Native adapters (Scylla + tikv-raw, aws-t3-medium — July 2026)
 
-Source: [`infra/native-aws/`](../infra/native-aws/) Phase A colocated campaign. **18** reports (`9` scylla + `9` tikv-raw). Compare to June 2026 sqlite baseline on the same hardware (Appendix D) and surreal-tikv colocated path (Appendix E).
+### Table F.4 — Concurrency ladder (Track M, BM-M3)
+
+| C | Storage | ops/s | p99 ms | Pass |
+| --- | --- | --- | --- | --- |
+| 8 | scylla/scylla-1 | 21.3/s | 395.5 | PASS |
+| 64 | scylla/scylla-1 | 3.60/s | 22661.6 | PASS |
+| 64 | scylla/scylla-1 | 68.1/s | 14230.8 | PASS |
+| 128 | scylla/scylla-1 | 2.18/s | 42874.0 | FAIL |
+| 8 | tikv-raw/tikv-minimal | 47.5/s | 489.5 | FAIL |
+| 64 | tikv-raw/tikv-minimal | 11.1/s | 4270.7 | FAIL |
+| 64 | tikv-raw/tikv-minimal | 3.91/s | 50008.8 | FAIL |
+| 128 | tikv-raw/tikv-minimal | 7.62/s | 8885.1 | FAIL |
+
+### Table F.5 — Partition scaling (Track P, BM-M4 + BM-P1, post-opt)
+
+| K | C | Storage | ops/s | p99 ms | Pass |
+| --- | --- | --- | --- | --- | --- |
+| 8 | 8 | scylla/scylla-1 | 115/s | 89.8 | PASS |
+| 64 | 64 | scylla/scylla-1 | 2,803/s | 50.5 | PASS |
+| 128 | 128 | scylla/scylla-1 | 3,241/s | 89.6 | PASS |
+| 256 | 256 | scylla/scylla-1 | 3,318/s | 150.4 | PASS |
+| 8 | 8 | tikv-raw/tikv-minimal | 97.9/s | 157.9 | PASS |
+| 64 | 64 | tikv-raw/tikv-minimal | 873/s | 135.7 | PASS |
+| 128 | 128 | tikv-raw/tikv-minimal | 1,091/s | 202.0 | PASS |
+| 256 | 256 | tikv-raw/tikv-minimal | 1,045/s | 391.2 | PASS |
+| 512 | 512 | tikv-raw/tikv-minimal | 1,134/s | 747.6 | PASS |
+| 1024 | 1024 | tikv-raw/tikv-minimal | 1,201/s | 1,606.5 | PASS |
+
+Pre-opt note: Scylla C=K=128 failed at **8.6%** errors (~115/s) before adapter changes; post-opt re-run is **3,241/s** at 0% errors.
+
+**F.1 Findings (updated):** The throughput gap vs raw DB tools is adapter round-trips and per-append consensus (Scylla LWT/Paxos, TiKV optimistic 2PC), not generic Continuum overhead — SQLite at ~1900/s on the same `LogBackend.append()` disproves high core overhead. Hot-stream ceiling (~64/s scylla, ~45/s tikv-raw) is partition-bound; spreading keys (Track P) raises aggregate throughput. Scylla BM-M4 scales through C=256 on one node; TiKV BM-M4 plateaus near **~1.1k/s** from C=128–1024 (single RawClient, 2 vCPU host).
+
+### Table F.6 — Append optimization before/after (2026-07-01, aws-t3-medium)
+
+| ID | Scylla pre-opt | Scylla post-opt | TiKV pre-opt | TiKV post-opt |
+|----|----------------|-----------------|--------------|---------------|
+| BM-C0 p50 (ms) | 15.3 | **5.1** | 10.2 | **7.0** |
+| BM-L3 hot (ops/s) | 64 | **184** | 45 | **138** |
+| BM-M3 C=64 hot | 4 | **68** | 45 | 4 (conflicts) |
+| BM-M4 C=K=64 | 112 | **2,803** | 84 | **873** |
+
+Round-trip budget per append (steady state): **before** Scylla 7 RT / 3 Paxos; **after** ~2 RT / ~1 Paxos amortized over 64-seq blocks. **Before** TiKV 3 optimistic txns; **after** 2 txns (idempotency read + write) with meta block reserve every 64 seqs.
+
+**Post-opt F.1 addendum:** Native adapters now approach raw Test B single-key ceilings on hot streams (Scylla 68/s vs raw 903/s still gap — idempotency LWT remains). Spread-key BM-M4 vs raw Test A (spread-key INSERT): Scylla **~22%** at C=K=256 (3,318/s vs 14,872/s @ 316 threads); TiKV **~16%** at C=K=1024 (1,201/s vs 7,290/s @ 1024 threads). Both use one bench process and one driver client — not hundreds of TCP connections like `cassandra-stress` / `go-ycsb`.
+
+### Table F.7 — BM-M4 concurrency scaling curve (post-opt, 2026-07-02)
+
+| C=K | Scylla ops/s | Scylla p50 | TiKV ops/s | TiKV p50 | vs raw Test A |
+| --- | --- | --- | --- | --- | --- |
+| 64 | 2,803 | 21.6ms | 873 | 69.0ms | 19% / 12% |
+| 128 | 3,241 | 36.8ms | 1,091 | 114.3ms | 22% / 15% |
+| 256 | 3,318 | 72.6ms | 1,045 | 240.5ms | 22% / 14% |
+| 512 | — | — | 1,134 | 438.5ms | — / 16% |
+| 1024 | — | — | 1,201 | 834.5ms | — / 16% |
+
+Raw Test A baselines: Scylla 14,872/s (316 threads); TiKV 7,290/s (1024 threads). Percentages = Continuum ops/s ÷ raw peak.
+
+
+Source: [`infra/native-aws/`](../infra/native-aws/) Phase A colocated campaign. BM-M4 C=K scaling sweep extended 2026-07-02 (Scylla through 256, TiKV through 1024). Compare to June 2026 sqlite baseline on the same hardware (Appendix D) and surreal-tikv colocated path (Appendix E).
 
 **Layout:** 2× `t3.medium` (us-west-2, AL2023): Scylla `scylla-1` colocated on host A; PD + TiKV `tikv-minimal` colocated on host B. Bench binary built in Amazon Linux 2023 Docker (`build-al2023.sh`).
 
