@@ -136,13 +136,13 @@ impl SqlLogBackend {
 
     /// Underlying connection pool (for shared-handle benchmarks).
     #[must_use]
-    pub fn pool(&self) -> &SqlPool {
+    pub const fn pool(&self) -> &SqlPool {
         &self.pool
     }
 
     /// Engine dialect.
     #[must_use]
-    pub fn dialect(&self) -> SqlDialect {
+    pub const fn dialect(&self) -> SqlDialect {
         self.dialect
     }
 

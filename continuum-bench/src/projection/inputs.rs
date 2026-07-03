@@ -86,7 +86,7 @@ fn matches_dimensions(
     }
     // Skip partitioned load-tier reports when projecting hot-stream ceiling.
     if scylla_topology.is_none() && tikv_topology.is_none() {
-        if let Some(k) = v.pointer("/metrics/load_partition_count").and_then(|x| x.as_u64()) {
+        if let Some(k) = v.pointer("/metrics/load_partition_count").and_then(serde_json::Value::as_u64) {
             if k > 1 {
                 return false;
             }
@@ -107,11 +107,10 @@ fn merge_report(inputs: &mut FleetProjectionInputs, v: &Value) {
         }
         "bm-m2" | "bm-m4" => {
             let rate_val = rate.unwrap_or(0.0);
-            if id == "bm-m4" {
-                if inputs.cluster_peak_ops_per_sec.is_none_or(|best| rate_val > best) {
+            if id == "bm-m4"
+                && inputs.cluster_peak_ops_per_sec.is_none_or(|best| rate_val > best) {
                     inputs.cluster_peak_ops_per_sec = rate;
                 }
-            }
             inputs.aggregate_ops_per_sec = rate.or(inputs.aggregate_ops_per_sec);
             inputs.partitions_modeled = v
                 .pointer("/metrics/partitions_modeled")

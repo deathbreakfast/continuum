@@ -1,4 +1,4 @@
-//! Map TiKV client errors to [`LogError`](continuum_core::error::LogError).
+//! Map `TiKV` client errors to [`LogError`].
 
 use continuum_core::error::LogError;
 

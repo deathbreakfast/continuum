@@ -1,0 +1,3 @@
+# Workspace Clippy thresholds (see https://doc.rust-lang.org/clippy/lint_configuration.html).
+# Counts lines with code only; blank and comment-only lines are excluded.
+too-many-lines-threshold = 500

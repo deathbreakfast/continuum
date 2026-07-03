@@ -43,7 +43,7 @@ impl BackendEnv {
         logical_dest: "default",
     };
 
-    /// Raw TiKV backend test environment.
+    /// Raw `TiKV` backend test environment.
     pub const TIKV_RAW: Self = Self {
         kind: LogBackendKind::TikvRaw,
         logical_dest: "default",

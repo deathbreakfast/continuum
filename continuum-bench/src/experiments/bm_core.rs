@@ -109,7 +109,7 @@ pub async fn run_bm_c2(ctx: &ExperimentContext) -> Result<Value> {
     Ok(out)
 }
 
-fn size_label(n: usize) -> &'static str {
+const fn size_label(n: usize) -> &'static str {
     match n {
         1_000 => "1k",
         10_000 => "10k",
@@ -322,11 +322,10 @@ async fn measure_same_handle_growth(
 }
 
 fn disk_or_rss(handle: &BackendHandle) -> u64 {
-    if let Some(path) = crate::harness::backend::storage_disk_path(&handle.engine_path) {
-        crate::harness::backend::dir_size_bytes(&path)
-    } else {
-        process_rss_bytes()
-    }
+    crate::harness::backend::storage_disk_path(&handle.engine_path).map_or_else(
+        process_rss_bytes,
+        |path| crate::harness::backend::dir_size_bytes(&path),
+    )
 }
 
 pub async fn run_bm_c6(ctx: &ExperimentContext, duration_secs: u64) -> Result<Value> {

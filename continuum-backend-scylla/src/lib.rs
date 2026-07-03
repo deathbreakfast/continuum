@@ -1,4 +1,4 @@
-//! ScyllaDB [`LogBackend`] for the continuum transport log.
+//! `ScyllaDB` [`LogBackend`] for the continuum transport log.
 //!
 //! Enable via the `scylla` feature on the [`continuum`](https://docs.rs/continuum) facade.
 //! See [Getting started](https://docs.rs/continuum/latest/continuum/index.html#getting-started)
@@ -33,6 +33,7 @@ use error_map::map_err;
 pub use config::{consistency_from_str, IdempotencyMode, IdempotencyPolicy};
 
 /// Snapshot append round-trip counters when `CONTINUUM_APPEND_DEBUG_OPS` is enabled.
+#[must_use]
 pub fn append_debug_snapshot() -> (u64, u64) {
     append_ops::snapshot()
 }
@@ -154,6 +155,10 @@ struct StreamKeyRow {
 
 impl ScyllaLogBackend {
     /// Connect to a Scylla cluster and bootstrap schema.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the session cannot be established or schema bootstrap fails.
     pub async fn connect(config: ScyllaLogConfig) -> Result<Self> {
         let mut builder = SessionBuilder::new();
         for cp in &config.contact_points {
@@ -170,6 +175,10 @@ impl ScyllaLogBackend {
     }
 
     /// Wrap an existing session (schema bootstrap runs).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if schema bootstrap or statement preparation fails.
     pub async fn from_session(session: Arc<Session>, config: &ScyllaLogConfig) -> Result<Self> {
         schema::ensure_schema(&session, &config.keyspace, config.replication_factor).await?;
         let ks = config.keyspace.clone();
@@ -272,7 +281,7 @@ impl ScyllaLogBackend {
 
     /// Underlying driver session.
     #[must_use]
-    pub fn session(&self) -> &Arc<Session> {
+    pub const fn session(&self) -> &Arc<Session> {
         &self.session
     }
 
@@ -369,8 +378,7 @@ impl ScyllaLogBackend {
                 .execute_unpaged(&self.select_stream_seq, (stream_key,))
                 .await?;
             let current = maybe_first_row::<NextSeqRow>(current)
-                .map(|r| r.next_seq)
-                .unwrap_or(0);
+                .map_or(0, |r| r.next_seq);
             let end = current + block_size;
             let applied = self
                 .execute_unpaged(&self.update_stream_lwt, (end, stream_key, current))
@@ -398,7 +406,8 @@ impl ScyllaLogBackend {
         while out.len() < count {
             let remaining = count - out.len();
             if let Some(mut cached) = self.seq_blocks.get_mut(stream_key) {
-                let available = (cached.end - cached.next) as usize;
+                let available =
+                    usize::try_from(cached.end.saturating_sub(cached.next)).unwrap_or(0);
                 if available > 0 {
                     let take = remaining.min(available);
                     for offset in 0..take {
@@ -411,7 +420,7 @@ impl ScyllaLogBackend {
             let block = self
                 .reserve_seq_block_lwt(stream_key, self.seq_block_size)
                 .await?;
-            let available = (block.end - block.next) as usize;
+            let available = usize::try_from(block.end.saturating_sub(block.next)).unwrap_or(0);
             let take = remaining.min(available);
             for offset in 0..take {
                 out.push(Seq(block.next + i64::try_from(offset + 1).unwrap_or(0)));
@@ -540,7 +549,7 @@ impl LogBackend for ScyllaLogBackend {
             )
             .await
             .map_err(map_err)?;
-        rows_to_events(&stream, rows, stream.key.clone())
+        Ok(rows_to_events(&stream, rows, stream.key.as_deref()))
     }
 
     async fn read_from_topic(
@@ -660,8 +669,7 @@ impl LogBackend for ScyllaLogBackend {
             .await
             .map_err(map_err)?;
         let removed = maybe_first_row::<CountRow>(count_rows)
-            .map(|r| r.cnt)
-            .unwrap_or(0);
+            .map_or(0, |r| r.cnt);
         self.session
             .execute_unpaged(
                 &self.delete_truncate,
@@ -687,8 +695,7 @@ fn lwt_applied(result: &scylla::response::query_result::QueryResult) -> bool {
         .into_rows_result()
         .ok()
         .and_then(|rows| rows.maybe_first_row::<AppliedRow>().ok().flatten())
-        .map(|r| r.applied)
-        .unwrap_or(true)
+        .is_none_or(|r| r.applied)
 }
 
 fn lwt_missing_row(result: &scylla::response::query_result::QueryResult) -> bool {
@@ -720,7 +727,7 @@ where
         .and_then(|rows| {
             rows.rows::<R>()
                 .ok()
-                .map(|iter| iter.filter_map(|r| r.ok()).collect())
+                .map(|iter| iter.filter_map(std::result::Result::ok).collect())
         })
         .unwrap_or_default()
 }
@@ -728,21 +735,21 @@ where
 fn rows_to_events(
     stream: &LogStreamId,
     rows: scylla::response::query_result::QueryResult,
-    key: Option<String>,
-) -> Result<Vec<EventRecord>> {
+    key: Option<&str>,
+) -> Vec<EventRecord> {
     let event_rows = collect_rows::<EventRow>(rows);
-    Ok(event_rows
+    event_rows
         .into_iter()
         .map(|row| EventRecord {
             destination: stream.destination.clone(),
             event_id: row.event_id,
             topic: stream.topic.clone(),
-            key: key.clone(),
+            key: key.map(str::to_owned),
             seq: Seq(row.seq),
             ts: DateTime::from_timestamp_millis(row.ts_millis).unwrap_or_else(Utc::now),
             attempt: row.attempt.cast_unsigned(),
             actor_ref: row.actor_ref,
             payload_ciphertext: row.payload_ciphertext,
         })
-        .collect())
+        .collect()
 }

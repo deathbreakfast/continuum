@@ -9,9 +9,8 @@ pub use backend::{
     open_shared_surreal, open_shared_tikv_raw, BackendHandle, BenchBackend, SharedHandle,
 };
 pub use dimensions::{
-    matrix_for_subset, subset_needs_remote_scylla, subset_needs_remote_surreal,
-    subset_needs_remote_tikv_raw, ComponentHardware, ExperimentId, Hardware, MatrixSubset,
-    RunDimensions, Storage, ScyllaTopology, SurrealDeployment, surreal_instances_from_env,
-    Telemetry, TikvTopology, Topology,
+    matrix_for_subset, subset_needs_remote_surreal, ComponentHardware, ExperimentId, Hardware,
+    MatrixSubset, RunDimensions, Storage, ScyllaTopology, SurrealDeployment,
+    surreal_instances_from_env, Telemetry, TikvTopology, Topology,
 };
 pub use hardware::{capture as capture_hardware, HardwareDetail};

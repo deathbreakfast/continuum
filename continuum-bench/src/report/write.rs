@@ -21,7 +21,7 @@ pub fn reports_dir() -> PathBuf {
 fn report_env_suffix() -> String {
     let mut tags = Vec::new();
     if let Ok(v) = std::env::var("CONTINUUM_BENCH_LOAD_PARTITION_COUNT") {
-        if v.parse::<usize>().ok().filter(|&n| n > 1).is_some() {
+        if v.parse::<usize>().ok().as_ref().is_some_and(|&n| n > 1) {
             tags.push(format!("k{v}"));
         }
     }

@@ -63,10 +63,17 @@ async fn append_emits_telemetry() {
     let stream = ENV.stream("t");
     let seqs = b.append(stream, &[sample_record()]).await.unwrap();
     assert_eq!(seqs[0], Seq(1));
-    let calls = sink_for_assert.append_calls.lock().unwrap();
-    assert_eq!(calls.len(), 1);
-    assert_eq!(calls[0].0.batch_len, 1);
-    assert_eq!(calls[0].1.assigned_count, 1);
+    let (call_count, batch_len, assigned_count) = {
+        let calls = sink_for_assert.append_calls.lock().unwrap();
+        (
+            calls.len(),
+            calls[0].0.batch_len,
+            calls[0].1.assigned_count,
+        )
+    };
+    assert_eq!(call_count, 1);
+    assert_eq!(batch_len, 1);
+    assert_eq!(assigned_count, 1);
 }
 
 #[tokio::test]
@@ -83,9 +90,12 @@ async fn read_from_topic_emits_read_telemetry() {
         .await
         .unwrap();
     assert_eq!(rows.len(), 2);
-    let calls = sink_for_assert.read_calls.lock().unwrap();
-    assert_eq!(calls.len(), 1);
-    assert_eq!(calls[0].1.row_count, 2);
+    let (call_count, row_count) = {
+        let calls = sink_for_assert.read_calls.lock().unwrap();
+        (calls.len(), calls[0].1.row_count)
+    };
+    assert_eq!(call_count, 1);
+    assert_eq!(row_count, 2);
 }
 
 #[tokio::test]
@@ -95,9 +105,12 @@ async fn error_emits_on_error() {
     let b = InstrumentedLogBackend::new(InMemoryLogBackend::new(), sink);
     let stream = LogStreamId::new(ENV.destination(), "", None);
     assert!(b.append(stream, &[sample_record()]).await.is_err());
-    let errors = sink_for_assert.errors.lock().unwrap();
-    assert_eq!(errors.len(), 1);
-    assert_eq!(errors[0], TelemetryOp::Append);
+    let (error_count, op) = {
+        let errors = sink_for_assert.errors.lock().unwrap();
+        (errors.len(), errors[0])
+    };
+    assert_eq!(error_count, 1);
+    assert_eq!(op, TelemetryOp::Append);
 }
 
 async fn exercise_with_env(value: Option<&str>) {

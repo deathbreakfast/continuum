@@ -17,11 +17,11 @@ pub enum Topology {
 
 impl Topology {
     /// Short slug for report filenames.
-    pub fn slug(self) -> &'static str {
+    pub const fn slug(self) -> &'static str {
         match self {
-            Topology::IsolatedLab => "isolated-lab",
-            Topology::SharedHandle => "shared-handle",
-            Topology::RemoteSurreal => "remote-surreal",
+            Self::IsolatedLab => "isolated-lab",
+            Self::SharedHandle => "shared-handle",
+            Self::RemoteSurreal => "remote-surreal",
         }
     }
 }
@@ -37,16 +37,16 @@ pub enum Telemetry {
 
 impl Telemetry {
     /// Whether this telemetry mode is implemented.
-    pub fn is_supported(self) -> bool {
-        matches!(self, Telemetry::Off | Telemetry::Console)
+    pub const fn is_supported(self) -> bool {
+        matches!(self, Self::Off | Self::Console)
     }
 
     /// Short slug for report filenames.
-    pub fn slug(self) -> &'static str {
+    pub const fn slug(self) -> &'static str {
         match self {
-            Telemetry::Off => "off",
-            Telemetry::Console => "console",
-            Telemetry::Stub => "stub",
+            Self::Off => "off",
+            Self::Console => "console",
+            Self::Stub => "stub",
         }
     }
 }

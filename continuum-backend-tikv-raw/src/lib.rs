@@ -1,10 +1,10 @@
-//! Raw TiKV [`LogBackend`] (Placement Driver client, no Surreal).
+//! Raw `TiKV` [`LogBackend`] (Placement Driver client, no Surreal).
 //!
 //! Enable via the `tikv-raw` feature on the [`continuum`](https://docs.rs/continuum) facade.
 //! See [Getting started](https://docs.rs/continuum/latest/continuum/index.html#getting-started)
 //! and the [documentation map](https://docs.rs/continuum/latest/continuum/index.html#documentation-map).
 
-mod append_ops;
+pub mod append_ops;
 mod error_map;
 mod keys;
 
@@ -63,7 +63,7 @@ struct StoredEvent {
 }
 
 impl TikvRawLogBackend {
-    /// Connect to TiKV via PD and return a backend.
+    /// Connect to `TiKV` via PD and return a backend.
     ///
     /// # Errors
     ///
@@ -83,7 +83,7 @@ impl TikvRawLogBackend {
         })
     }
 
-    /// Wrap an existing TiKV transaction client.
+    /// Wrap an existing `TiKV` transaction client.
     #[must_use]
     pub fn from_client(client: Arc<TransactionClient>) -> Self {
         Self {
@@ -92,9 +92,9 @@ impl TikvRawLogBackend {
         }
     }
 
-    /// Underlying TiKV client.
+    /// Underlying `TiKV` client.
     #[must_use]
-    pub fn client(&self) -> &Arc<TransactionClient> {
+    pub const fn client(&self) -> &Arc<TransactionClient> {
         &self.client
     }
 
@@ -128,16 +128,19 @@ impl TikvRawLogBackend {
             let mut txn = self.client.begin_optimistic().await.map_err(map_err)?;
             append_ops::record_round_trip(1);
             let meta_k = meta_key(stream_key);
-            let current = match txn.get(meta_k.clone()).await.map_err(map_err)? {
-                Some(v) => decode_meta(&v).map_or(0, |m| m.next_seq),
-                None => 0,
-            };
+            let current = txn
+                .get(meta_k.clone())
+                .await
+                .map_err(map_err)?
+                .and_then(|v| decode_meta(&v).map(|m| m.next_seq))
+                .unwrap_or(0);
             let end = current + SEQ_BLOCK_SIZE;
-            txn.put(meta_k, encode_meta(StreamMeta { next_seq: end }))
+            txn.put(meta_k, encode_meta(&StreamMeta { next_seq: end }))
                 .await
                 .map_err(map_err)?;
             match txn.commit().await.map_err(map_err) {
                 Ok(_) => {
+                    drop(txn);
                     self.seq_blocks.insert(
                         stream_key.to_string(),
                         SeqBlock {
@@ -149,6 +152,7 @@ impl TikvRawLogBackend {
                 }
                 Err(e) if attempt + 1 < 16 => {
                     let _ = txn.rollback().await;
+                    drop(txn);
                     let msg = e.to_string();
                     if msg.contains("write conflict") || msg.contains("Conflict") {
                         continue;
@@ -157,6 +161,7 @@ impl TikvRawLogBackend {
                 }
                 Err(e) => {
                     let _ = txn.rollback().await;
+                    drop(txn);
                     return Err(e);
                 }
             }
@@ -205,9 +210,10 @@ impl LogBackend for TikvRawLogBackend {
                 }
             }
             txn.commit().await.map_err(map_err)?;
+            drop(txn);
         }
 
-        let mut new_records: Vec<(usize, &AppendRecord)> = records
+        let new_records: Vec<(usize, &AppendRecord)> = records
             .iter()
             .enumerate()
             .filter(|(idx, _)| out[*idx] == Seq(0))
@@ -260,20 +266,24 @@ impl LogBackend for TikvRawLogBackend {
             .await;
 
             match attempt_result {
-                Ok(()) => return Ok(out),
+                Ok(()) => {
+                    drop(txn);
+                    return Ok(out);
+                }
                 Err(LogError::Conflict(_)) if attempt + 1 < 16 => {
                     let _ = txn.rollback().await;
-                    continue;
+                    drop(txn);
                 }
                 Err(LogError::Backend(msg))
                     if attempt + 1 < 16
                         && (msg.contains("write conflict") || msg.contains("Conflict")) =>
                 {
                     let _ = txn.rollback().await;
-                    continue;
+                    drop(txn);
                 }
                 Err(e) => {
                     let _ = txn.rollback().await;
+                    drop(txn);
                     return Err(e);
                 }
             }
@@ -298,13 +308,17 @@ impl LogBackend for TikvRawLogBackend {
         let stream_key = stream.storage_key();
         let start = event_key(&stream_key, Seq(after.as_i64() + 1));
         let end = scan_end(&keys::event_prefix(&stream_key));
-        let mut txn = self.client.begin_optimistic().await.map_err(map_err)?;
-        let pairs: Vec<KvPair> = txn
-            .scan((start, end), u32::try_from(limit).unwrap_or(u32::MAX))
-            .await
-            .map_err(map_err)?
-            .collect();
-        txn.commit().await.map_err(map_err)?;
+        let pairs: Vec<KvPair> = {
+            let mut txn = self.client.begin_optimistic().await.map_err(map_err)?;
+            let pairs = txn
+                .scan((start, end), u32::try_from(limit).unwrap_or(u32::MAX))
+                .await
+                .map_err(map_err)?
+                .collect();
+            txn.commit().await.map_err(map_err)?;
+            drop(txn);
+            pairs
+        };
 
         let mut out = Vec::new();
         for pair in pairs {
@@ -358,13 +372,17 @@ impl LogBackend for TikvRawLogBackend {
         let topic_prefix = Self::topic_prefix(&stream);
         let start = topic_stream_key(&topic_prefix, "");
         let end = scan_end(&keys::topic_index_prefix(&topic_prefix));
-        let mut txn = self.client.begin_optimistic().await.map_err(map_err)?;
-        let index_pairs: Vec<KvPair> = txn
-            .scan((start, end), 10_000)
-            .await
-            .map_err(map_err)?
-            .collect();
-        txn.commit().await.map_err(map_err)?;
+        let index_pairs: Vec<KvPair> = {
+            let mut txn = self.client.begin_optimistic().await.map_err(map_err)?;
+            let pairs = txn
+                .scan((start, end), 10_000)
+                .await
+                .map_err(map_err)?
+                .collect();
+            txn.commit().await.map_err(map_err)?;
+            drop(txn);
+            pairs
+        };
 
         let mut rows = Vec::new();
         for pair in index_pairs {
@@ -413,6 +431,7 @@ impl LogBackend for TikvRawLogBackend {
         let mut txn = self.client.begin_optimistic().await.map_err(map_err)?;
         txn.put(key, encode_seq(seq)).await.map_err(map_err)?;
         txn.commit().await.map_err(map_err)?;
+        drop(txn);
         Ok(())
     }
 
@@ -425,6 +444,7 @@ impl LogBackend for TikvRawLogBackend {
         let mut txn = self.client.begin_optimistic().await.map_err(map_err)?;
         let value = txn.get(key).await.map_err(map_err)?;
         txn.commit().await.map_err(map_err)?;
+        drop(txn);
         Ok(value.and_then(|v| decode_seq(&v).ok()))
     }
 
@@ -443,6 +463,7 @@ impl LogBackend for TikvRawLogBackend {
             txn.delete(pair.0).await.map_err(map_err)?;
         }
         txn.commit().await.map_err(map_err)?;
+        drop(txn);
         Ok(removed)
     }
 }
@@ -453,8 +474,8 @@ impl fmt::Debug for TikvRawLogBackend {
     }
 }
 
-fn encode_meta(meta: StreamMeta) -> Value {
-    Value::from(bincode::serialize(&meta).unwrap_or_default())
+fn encode_meta(meta: &StreamMeta) -> Value {
+    Value::from(bincode::serialize(meta).unwrap_or_default())
 }
 
 fn decode_meta(value: &Value) -> Option<StreamMeta> {

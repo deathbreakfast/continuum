@@ -11,7 +11,7 @@ fn enabled() -> bool {
         .is_some_and(|v| v == "1" || v.eq_ignore_ascii_case("true"))
 }
 
-/// Record one storage round-trip comprising `ops` TiKV operations.
+/// Record one storage round-trip comprising `ops` `TiKV` operations.
 pub fn record_round_trip(ops: u64) {
     if enabled() {
         ROUND_TRIPS.fetch_add(1, Ordering::Relaxed);

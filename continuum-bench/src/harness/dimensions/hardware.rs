@@ -35,70 +35,70 @@ pub enum Hardware {
 
 impl Hardware {
     /// Short slug for report filenames.
-    pub fn slug(self) -> &'static str {
+    pub const fn slug(self) -> &'static str {
         match self {
-            Hardware::DevWsl => "dev-wsl",
-            Hardware::CiSmall => "ci-small",
-            Hardware::BareMetalSmall => "bare-metal-small",
-            Hardware::BareMetalMedium => "bare-metal-medium",
-            Hardware::BareMetalLarge => "bare-metal-large",
-            Hardware::AwsT3Medium => "aws-t3-medium",
-            Hardware::AwsT3Small => "aws-t3-small",
-            Hardware::AwsT4gSmall => "aws-t4g-small",
-            Hardware::AwsT4gMedium => "aws-t4g-medium",
-            Hardware::AwsT4gLarge => "aws-t4g-large",
-            Hardware::AwsC7i4xlarge => "aws-c7i-4xlarge",
-            Hardware::AwsI4iXlarge => "aws-i4i-xlarge",
+            Self::DevWsl => "dev-wsl",
+            Self::CiSmall => "ci-small",
+            Self::BareMetalSmall => "bare-metal-small",
+            Self::BareMetalMedium => "bare-metal-medium",
+            Self::BareMetalLarge => "bare-metal-large",
+            Self::AwsT3Medium => "aws-t3-medium",
+            Self::AwsT3Small => "aws-t3-small",
+            Self::AwsT4gSmall => "aws-t4g-small",
+            Self::AwsT4gMedium => "aws-t4g-medium",
+            Self::AwsT4gLarge => "aws-t4g-large",
+            Self::AwsC7i4xlarge => "aws-c7i-4xlarge",
+            Self::AwsI4iXlarge => "aws-i4i-xlarge",
         }
     }
 
     /// Cloud / isolated-VM sizing profiles capture per-run CPU/RSS; lab `dev-wsl` is sanity-only.
-    pub fn captures_run_resource_profile(self) -> bool {
+    pub const fn captures_run_resource_profile(self) -> bool {
         matches!(
             self,
-            Hardware::CiSmall
-                | Hardware::AwsT3Medium
-                | Hardware::AwsT3Small
-                | Hardware::AwsT4gSmall
-                | Hardware::AwsT4gMedium
-                | Hardware::AwsT4gLarge
-                | Hardware::AwsC7i4xlarge
-                | Hardware::AwsI4iXlarge
+            Self::CiSmall
+                | Self::AwsT3Medium
+                | Self::AwsT3Small
+                | Self::AwsT4gSmall
+                | Self::AwsT4gMedium
+                | Self::AwsT4gLarge
+                | Self::AwsC7i4xlarge
+                | Self::AwsI4iXlarge
         )
     }
 
     /// On-demand Linux hourly rate (USD) for fleet cost projection — us-west-2 approximate.
-    pub fn hourly_usd(self) -> f64 {
+    pub const fn hourly_usd(self) -> f64 {
         match self {
-            Hardware::DevWsl | Hardware::CiSmall => 0.0,
-            Hardware::BareMetalSmall => 0.05,
-            Hardware::BareMetalMedium => 0.10,
-            Hardware::BareMetalLarge => 0.25,
-            Hardware::AwsT3Small => 0.0208,
-            Hardware::AwsT3Medium => 0.0416,
-            Hardware::AwsT4gSmall => 0.0168,
-            Hardware::AwsT4gMedium => 0.0336,
-            Hardware::AwsT4gLarge => 0.0672,
-            Hardware::AwsC7i4xlarge => 0.816,
-            Hardware::AwsI4iXlarge => 0.312,
+            Self::DevWsl | Self::CiSmall => 0.0,
+            Self::BareMetalSmall => 0.05,
+            Self::BareMetalMedium => 0.10,
+            Self::BareMetalLarge => 0.25,
+            Self::AwsT3Small => 0.0208,
+            Self::AwsT3Medium => 0.0416,
+            Self::AwsT4gSmall => 0.0168,
+            Self::AwsT4gMedium => 0.0336,
+            Self::AwsT4gLarge => 0.0672,
+            Self::AwsC7i4xlarge => 0.816,
+            Self::AwsI4iXlarge => 0.312,
         }
     }
 
     /// Parse a hardware slug from report JSON or CLI strings.
-    pub fn from_slug(s: &str) -> Option<Hardware> {
+    pub fn from_slug(s: &str) -> Option<Self> {
         match s {
-            "dev-wsl" => Some(Hardware::DevWsl),
-            "ci-small" => Some(Hardware::CiSmall),
-            "bare-metal-small" => Some(Hardware::BareMetalSmall),
-            "bare-metal-medium" => Some(Hardware::BareMetalMedium),
-            "bare-metal-large" => Some(Hardware::BareMetalLarge),
-            "aws-t3-medium" => Some(Hardware::AwsT3Medium),
-            "aws-t3-small" => Some(Hardware::AwsT3Small),
-            "aws-t4g-small" => Some(Hardware::AwsT4gSmall),
-            "aws-t4g-medium" => Some(Hardware::AwsT4gMedium),
-            "aws-t4g-large" => Some(Hardware::AwsT4gLarge),
-            "aws-c7i-4xlarge" => Some(Hardware::AwsC7i4xlarge),
-            "aws-i4i-xlarge" => Some(Hardware::AwsI4iXlarge),
+            "dev-wsl" => Some(Self::DevWsl),
+            "ci-small" => Some(Self::CiSmall),
+            "bare-metal-small" => Some(Self::BareMetalSmall),
+            "bare-metal-medium" => Some(Self::BareMetalMedium),
+            "bare-metal-large" => Some(Self::BareMetalLarge),
+            "aws-t3-medium" => Some(Self::AwsT3Medium),
+            "aws-t3-small" => Some(Self::AwsT3Small),
+            "aws-t4g-small" => Some(Self::AwsT4gSmall),
+            "aws-t4g-medium" => Some(Self::AwsT4gMedium),
+            "aws-t4g-large" => Some(Self::AwsT4gLarge),
+            "aws-c7i-4xlarge" => Some(Self::AwsC7i4xlarge),
+            "aws-i4i-xlarge" => Some(Self::AwsI4iXlarge),
             _ => None,
         }
     }

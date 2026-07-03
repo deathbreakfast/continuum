@@ -24,12 +24,12 @@ pub enum DbConn {
 
 impl DbConn {
     /// Wrap a dynamic Surreal client.
-    pub fn any(db: Arc<Surreal<Any>>) -> Self {
+    pub const fn any(db: Arc<Surreal<Any>>) -> Self {
         Self::Any(db)
     }
 
     /// Wrap an embedded local `RocksDB` Surreal client.
-    pub fn local(db: Arc<Surreal<Db>>) -> Self {
+    pub const fn local(db: Arc<Surreal<Db>>) -> Self {
         Self::Local(db)
     }
 

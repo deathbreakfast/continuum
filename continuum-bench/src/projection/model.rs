@@ -52,7 +52,7 @@ pub fn compute(inputs: &FleetProjectionInputs) -> FleetProjection {
     let ceiling = inputs.per_shard_ceiling.filter(|r| *r > 0.0);
     let partitions = ceiling.map(|r| (TARGET_OPS / r).ceil() as u64);
     let nodes = partitions.map(|p| p.max(1));
-    let aggregate = inputs.aggregate_ops_per_sec.or(inputs.cluster_peak_ops_per_sec).or_else(|| {
+    let aggregate = inputs.aggregate_ops_per_sec.or(inputs.cluster_peak_ops_per_sec).or({
         match (
             ceiling,
             inputs.partitions_modeled,

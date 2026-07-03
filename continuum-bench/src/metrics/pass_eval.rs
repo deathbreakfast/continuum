@@ -72,7 +72,12 @@ pub fn evaluate_pass(id: ExperimentId, metrics: &serde_json::Value) -> bool {
         ExperimentId::BmL0
         | ExperimentId::BmL1
         | ExperimentId::BmL2
-        | ExperimentId::BmL3 => {
+        | ExperimentId::BmL3
+        | ExperimentId::BmM1
+        | ExperimentId::BmM2
+        | ExperimentId::BmM3
+        | ExperimentId::BmM4
+        | ExperimentId::BmM5 => {
             let error_rate = metrics
                 .get("error_rate")
                 .and_then(serde_json::Value::as_f64)
@@ -96,14 +101,6 @@ pub fn evaluate_pass(id: ExperimentId, metrics: &serde_json::Value) -> bool {
                 .and_then(serde_json::Value::as_u64)
                 .unwrap_or(0);
             read == expected && expected > 0
-        }
-        ExperimentId::BmM1 | ExperimentId::BmM2 | ExperimentId::BmM3 | ExperimentId::BmM4
-        | ExperimentId::BmM5 => {
-            let error_rate = metrics
-                .get("error_rate")
-                .and_then(serde_json::Value::as_f64)
-                .unwrap_or(1.0);
-            error_rate < 0.001
         }
     }
 }
@@ -265,11 +262,14 @@ pub fn append_debug_notes(storage: Storage, metrics: &serde_json::Value) -> Opti
         .get("ops_ok")
         .and_then(serde_json::Value::as_u64)
         .unwrap_or(0);
+    // Display-only ratios; precision loss for huge counters is acceptable.
+    #[allow(clippy::cast_precision_loss)]
     let per_append = if ok > 0 {
         ops as f64 / ok as f64
     } else {
         0.0
     };
+    #[allow(clippy::cast_precision_loss)]
     let rt_per_append = if ok > 0 {
         round_trips as f64 / ok as f64
     } else {

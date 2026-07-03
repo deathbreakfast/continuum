@@ -118,6 +118,7 @@ impl LogBackend for InMemoryLogBackend {
             });
             out.push(seq);
         }
+        drop(inner);
         Ok(out)
     }
 
@@ -133,21 +134,23 @@ impl LogBackend for InMemoryLogBackend {
         }
 
         let key = Self::stream_key(&stream);
-        let inner = self
+        let Some(mut rows) = self
             .inner
             .read()
-            .map_err(|_| LogError::Internal("memory backend lock poisoned".into()))?;
-
-        let Some(state) = inner.streams.get(&key) else {
+            .map_err(|_| LogError::Internal("memory backend lock poisoned".into()))?
+            .streams
+            .get(&key)
+            .map(|state| {
+                state
+                    .records
+                    .iter()
+                    .filter(|r| r.seq > after)
+                    .cloned()
+                    .collect::<Vec<_>>()
+            })
+        else {
             return Ok(vec![]);
         };
-
-        let mut rows: Vec<_> = state
-            .records
-            .iter()
-            .filter(|r| r.seq > after)
-            .cloned()
-            .collect();
         rows.sort_by_key(|r| r.seq);
         rows.truncate(limit);
         Ok(rows)
@@ -173,6 +176,7 @@ impl LogBackend for InMemoryLogBackend {
                 }
             })
             .or_insert(seq);
+        drop(inner);
         Ok(())
     }
 
@@ -186,7 +190,9 @@ impl LogBackend for InMemoryLogBackend {
             .inner
             .read()
             .map_err(|_| LogError::Internal("memory backend lock poisoned".into()))?;
-        Ok(inner.checkpoints.get(&ck.wire_key()).copied())
+        let seq = inner.checkpoints.get(&ck.wire_key()).copied();
+        drop(inner);
+        Ok(seq)
     }
 
     async fn truncate_before(&self, stream: LogStreamId, seq: Seq) -> Result<u64> {
@@ -219,7 +225,9 @@ impl LogBackend for InMemoryLogBackend {
             .streams
             .get(&key)
             .map_or(0, |s| s.records.len() as u64);
-        Ok(before.saturating_sub(after))
+        let removed = before.saturating_sub(after);
+        drop(inner);
+        Ok(removed)
     }
 
     async fn read_from_topic(
@@ -235,16 +243,14 @@ impl LogBackend for InMemoryLogBackend {
         }
 
         let destination = stream.destination.clone();
-        let topic = stream.topic.clone();
+        let topic = stream.topic;
         let topic_prefix =
             LogStreamId::new(destination.clone(), topic.clone(), None).storage_key();
 
-        let inner = self
+        let mut rows: Vec<EventRecord> = self
             .inner
             .read()
-            .map_err(|_| LogError::Internal("memory backend lock poisoned".into()))?;
-
-        let mut rows: Vec<EventRecord> = inner
+            .map_err(|_| LogError::Internal("memory backend lock poisoned".into()))?
             .streams
             .values()
             .flat_map(|state| state.records.iter())
@@ -252,10 +258,7 @@ impl LogBackend for InMemoryLogBackend {
                 r.destination == destination
                     && r.topic == topic
                     && r.seq > after
-                    && match topic_key {
-                        None => true,
-                        Some(k) => r.key.as_deref() == Some(k),
-                    }
+                    && topic_key.is_none_or(|k| r.key.as_deref() == Some(k))
                     && format!(
                         "{}{}{}{}",
                         r.destination.router_key(),

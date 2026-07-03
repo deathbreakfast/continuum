@@ -105,8 +105,8 @@ pub use continuum_telemetry::{
 /// | `surreal-local` | `SurrealLocalLogBackend` | Ready — production (injected Surreal handle) |
 /// | `postgres` | `PostgresLogBackend` | Ready — `PostgreSQL` transport log |
 /// | `sqlite` | `SqliteLogBackend` | Ready — `SQLite` transport log |
-/// | `scylla` | `ScyllaLogBackend` | Ready — native ScyllaDB transport log |
-/// | `tikv-raw` | `TikvRawLogBackend` | Ready — native TiKV transport log |
+/// | `scylla` | `ScyllaLogBackend` | Ready — native `ScyllaDB` transport log |
+/// | `tikv-raw` | `TikvRawLogBackend` | Ready — native `TiKV` transport log |
 /// | `telemetry-console` | `InstrumentedLogBackend` | Optional diagnostics wrapper |
 ///
 /// Port-only build: `default-features = false` — trait, DTOs, and router without any backend linked.

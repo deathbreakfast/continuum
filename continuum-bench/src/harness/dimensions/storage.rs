@@ -24,46 +24,46 @@ pub enum Storage {
 
 impl Storage {
     /// Whether this storage backend is implemented in v0.1.
-    pub fn is_supported(self) -> bool {
+    pub const fn is_supported(self) -> bool {
         matches!(
             self,
-            Storage::Mem
-                | Storage::SurrealMem
-                | Storage::SurrealRocksdb
-                | Storage::SurrealTikv
-                | Storage::Sqlite
-                | Storage::Postgres
-                | Storage::Scylla
-                | Storage::TikvRaw
+            Self::Mem
+                | Self::SurrealMem
+                | Self::SurrealRocksdb
+                | Self::SurrealTikv
+                | Self::Sqlite
+                | Self::Postgres
+                | Self::Scylla
+                | Self::TikvRaw
         )
     }
 
     /// Whether this storage requires a remote Scylla cluster.
-    pub fn needs_remote_scylla(self) -> bool {
-        matches!(self, Storage::Scylla)
+    pub const fn needs_remote_scylla(self) -> bool {
+        matches!(self, Self::Scylla)
     }
 
-    /// Whether this storage requires a remote TiKV PD endpoint (raw client).
-    pub fn needs_remote_tikv_raw(self) -> bool {
-        matches!(self, Storage::TikvRaw)
+    /// Whether this storage requires a remote `TiKV` PD endpoint (raw client).
+    pub const fn needs_remote_tikv_raw(self) -> bool {
+        matches!(self, Self::TikvRaw)
     }
 
     /// Whether this storage requires a remote Surreal endpoint.
-    pub fn needs_remote_surreal(self) -> bool {
-        matches!(self, Storage::SurrealTikv)
+    pub const fn needs_remote_surreal(self) -> bool {
+        matches!(self, Self::SurrealTikv)
     }
 
     /// Short slug for report filenames.
-    pub fn slug(self) -> &'static str {
+    pub const fn slug(self) -> &'static str {
         match self {
-            Storage::Mem => "mem",
-            Storage::SurrealMem => "surreal-mem",
-            Storage::SurrealRocksdb => "surreal-rocksdb",
-            Storage::SurrealTikv => "surreal-tikv",
-            Storage::Postgres => "postgres",
-            Storage::Sqlite => "sqlite",
-            Storage::Scylla => "scylla",
-            Storage::TikvRaw => "tikv-raw",
+            Self::Mem => "mem",
+            Self::SurrealMem => "surreal-mem",
+            Self::SurrealRocksdb => "surreal-rocksdb",
+            Self::SurrealTikv => "surreal-tikv",
+            Self::Postgres => "postgres",
+            Self::Sqlite => "sqlite",
+            Self::Scylla => "scylla",
+            Self::TikvRaw => "tikv-raw",
         }
     }
 }

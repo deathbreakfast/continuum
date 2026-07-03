@@ -58,14 +58,15 @@ impl KeyHashEvaluator {
     }
 
     fn index_for_key(key: Option<&str>, len: usize) -> usize {
-        match key {
-            Some(k) => {
-                let mut hasher = DefaultHasher::new();
-                k.hash(&mut hasher);
+        key.map_or(0, |k| {
+            let mut hasher = DefaultHasher::new();
+            k.hash(&mut hasher);
+            // Hash modulo: truncation on 32-bit targets is intentional.
+            #[allow(clippy::cast_possible_truncation)]
+            {
                 (hasher.finish() as usize) % len
             }
-            None => 0,
-        }
+        })
     }
 }
 

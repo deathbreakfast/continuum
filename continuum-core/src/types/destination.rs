@@ -17,9 +17,9 @@ pub enum LogBackendKind {
     Postgres,
     /// `SQLite` transport log.
     Sqlite,
-    /// Native ScyllaDB transport log.
+    /// Native `ScyllaDB` transport log.
     Scylla,
-    /// Native TiKV transport log (PD client, no Surreal).
+    /// Native `TiKV` transport log (PD client, no Surreal).
     TikvRaw,
 }
 

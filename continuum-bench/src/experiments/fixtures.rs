@@ -43,7 +43,10 @@ pub fn bench_stream_for_load(storage: Storage, topic: &str, op_index: u64) -> Lo
     let mut stream = bench_stream(storage, topic);
     let k = load_partition_count();
     if k > 1 {
-        stream.key = Some(format!("partition_{}", op_index as usize % k));
+        stream.key = Some(format!(
+            "partition_{}",
+            usize::try_from(op_index).unwrap_or(0) % k
+        ));
     }
     stream
 }

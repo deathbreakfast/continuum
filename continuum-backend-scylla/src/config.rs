@@ -36,8 +36,8 @@ impl IdempotencyPolicy {
     #[must_use]
     pub fn mode_for(&self, topic: &str) -> IdempotencyMode {
         match self {
-            IdempotencyPolicy::Global(m) => *m,
-            IdempotencyPolicy::PerTopic { default, overrides } => {
+            Self::Global(m) => *m,
+            Self::PerTopic { default, overrides } => {
                 overrides.get(topic).copied().unwrap_or(*default)
             }
         }

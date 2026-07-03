@@ -1,4 +1,4 @@
-//! Raw TiKV backend builder for benchmark dimensions.
+//! Raw `TiKV` backend builder for benchmark dimensions.
 
 use std::sync::Arc;
 
@@ -23,7 +23,7 @@ async fn connect_shared() -> Result<Arc<TikvRawLogBackend>> {
     ))
 }
 
-/// Build a raw TiKV backend.
+/// Build a raw `TiKV` backend.
 pub async fn build_tikv_raw(
     _topology: Topology,
     telemetry: Telemetry,
@@ -47,7 +47,7 @@ pub async fn build_tikv_raw(
     })
 }
 
-/// Open a fresh shared TiKV backend for co-tenancy experiments.
+/// Open a fresh shared `TiKV` backend for co-tenancy experiments.
 pub async fn open_shared_tikv_raw() -> Result<Arc<TikvRawLogBackend>> {
     connect_shared().await
 }

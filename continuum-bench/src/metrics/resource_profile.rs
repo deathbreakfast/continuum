@@ -72,7 +72,7 @@ impl ResourceProfiler {
         });
 
         let shared_task = Arc::clone(&shared);
-        let mut stop_rx_task = stop_rx.clone();
+        let mut stop_rx_task = stop_rx;
         let interval = Duration::from_millis(sample_interval_ms);
 
         let task = tokio::spawn(async move {

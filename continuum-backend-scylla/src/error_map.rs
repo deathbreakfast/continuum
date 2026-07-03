@@ -1,4 +1,4 @@
-//! Map Scylla driver errors to [`LogError`](continuum_core::error::LogError).
+//! Map Scylla driver errors to [`LogError`].
 
 use continuum_core::error::{LogError, Result};
 

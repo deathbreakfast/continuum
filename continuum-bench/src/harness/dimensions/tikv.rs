@@ -30,65 +30,65 @@ pub enum TikvTopology {
 
 impl TikvTopology {
     /// Short slug for report filenames and env export.
-    pub fn slug(self) -> &'static str {
+    pub const fn slug(self) -> &'static str {
         match self {
-            TikvTopology::Minimal => "tikv-minimal",
-            TikvTopology::Ha2 => "tikv-ha-2",
-            TikvTopology::Ha3 => "tikv-ha-3",
-            TikvTopology::Scale4 => "tikv-scale-4",
-            TikvTopology::Scale5 => "tikv-scale-5",
-            TikvTopology::Custom => "custom",
+            Self::Minimal => "tikv-minimal",
+            Self::Ha2 => "tikv-ha-2",
+            Self::Ha3 => "tikv-ha-3",
+            Self::Scale4 => "tikv-scale-4",
+            Self::Scale5 => "tikv-scale-5",
+            Self::Custom => "custom",
         }
     }
 
-    /// TiKV store count for this preset (excluding PD and bench).
-    pub fn storage_node_count(self) -> u8 {
+    /// `TiKV` store count for this preset (excluding PD and bench).
+    pub const fn storage_node_count(self) -> u8 {
         match self {
-            TikvTopology::Minimal => 1,
-            TikvTopology::Ha2 => 2,
-            TikvTopology::Ha3 => 3,
-            TikvTopology::Scale4 => 4,
-            TikvTopology::Scale5 => 5,
-            TikvTopology::Custom => 0,
+            Self::Minimal => 1,
+            Self::Ha2 => 2,
+            Self::Ha3 => 3,
+            Self::Scale4 => 4,
+            Self::Scale5 => 5,
+            Self::Custom => 0,
         }
     }
 
     /// All lab presets swept by the `tikv-lab-colocated` matrix slice.
-    pub fn lab_presets() -> &'static [TikvTopology] {
+    pub const fn lab_presets() -> &'static [Self] {
         &[
-            TikvTopology::Minimal,
-            TikvTopology::Ha3,
-            TikvTopology::Scale5,
+            Self::Minimal,
+            Self::Ha3,
+            Self::Scale5,
         ]
     }
 
     /// Native campaign presets (1 → 2 → 4 node series).
-    pub fn native_presets() -> &'static [TikvTopology] {
+    pub const fn native_presets() -> &'static [Self] {
         &[
-            TikvTopology::Minimal,
-            TikvTopology::Ha2,
-            TikvTopology::Scale4,
+            Self::Minimal,
+            Self::Ha2,
+            Self::Scale4,
         ]
     }
 
     /// Parse a preset slug from env or CLI.
-    pub fn parse(s: &str) -> Option<TikvTopology> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s.to_ascii_lowercase().as_str() {
-            "tikv-minimal" | "minimal" => Some(TikvTopology::Minimal),
-            "tikv-ha-2" | "ha2" => Some(TikvTopology::Ha2),
-            "tikv-ha-3" | "ha3" => Some(TikvTopology::Ha3),
-            "tikv-scale-4" | "scale4" => Some(TikvTopology::Scale4),
-            "tikv-scale-5" | "scale5" => Some(TikvTopology::Scale5),
-            "custom" => Some(TikvTopology::Custom),
+            "tikv-minimal" | "minimal" => Some(Self::Minimal),
+            "tikv-ha-2" | "ha2" => Some(Self::Ha2),
+            "tikv-ha-3" | "ha3" => Some(Self::Ha3),
+            "tikv-scale-4" | "scale4" => Some(Self::Scale4),
+            "tikv-scale-5" | "scale5" => Some(Self::Scale5),
+            "custom" => Some(Self::Custom),
             _ => None,
         }
     }
 
     /// Read topology from `CONTINUUM_BENCH_TIKV_TOPOLOGY` when set.
-    pub fn from_env() -> Option<TikvTopology> {
+    pub fn from_env() -> Option<Self> {
         std::env::var("CONTINUUM_BENCH_TIKV_TOPOLOGY")
             .ok()
-            .and_then(|s| TikvTopology::parse(&s))
+            .and_then(|s| Self::parse(&s))
     }
 }
 
@@ -104,11 +104,11 @@ pub enum SurrealDeployment {
 
 impl SurrealDeployment {
     /// Short slug stored in report JSON.
-    pub fn slug(self) -> &'static str {
+    pub const fn slug(self) -> &'static str {
         match self {
-            SurrealDeployment::Colocated => "colocated",
-            SurrealDeployment::Remote => "remote",
-            SurrealDeployment::MultiNode => "multi-node",
+            Self::Colocated => "colocated",
+            Self::Remote => "remote",
+            Self::MultiNode => "multi-node",
         }
     }
 }

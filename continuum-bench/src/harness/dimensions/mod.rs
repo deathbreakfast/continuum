@@ -53,7 +53,7 @@ impl RunDimensions {
     }
 
     /// Build remote-surreal / surreal-tikv dimensions for distributed campaigns.
-    pub fn remote_surreal_tikv(
+    pub const fn remote_surreal_tikv(
         hardware: Hardware,
         tikv_topology: TikvTopology,
         surreal_deployment: SurrealDeployment,
@@ -77,12 +77,12 @@ impl RunDimensions {
     }
 
     /// Whether this run needs a live Scylla cluster.
-    pub fn needs_remote_scylla(self) -> bool {
+    pub const fn needs_remote_scylla(self) -> bool {
         self.storage.needs_remote_scylla()
     }
 
-    /// Whether this run needs a live TiKV PD endpoint (raw client).
-    pub fn needs_remote_tikv_raw(self) -> bool {
+    /// Whether this run needs a live `TiKV` PD endpoint (raw client).
+    pub const fn needs_remote_tikv_raw(self) -> bool {
         self.storage.needs_remote_tikv_raw()
     }
 }
@@ -112,121 +112,123 @@ pub enum ExperimentId {
 
 impl ExperimentId {
     /// All registered experiment ids in run order.
-    pub fn all() -> &'static [ExperimentId] {
+    pub const fn all() -> &'static [Self] {
         &[
-            ExperimentId::BmC0,
-            ExperimentId::BmC1,
-            ExperimentId::BmC2,
-            ExperimentId::BmC3,
-            ExperimentId::BmC4,
-            ExperimentId::BmC5,
-            ExperimentId::BmC6,
-            ExperimentId::BmL0,
-            ExperimentId::BmL1,
-            ExperimentId::BmL2,
-            ExperimentId::BmL3,
-            ExperimentId::BmP1,
-            ExperimentId::BmP2,
-            ExperimentId::BmM1,
-            ExperimentId::BmM2,
-            ExperimentId::BmM3,
-            ExperimentId::BmM4,
-            ExperimentId::BmM5,
+            Self::BmC0,
+            Self::BmC1,
+            Self::BmC2,
+            Self::BmC3,
+            Self::BmC4,
+            Self::BmC5,
+            Self::BmC6,
+            Self::BmL0,
+            Self::BmL1,
+            Self::BmL2,
+            Self::BmL3,
+            Self::BmP1,
+            Self::BmP2,
+            Self::BmM1,
+            Self::BmM2,
+            Self::BmM3,
+            Self::BmM4,
+            Self::BmM5,
         ]
     }
 
     /// Short slug used in CLI and report filenames.
-    pub fn slug(self) -> &'static str {
+    pub const fn slug(self) -> &'static str {
         match self {
-            ExperimentId::BmC0 => "bm-c0",
-            ExperimentId::BmC1 => "bm-c1",
-            ExperimentId::BmC2 => "bm-c2",
-            ExperimentId::BmC3 => "bm-c3",
-            ExperimentId::BmC4 => "bm-c4",
-            ExperimentId::BmC5 => "bm-c5",
-            ExperimentId::BmC6 => "bm-c6",
-            ExperimentId::BmL0 => "bm-l0",
-            ExperimentId::BmL1 => "bm-l1",
-            ExperimentId::BmL2 => "bm-l2",
-            ExperimentId::BmL3 => "bm-l3",
-            ExperimentId::BmP1 => "bm-p1",
-            ExperimentId::BmP2 => "bm-p2",
-            ExperimentId::BmM1 => "bm-m1",
-            ExperimentId::BmM2 => "bm-m2",
-            ExperimentId::BmM3 => "bm-m3",
-            ExperimentId::BmM4 => "bm-m4",
-            ExperimentId::BmM5 => "bm-m5",
+            Self::BmC0 => "bm-c0",
+            Self::BmC1 => "bm-c1",
+            Self::BmC2 => "bm-c2",
+            Self::BmC3 => "bm-c3",
+            Self::BmC4 => "bm-c4",
+            Self::BmC5 => "bm-c5",
+            Self::BmC6 => "bm-c6",
+            Self::BmL0 => "bm-l0",
+            Self::BmL1 => "bm-l1",
+            Self::BmL2 => "bm-l2",
+            Self::BmL3 => "bm-l3",
+            Self::BmP1 => "bm-p1",
+            Self::BmP2 => "bm-p2",
+            Self::BmM1 => "bm-m1",
+            Self::BmM2 => "bm-m2",
+            Self::BmM3 => "bm-m3",
+            Self::BmM4 => "bm-m4",
+            Self::BmM5 => "bm-m5",
         }
     }
 
     /// Parse an experiment slug from CLI input.
-    pub fn parse(s: &str) -> Option<ExperimentId> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s.to_ascii_lowercase().as_str() {
-            "bm-c0" => Some(ExperimentId::BmC0),
-            "bm-c1" => Some(ExperimentId::BmC1),
-            "bm-c2" => Some(ExperimentId::BmC2),
-            "bm-c3" => Some(ExperimentId::BmC3),
-            "bm-c4" => Some(ExperimentId::BmC4),
-            "bm-c5" => Some(ExperimentId::BmC5),
-            "bm-c6" => Some(ExperimentId::BmC6),
-            "bm-l0" => Some(ExperimentId::BmL0),
-            "bm-l1" => Some(ExperimentId::BmL1),
-            "bm-l2" => Some(ExperimentId::BmL2),
-            "bm-l3" => Some(ExperimentId::BmL3),
-            "bm-p1" => Some(ExperimentId::BmP1),
-            "bm-p2" => Some(ExperimentId::BmP2),
-            "bm-m1" => Some(ExperimentId::BmM1),
-            "bm-m2" => Some(ExperimentId::BmM2),
-            "bm-m3" => Some(ExperimentId::BmM3),
-            "bm-m4" => Some(ExperimentId::BmM4),
-            "bm-m5" => Some(ExperimentId::BmM5),
+            "bm-c0" => Some(Self::BmC0),
+            "bm-c1" => Some(Self::BmC1),
+            "bm-c2" => Some(Self::BmC2),
+            "bm-c3" => Some(Self::BmC3),
+            "bm-c4" => Some(Self::BmC4),
+            "bm-c5" => Some(Self::BmC5),
+            "bm-c6" => Some(Self::BmC6),
+            "bm-l0" => Some(Self::BmL0),
+            "bm-l1" => Some(Self::BmL1),
+            "bm-l2" => Some(Self::BmL2),
+            "bm-l3" => Some(Self::BmL3),
+            "bm-p1" => Some(Self::BmP1),
+            "bm-p2" => Some(Self::BmP2),
+            "bm-m1" => Some(Self::BmM1),
+            "bm-m2" => Some(Self::BmM2),
+            "bm-m3" => Some(Self::BmM3),
+            "bm-m4" => Some(Self::BmM4),
+            "bm-m5" => Some(Self::BmM5),
             _ => None,
         }
     }
 
     /// Pre-registered pass criteria from EXPERIMENTS.md.
-    pub fn pass_criteria(self) -> &'static str {
+    pub const fn pass_criteria(self) -> &'static str {
         match self {
-            ExperimentId::BmC0 => "Flat vs op count at 5k ops",
-            ExperimentId::BmC1 => "Throughput scales with batch",
-            ExperimentId::BmC2 => "Flat at 100k rows",
-            ExperimentId::BmC3 => "Flat over 10k commits",
-            ExperimentId::BmC4 => "Read stable after truncate",
-            ExperimentId::BmC5 => "Growth only on same handle",
-            ExperimentId::BmC6 => "<2× isolated at 1 op/s",
-            ExperimentId::BmL0 | ExperimentId::BmL1 | ExperimentId::BmL2 | ExperimentId::BmL3 => {
-                "error rate <0.1%"
-            }
-            ExperimentId::BmP1 => "aggregate ops scales with partition count",
-            ExperimentId::BmP2 => "read completes for all partitions",
-            ExperimentId::BmM1 | ExperimentId::BmM2 | ExperimentId::BmM3 | ExperimentId::BmM4
-            | ExperimentId::BmM5 => {
-                "error rate <0.1%"
-            }
+            Self::BmC0 => "Flat vs op count at 5k ops",
+            Self::BmC1 => "Throughput scales with batch",
+            Self::BmC2 => "Flat at 100k rows",
+            Self::BmC3 => "Flat over 10k commits",
+            Self::BmC4 => "Read stable after truncate",
+            Self::BmC5 => "Growth only on same handle",
+            Self::BmC6 => "<2× isolated at 1 op/s",
+            Self::BmL0
+            | Self::BmL1
+            | Self::BmL2
+            | Self::BmL3
+            | Self::BmM1
+            | Self::BmM2
+            | Self::BmM3
+            | Self::BmM4
+            | Self::BmM5 => "error rate <0.1%",
+            Self::BmP1 => "aggregate ops scales with partition count",
+            Self::BmP2 => "read completes for all partitions",
         }
     }
 
     /// Primary metric recorded in reports.
-    pub fn primary_metric(self) -> &'static str {
+    pub const fn primary_metric(self) -> &'static str {
         match self {
-            ExperimentId::BmC0 => "p50/p95 append ms",
-            ExperimentId::BmC1 => "events/s",
-            ExperimentId::BmC2 => "poll ms vs table size",
-            ExperimentId::BmC3 => "checkpoint upsert ms",
-            ExperimentId::BmC4 => "space + read ms post-truncate",
-            ExperimentId::BmC5 => "same vs isolated handle growth",
-            ExperimentId::BmC6 => "growth ratio",
-            ExperimentId::BmL0
-            | ExperimentId::BmL1
-            | ExperimentId::BmL2
-            | ExperimentId::BmL3 => "sustained p99",
-            ExperimentId::BmP1 => "aggregate ops/s",
-            ExperimentId::BmP2 => "read ops/s",
-            ExperimentId::BmM1
-            | ExperimentId::BmM2
-            | ExperimentId::BmM3
-            | ExperimentId::BmM4
-            | ExperimentId::BmM5 => "aggregate ops/s",
+            Self::BmC0 => "p50/p95 append ms",
+            Self::BmC1 => "events/s",
+            Self::BmC2 => "poll ms vs table size",
+            Self::BmC3 => "checkpoint upsert ms",
+            Self::BmC4 => "space + read ms post-truncate",
+            Self::BmC5 => "same vs isolated handle growth",
+            Self::BmC6 => "growth ratio",
+            Self::BmL0
+            | Self::BmL1
+            | Self::BmL2
+            | Self::BmL3 => "sustained p99",
+            Self::BmP1
+            | Self::BmM1
+            | Self::BmM2
+            | Self::BmM3
+            | Self::BmM4
+            | Self::BmM5 => "aggregate ops/s",
+            Self::BmP2 => "read ops/s",
         }
     }
 }
@@ -519,15 +521,17 @@ fn native_storages() -> Vec<Storage> {
 fn native_dims(storage: Storage, hardware: Hardware) -> RunDimensions {
     let mut dims = RunDimensions::isolated(storage, Telemetry::Off, hardware);
     if storage == Storage::Scylla {
-        dims.scylla_topology = ScyllaTopology::from_env().or(Some(ScyllaTopology::One));
+        dims.scylla_topology = ScyllaTopology::from_env()
+            .or_else(|| ScyllaTopology::native_presets().first().copied());
     }
     if storage == Storage::TikvRaw {
-        dims.tikv_topology = TikvTopology::from_env().or(Some(TikvTopology::Minimal));
+        dims.tikv_topology = TikvTopology::from_env()
+            .or_else(|| TikvTopology::native_presets().first().copied());
     }
     dims
 }
 
-fn native_lab_experiments() -> &'static [ExperimentId] {
+const fn native_lab_experiments() -> &'static [ExperimentId] {
     &[
         ExperimentId::BmC0,
         ExperimentId::BmC1,
@@ -662,34 +666,8 @@ pub fn matrix_for_subset(subset: MatrixSubset, hardware: Hardware) -> Vec<(Exper
     }
 }
 
-/// Whether a matrix subset requires a remote Scylla cluster.
-pub fn subset_needs_remote_scylla(subset: MatrixSubset) -> bool {
-    matches!(
-        subset,
-        MatrixSubset::NativeLab
-            | MatrixSubset::NativeLabPartitioned
-            | MatrixSubset::NativeScale
-            | MatrixSubset::NativeConcurrency
-            | MatrixSubset::NativeProjectionInputs
-            | MatrixSubset::NativeTopology
-    )
-}
-
-/// Whether a matrix subset requires a raw TiKV PD endpoint.
-pub fn subset_needs_remote_tikv_raw(subset: MatrixSubset) -> bool {
-    matches!(
-        subset,
-        MatrixSubset::NativeLab
-            | MatrixSubset::NativeLabPartitioned
-            | MatrixSubset::NativeScale
-            | MatrixSubset::NativeConcurrency
-            | MatrixSubset::NativeProjectionInputs
-            | MatrixSubset::NativeTopology
-    )
-}
-
 /// Whether a matrix subset requires a remote Surreal stack.
-pub fn subset_needs_remote_surreal(subset: MatrixSubset) -> bool {
+pub const fn subset_needs_remote_surreal(subset: MatrixSubset) -> bool {
     matches!(
         subset,
         MatrixSubset::TikvLabColocated

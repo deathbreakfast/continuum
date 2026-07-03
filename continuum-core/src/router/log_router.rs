@@ -1,10 +1,10 @@
 //! Named backend registry.
 //!
 //! Maps logical [`LogDestination`] names to concrete [`LogBackend`] implementations.
-//! The host registers backends during startup; [`LogStreamId::resolve_backend`] looks up
+//! The host registers backends during startup; [`LogRouter::resolve_backend`] looks up
 //! by destination at runtime.
 //!
-//! See also: [`LogEvaluator`], [`crate::types::LogDestination`].
+//! See also: [`crate::LogEvaluator`], [`crate::types::LogDestination`].
 
 use std::collections::HashMap;
 use std::sync::{Arc, OnceLock, RwLock};
@@ -110,7 +110,7 @@ impl LogRouter {
     /// # Panics
     ///
     /// Panics if [`Self::set_global`] was not called.
-    pub fn global() -> Arc<LogRouter> {
+    pub fn global() -> Arc<Self> {
         GLOBAL_ROUTER
             .get()
             .cloned()
@@ -118,7 +118,7 @@ impl LogRouter {
     }
 
     /// Optional global router.
-    pub fn try_global() -> Option<Arc<LogRouter>> {
+    pub fn try_global() -> Option<Arc<Self>> {
         GLOBAL_ROUTER.get().cloned()
     }
 }

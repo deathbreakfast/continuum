@@ -46,7 +46,7 @@ pub enum SharedHandle {
     Postgres(Arc<sqlx::PgPool>),
     /// Shared Scylla backend.
     Scylla(Arc<ScyllaLogBackend>),
-    /// Shared raw TiKV backend.
+    /// Shared raw `TiKV` backend.
     TikvRaw(Arc<TikvRawLogBackend>),
 }
 
@@ -77,18 +77,18 @@ pub enum BenchBackend {
 impl BenchBackend {
     fn log(&self) -> &dyn LogBackend {
         match self {
-            BenchBackend::MemOff(b) => b,
-            BenchBackend::MemConsole(b) => b,
-            BenchBackend::SurrealOff(b) => b,
-            BenchBackend::SurrealConsole(b) => b,
-            BenchBackend::SqliteOff(b) => b,
-            BenchBackend::SqliteConsole(b) => b,
-            BenchBackend::PostgresOff(b) => b,
-            BenchBackend::PostgresConsole(b) => b,
-            BenchBackend::ScyllaOff(b) => b,
-            BenchBackend::ScyllaConsole(b) => b,
-            BenchBackend::TikvRawOff(b) => b,
-            BenchBackend::TikvRawConsole(b) => b,
+            Self::MemOff(b) => b,
+            Self::MemConsole(b) => b,
+            Self::SurrealOff(b) => b,
+            Self::SurrealConsole(b) => b,
+            Self::SqliteOff(b) => b,
+            Self::SqliteConsole(b) => b,
+            Self::PostgresOff(b) => b,
+            Self::PostgresConsole(b) => b,
+            Self::ScyllaOff(b) => b,
+            Self::ScyllaConsole(b) => b,
+            Self::TikvRawOff(b) => b,
+            Self::TikvRawConsole(b) => b,
         }
     }
 }
@@ -195,7 +195,7 @@ fn build_mem(telemetry: Telemetry) -> BackendHandle {
     }
 }
 
-pub(crate) fn wrap_mem(inner: InMemoryLogBackend, telemetry: Telemetry) -> BenchBackend {
+pub const fn wrap_mem(inner: InMemoryLogBackend, telemetry: Telemetry) -> BenchBackend {
     match telemetry {
         Telemetry::Off | Telemetry::Stub => {
             BenchBackend::MemOff(InstrumentedLogBackend::new(inner, NoTelemetry))
@@ -206,7 +206,7 @@ pub(crate) fn wrap_mem(inner: InMemoryLogBackend, telemetry: Telemetry) -> Bench
     }
 }
 
-pub(crate) fn wrap_surreal(inner: SurrealLocalLogBackend, telemetry: Telemetry) -> BenchBackend {
+pub const fn wrap_surreal(inner: SurrealLocalLogBackend, telemetry: Telemetry) -> BenchBackend {
     match telemetry {
         Telemetry::Off | Telemetry::Stub => {
             BenchBackend::SurrealOff(InstrumentedLogBackend::new(inner, NoTelemetry))
@@ -218,7 +218,7 @@ pub(crate) fn wrap_surreal(inner: SurrealLocalLogBackend, telemetry: Telemetry) 
     }
 }
 
-pub(crate) fn wrap_sqlite(inner: SqliteLogBackend, telemetry: Telemetry) -> BenchBackend {
+pub const fn wrap_sqlite(inner: SqliteLogBackend, telemetry: Telemetry) -> BenchBackend {
     match telemetry {
         Telemetry::Off | Telemetry::Stub => {
             BenchBackend::SqliteOff(InstrumentedLogBackend::new(inner, NoTelemetry))
@@ -230,7 +230,7 @@ pub(crate) fn wrap_sqlite(inner: SqliteLogBackend, telemetry: Telemetry) -> Benc
     }
 }
 
-pub(crate) fn wrap_postgres(inner: PostgresLogBackend, telemetry: Telemetry) -> BenchBackend {
+pub const fn wrap_postgres(inner: PostgresLogBackend, telemetry: Telemetry) -> BenchBackend {
     match telemetry {
         Telemetry::Off | Telemetry::Stub => {
             BenchBackend::PostgresOff(InstrumentedLogBackend::new(inner, NoTelemetry))
@@ -242,7 +242,7 @@ pub(crate) fn wrap_postgres(inner: PostgresLogBackend, telemetry: Telemetry) -> 
     }
 }
 
-pub(crate) fn wrap_tikv_raw(inner: TikvRawLogBackend, telemetry: Telemetry) -> BenchBackend {
+pub const fn wrap_tikv_raw(inner: TikvRawLogBackend, telemetry: Telemetry) -> BenchBackend {
     match telemetry {
         Telemetry::Off | Telemetry::Stub => {
             BenchBackend::TikvRawOff(InstrumentedLogBackend::new(inner, NoTelemetry))
@@ -254,7 +254,7 @@ pub(crate) fn wrap_tikv_raw(inner: TikvRawLogBackend, telemetry: Telemetry) -> B
     }
 }
 
-pub(crate) fn wrap_scylla(inner: ScyllaLogBackend, telemetry: Telemetry) -> BenchBackend {
+pub const fn wrap_scylla(inner: ScyllaLogBackend, telemetry: Telemetry) -> BenchBackend {
     match telemetry {
         Telemetry::Off | Telemetry::Stub => {
             BenchBackend::ScyllaOff(InstrumentedLogBackend::new(inner, NoTelemetry))
@@ -267,7 +267,7 @@ pub(crate) fn wrap_scylla(inner: ScyllaLogBackend, telemetry: Telemetry) -> Benc
 }
 
 /// Destination kind matching storage for stream construction.
-pub fn backend_kind(storage: Storage) -> LogBackendKind {
+pub const fn backend_kind(storage: Storage) -> LogBackendKind {
     match storage {
         Storage::Mem => LogBackendKind::Memory,
         Storage::SurrealMem | Storage::SurrealRocksdb | Storage::SurrealTikv => {

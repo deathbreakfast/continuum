@@ -11,19 +11,12 @@ use continuum::backends::{
 use super::{wrap_scylla, BackendHandle, SharedHandle};
 use crate::harness::dimensions::{Telemetry, Topology};
 
-fn env_flag(name: &str) -> bool {
-    std::env::var(name)
-        .ok()
-        .is_some_and(|v| v == "1" || v.eq_ignore_ascii_case("true"))
-}
-
 /// Env bool with default when unset; explicit `0`/`false` disables.
 fn env_flag_default(name: &str, default: bool) -> bool {
     match std::env::var(name).ok() {
         Some(v) if v == "1" || v.eq_ignore_ascii_case("true") => true,
         Some(v) if v == "0" || v.eq_ignore_ascii_case("false") => false,
-        Some(_) => default,
-        None => default,
+        _ => default,
     }
 }
 

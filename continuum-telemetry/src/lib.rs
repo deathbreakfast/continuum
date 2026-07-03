@@ -202,7 +202,7 @@ pub struct InstrumentedLogBackend<B, T> {
 
 impl<B, T> InstrumentedLogBackend<B, T> {
     /// Wrap `inner` with `telemetry`.
-    pub fn new(inner: B, telemetry: T) -> Self {
+    pub const fn new(inner: B, telemetry: T) -> Self {
         Self { inner, telemetry }
     }
 }

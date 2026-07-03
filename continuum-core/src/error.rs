@@ -43,8 +43,8 @@ impl LogError {
     #[must_use]
     pub fn is_retryable(&self) -> bool {
         match self {
-            LogError::Conflict(_) => true,
-            LogError::Backend(msg) => {
+            Self::Conflict(_) => true,
+            Self::Backend(msg) => {
                 let s = msg.to_lowercase();
                 s.contains("would block") || s.contains("temporarily unavailable")
             }
@@ -55,7 +55,7 @@ impl LogError {
 
 impl From<std::io::Error> for LogError {
     fn from(e: std::io::Error) -> Self {
-        LogError::Backend(e.to_string())
+        Self::Backend(e.to_string())
     }
 }
 

@@ -1,8 +1,14 @@
 //! Experiment registry and dispatch.
 
+// Bench helpers bind `&Arc<dyn LogBackend>` and intentionally hold handles across
+// measurement windows; clippy's suggestions are false positives in that context.
+#[allow(clippy::significant_drop_tightening)]
 mod bm_core;
+#[allow(clippy::significant_drop_tightening)]
 mod bm_load;
+#[allow(clippy::significant_drop_tightening)]
 mod bm_multi_client;
+#[allow(clippy::significant_drop_tightening)]
 mod bm_partition;
 pub mod fixtures;
 
@@ -168,6 +174,7 @@ pub async fn run_experiment(id: ExperimentId, dims: RunDimensions) -> Result<Run
         }
     };
 
+    let engine_path = ctx.handle.engine_path.clone();
     let metrics = match run_experiment_metrics(id, &ctx).await {
         Ok(m) => m,
         Err(e) => {
@@ -188,6 +195,7 @@ pub async fn run_experiment(id: ExperimentId, dims: RunDimensions) -> Result<Run
             }));
         }
     };
+    drop(ctx);
     let resource_profile = if let Some(p) = profiler {
         Some(p.finish().await)
     } else {
@@ -205,7 +213,7 @@ pub async fn run_experiment(id: ExperimentId, dims: RunDimensions) -> Result<Run
         experiment_id: id.slug().into(),
         dimensions: dims.into(),
         hardware_detail,
-        engine_path: ctx.handle.engine_path.clone(),
+        engine_path,
         tikv_pd_endpoint: std::env::var("CONTINUUM_BENCH_TIKV_PD_ENDPOINT").ok(),
         started_at: Utc::now(),
         elapsed_secs: started.elapsed().as_secs_f64(),

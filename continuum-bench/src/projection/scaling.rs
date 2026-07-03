@@ -121,13 +121,13 @@ pub fn load_scaling_curve(reports_dir: &Path, hardware: &str, storage: &str) -> 
         };
         let rate = v
             .pointer("/metrics/achieved_ops_per_sec")
-            .and_then(|x| x.as_f64())
+            .and_then(serde_json::Value::as_f64)
             .unwrap_or(0.0);
         let ck = v
             .pointer("/metrics/client_count")
-            .and_then(|x| x.as_u64())
+            .and_then(serde_json::Value::as_u64)
             .unwrap_or(0);
-        let p99 = v.pointer("/metrics/p99_ms").and_then(|x| x.as_f64());
+        let p99 = v.pointer("/metrics/p99_ms").and_then(serde_json::Value::as_f64);
         best
             .entry(topo)
             .and_modify(|(best_rate, best_ck, best_p99, best_file)| {
@@ -135,7 +135,7 @@ pub fn load_scaling_curve(reports_dir: &Path, hardware: &str, storage: &str) -> 
                     *best_rate = rate;
                     *best_ck = ck;
                     *best_p99 = p99;
-                    *best_file = fname.clone();
+                    best_file.clone_from(&fname);
                 }
             })
             .or_insert((rate, ck, p99, fname));
@@ -174,6 +174,8 @@ pub fn load_scaling_curve(reports_dir: &Path, hardware: &str, storage: &str) -> 
 
     let best_cluster = points.iter().map(|p| p.peak_ops_per_sec).fold(0.0_f64, f64::max);
     let clusters_for_1e9 = if best_cluster > 0.0 {
+        // Positive operands only; ceil is finite for realistic throughput.
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         Some((TARGET_OPS / best_cluster).ceil() as u64)
     } else {
         None
@@ -217,9 +219,7 @@ pub fn render_scaling_markdown(curve: &ScalingCurve) -> String {
     lines.push("| --- | --- | --- | --- | --- | --- |".into());
     for p in &curve.points {
         let vs = p
-            .vs_baseline
-            .map(|v| format!("{v:.2}×"))
-            .unwrap_or_else(|| "—".into());
+            .vs_baseline.map_or_else(|| "—".into(), |v| format!("{v:.2}×"));
         lines.push(format!(
             "| {} | {} | {:.0} | {} | {} | {:.0} |",
             p.storage_nodes, p.topology, p.peak_ops_per_sec, p.peak_client_count, vs, p.ops_per_storage_node

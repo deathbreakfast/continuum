@@ -109,7 +109,7 @@ pub struct LogTopicRouter {
 impl LogTopicRouter {
     /// Empty router — use [`Self::with_fallback`] or [`Self::prefix`].
     #[must_use]
-    pub fn new(fallback: LogDestination) -> Self {
+    pub const fn new(fallback: LogDestination) -> Self {
         Self {
             rules: Vec::new(),
             fallback,

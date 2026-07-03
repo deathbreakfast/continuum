@@ -1,4 +1,4 @@
-//! Raw TiKV contract tests (requires `CONTINUUM_TEST_TIKV_PD_ENDPOINT`).
+//! Raw `TiKV` contract tests (requires `CONTINUUM_TEST_TIKV_PD_ENDPOINT`).
 
 use continuum_backend_tikv_raw::{TikvRawLogBackend, TikvRawLogConfig};
 use continuum_test_utils::contract;
