@@ -1,0 +1,6 @@
+{
+  "tool": "go-ycsb",
+  "peak_ops_per_sec": 4577.3,
+  "threads_at_peak": 64,
+  "p95_ms": 24.735
+}

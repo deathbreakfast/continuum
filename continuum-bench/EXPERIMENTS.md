@@ -149,7 +149,17 @@ Fleet projections: `projection-dev-wsl-scylla-any.json`, `projection-dev-wsl-tik
 
 JSON: `projection-aws-t3-medium-scylla-any.json`, `projection-aws-t3-medium-tikv-raw-tikv-minimal.json`.
 
-**Pending:** `partition-campaign` (Track P K/C sweeps), Phase B topologies (`native-scylla-3n`, `native-tikv-ha-3`, `native-tikv-scale-5`).
+### Raw engine max throughput (July 2026)
+
+**Tooling:** `cassandra-stress` (Scylla host) and `go-ycsb` raw mode (TiKV host). Same Docker config as Phase A native-lab (`--smp 1 --memory 750M` Scylla). Test A = spread keys + auto threads (≤512); Test B = single partition/key + same thread ramp. Runs detached on EC2 via [`infra/raw-engine-bench/`](../infra/raw-engine-bench/).
+
+| Engine | Test | Max ops/s | Threads at peak | p95 ms | vs Continuum hot stream |
+| ------ | ---- | --------- | --------------- | ------ | ----------------------- |
+| Scylla | A spread | 14,872 | 316 | 35.10 | — |
+| Scylla | B single-key | 903 | 16 | 26.00 | vs 64/s |
+| TiKV | A spread | 7,290 | 1024 | 236.03 | — |
+| TiKV | B single-key | 4,577 | 64 | 24.73 | vs 45/s |
+
 
 ---
 

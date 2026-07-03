@@ -1,0 +1,19 @@
+waiting for tikv pd...
+tikv ready
+>>> tikv-a load 2026-07-01T20:59:40+00:00
+>>> start tikv-a 2026-07-01T20:59:48+00:00
+--- threadcount=64 ---
+--- threadcount=128 ---
+--- threadcount=256 ---
+--- threadcount=512 ---
+--- threadcount=1024 ---
+>>> done tikv-a best=0 ops/s threads=0
+>>> tikv-b load 2026-07-01T21:01:17+00:00
+>>> start tikv-b 2026-07-01T21:01:17+00:00
+--- threadcount=64 ---
+--- threadcount=128 ---
+--- threadcount=256 ---
+--- threadcount=512 ---
+--- threadcount=1024 ---
+>>> done tikv-b best=0 ops/s threads=0
+tikv-run-all complete

@@ -1,0 +1,12 @@
+{
+  "tool": "cassandra-stress",
+  "peak_ops_per_sec": 903.0,
+  "threads_at_peak": 16,
+  "p95_ms": 26.0,
+  "all_op_rates": [
+    903.0,
+    287.0,
+    169.0,
+    103.0
+  ]
+}
