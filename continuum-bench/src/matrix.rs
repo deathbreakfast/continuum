@@ -1,11 +1,11 @@
 //! Matrix runner for pre-registered benchmark dimensions.
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 
 use crate::experiments::run_and_report;
 use crate::harness::{
-    dev_wsl_matrix, sql_adapter_matrix, ExperimentId, Hardware, MatrixSubset, RunDimensions,
-    Storage,
+    matrix_for_subset, subset_needs_remote_surreal, ExperimentId, Hardware, MatrixSubset,
+    RunDimensions, TikvTopology,
 };
 use crate::report::{report_filename, reports_dir};
 
@@ -15,25 +15,23 @@ pub struct MatrixOptions {
     pub subset: MatrixSubset,
     pub from: Option<String>,
     pub skip_existing: bool,
-    pub storages: Option<Vec<Storage>>,
+    pub storages: Option<Vec<crate::harness::Storage>>,
     pub skip_experiments: Option<Vec<String>>,
+    pub tikv_topology: Option<TikvTopology>,
 }
 
 /// Execute matrix runs sequentially.
 pub async fn run_matrix(opts: MatrixOptions) -> Result<Vec<(ExperimentId, RunDimensions, bool)>> {
-    let mut runs: Vec<_> = match opts.subset {
-        MatrixSubset::Full => match opts.hardware {
-            Hardware::DevWsl => dev_wsl_matrix(),
-            hw => dev_wsl_matrix()
-                .into_iter()
-                .map(|(id, mut dims)| {
-                    dims.hardware = hw;
-                    (id, dims)
-                })
-                .collect(),
-        },
-        MatrixSubset::Sql => sql_adapter_matrix(opts.hardware),
-    };
+    if subset_needs_remote_surreal(opts.subset)
+        && std::env::var("CONTINUUM_BENCH_SURREAL_URL").is_err()
+    {
+        bail!(
+            "matrix subset {:?} requires CONTINUUM_BENCH_SURREAL_URL — start infra/surreal-tikv stack first",
+            opts.subset
+        );
+    }
+
+    let mut runs = matrix_for_subset(opts.subset, opts.hardware);
 
     if let Some(filter) = &opts.storages {
         runs.retain(|(_, dims)| filter.contains(&dims.storage));
@@ -45,7 +43,7 @@ pub async fn run_matrix(opts: MatrixOptions) -> Result<Vec<(ExperimentId, RunDim
             .filter_map(|s| ExperimentId::parse(s))
             .collect();
         if skip_ids.is_empty() && skip.iter().any(|s| !s.is_empty()) {
-            anyhow::bail!("no valid experiment ids in --skip-experiments");
+            bail!("no valid experiment ids in --skip-experiments");
         }
         runs.retain(|(id, _)| !skip_ids.contains(id));
     }
@@ -62,27 +60,31 @@ pub async fn run_matrix(opts: MatrixOptions) -> Result<Vec<(ExperimentId, RunDim
         });
     }
 
+    if let Some(filter) = opts.tikv_topology {
+        runs.retain(|(_, dims)| dims.tikv_topology == Some(filter));
+    }
+
     let mut outcomes = Vec::new();
     for (id, dims) in runs {
         if opts.skip_existing {
             let path = reports_dir().join(report_filename(id.slug(), dims));
             if path.exists() {
                 eprintln!(
-                    ">>> {} storage={} topology={} telemetry={} (skip existing)",
+                    ">>> {} storage={} tikv={:?} (skip existing)",
                     id.slug(),
                     dims.storage.slug(),
-                    dims.topology.slug(),
-                    dims.telemetry.slug()
+                    dims.tikv_topology
                 );
                 continue;
             }
         }
         eprintln!(
-            ">>> {} storage={} topology={} telemetry={}",
+            ">>> {} storage={} topology={} telemetry={} tikv={:?}",
             id.slug(),
             dims.storage.slug(),
             dims.topology.slug(),
-            dims.telemetry.slug()
+            dims.telemetry.slug(),
+            dims.tikv_topology
         );
         let report = match run_and_report(id, dims).await {
             Ok(r) => r,
@@ -98,4 +100,36 @@ pub async fn run_matrix(opts: MatrixOptions) -> Result<Vec<(ExperimentId, RunDim
         outcomes.push((id, dims, report.pass));
     }
     Ok(outcomes)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::harness::Storage;
+
+    #[test]
+    fn tikv_topology_filter_narrows_lab_colocated_matrix() {
+        let all = matrix_for_subset(MatrixSubset::TikvLabColocated, Hardware::AwsT4gMedium);
+        let topologies: std::collections::HashSet<_> = all
+            .iter()
+            .filter_map(|(_, d)| d.tikv_topology)
+            .collect();
+        assert_eq!(topologies.len(), 3);
+
+        let minimal = all
+            .iter()
+            .filter(|(_, d)| d.tikv_topology == Some(TikvTopology::Minimal))
+            .count();
+        assert!(minimal > 0);
+        assert!(minimal < all.len());
+
+        let filtered: Vec<_> = all
+            .into_iter()
+            .filter(|(_, d)| d.tikv_topology == Some(TikvTopology::Minimal))
+            .collect();
+        assert!(filtered.iter().all(|(_, d)| d.storage == Storage::SurrealTikv));
+        assert!(filtered
+            .iter()
+            .all(|(_, d)| d.tikv_topology == Some(TikvTopology::Minimal)));
+    }
 }

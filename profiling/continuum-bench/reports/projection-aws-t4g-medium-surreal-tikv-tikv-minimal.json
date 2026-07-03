@@ -1,0 +1,13 @@
+{
+  "hardware": "aws-t4g-medium",
+  "storage": "surreal-tikv",
+  "tikv_topology": "tikv-minimal",
+  "per_shard_ops_per_sec": 37.65260086865097,
+  "surreal_instances": 1,
+  "partitions_for_1e9": 26558591,
+  "nodes_required": 26558591,
+  "fleet_aggregate_ops_per_sec": 1000000026.5567459,
+  "cost_per_million_ops_usd": 0.24788017608377577,
+  "target_ops_per_sec": 1000000000,
+  "disclaimer": "Projection from measured BM-L* ceilings; not a 1B/s demonstration."
+}

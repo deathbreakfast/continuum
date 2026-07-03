@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 
 use super::schema::RunReport;
-use crate::harness::RunDimensions;
+use crate::harness::{RunDimensions, Storage, TikvTopology};
 
 /// Reports directory: `CONTINUUM_BENCH_REPORTS_DIR` or workspace default at build time.
 pub fn reports_dir() -> PathBuf {
@@ -20,6 +20,16 @@ pub fn reports_dir() -> PathBuf {
 
 /// Filename for a completed run.
 pub fn report_filename(experiment_id: &str, dims: RunDimensions) -> String {
+    if dims.storage == Storage::SurrealTikv {
+        let topo = dims
+            .tikv_topology
+            .map_or("tikv-unknown", TikvTopology::slug);
+        return format!(
+            "{experiment_id}-surreal-tikv-{topo}-{}-{}.json",
+            dims.telemetry.slug(),
+            dims.hardware.slug()
+        );
+    }
     format!(
         "{}-{}-{}-{}-{}.json",
         experiment_id,
@@ -59,4 +69,25 @@ pub fn load_all_reports() -> Result<Vec<(PathBuf, RunReport)>> {
     }
     out.sort_by(|a, b| a.0.cmp(&b.0));
     Ok(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::harness::{Hardware, RunDimensions, Storage, SurrealDeployment, Telemetry, TikvTopology, Topology};
+
+    #[test]
+    fn surreal_tikv_filename_includes_topology() {
+        let dims = RunDimensions {
+            storage: Storage::SurrealTikv,
+            topology: Topology::RemoteSurreal,
+            telemetry: Telemetry::Off,
+            hardware: Hardware::DevWsl,
+            tikv_topology: Some(TikvTopology::Ha3),
+            surreal_deployment: Some(SurrealDeployment::Colocated),
+            surreal_instances: 1,
+        };
+        let name = report_filename("bm-l1", dims);
+        assert!(name.contains("surreal-tikv-tikv-ha-3"));
+    }
 }

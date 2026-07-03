@@ -9,7 +9,8 @@ pub use backend::{
     BackendHandle, BenchBackend, SharedHandle,
 };
 pub use dimensions::{
-    dev_wsl_matrix, sql_adapter_matrix, ExperimentId, Hardware, MatrixSubset, RunDimensions,
-    Storage, Telemetry, Topology,
+    matrix_for_subset, subset_needs_remote_surreal, ComponentHardware, ExperimentId, Hardware,
+    MatrixSubset, RunDimensions, Storage, SurrealDeployment, surreal_instances_from_env,
+    Telemetry, TikvTopology, Topology,
 };
 pub use hardware::{capture as capture_hardware, HardwareDetail};

@@ -1,0 +1,199 @@
+# TiKV + SurrealDB lab stacks for continuum-bench distributed campaigns.
+# Usage: scripts/up.sh <preset>
+#
+# Presets: tikv-minimal | tikv-ha-3 | tikv-scale-5 | surreal-2n | surreal-4n
+
+x-tikv-env: &tikv-env
+  TZ: UTC
+
+x-tikv-ulimits: &tikv-ulimits
+  nofile:
+    soft: 262144
+    hard: 262144
+
+services:
+  pd0:
+    profiles: [tikv-minimal, tikv-ha-3, tikv-scale-5, surreal-2n, surreal-4n]
+    image: pingcap/pd:v8.5.0
+    command:
+      - --name=pd0
+      - --client-urls=http://0.0.0.0:2379
+      - --peer-urls=http://0.0.0.0:2380
+      - --advertise-client-urls=http://pd0:2379
+      - --advertise-peer-urls=http://pd0:2380
+      - --initial-cluster=pd0=http://pd0:2380
+      - --data-dir=/data/pd0
+    ports:
+      - "2379:2379"
+    environment: *tikv-env
+    volumes:
+      - pd0-data:/data/pd0
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:2379/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  tikv0:
+    profiles: [tikv-minimal, tikv-ha-3, tikv-scale-5, surreal-2n, surreal-4n]
+    image: pingcap/tikv:v8.5.0
+    command:
+      - --addr=0.0.0.0:20160
+      - --advertise-addr=tikv0:20160
+      - --data-dir=/data/tikv0
+      - --pd=pd0:2379
+    depends_on:
+      pd0:
+        condition: service_healthy
+    environment: *tikv-env
+    ulimits: *tikv-ulimits
+    volumes:
+      - tikv0-data:/data/tikv0
+
+  tikv1:
+    profiles: [tikv-ha-3, tikv-scale-5, surreal-2n, surreal-4n]
+    image: pingcap/tikv:v8.5.0
+    command:
+      - --addr=0.0.0.0:20160
+      - --advertise-addr=tikv1:20160
+      - --data-dir=/data/tikv1
+      - --pd=pd0:2379
+    depends_on:
+      pd0:
+        condition: service_healthy
+    environment: *tikv-env
+    ulimits: *tikv-ulimits
+    volumes:
+      - tikv1-data:/data/tikv1
+
+  tikv2:
+    profiles: [tikv-ha-3, tikv-scale-5, surreal-2n, surreal-4n]
+    image: pingcap/tikv:v8.5.0
+    command:
+      - --addr=0.0.0.0:20160
+      - --advertise-addr=tikv2:20160
+      - --data-dir=/data/tikv2
+      - --pd=pd0:2379
+    depends_on:
+      pd0:
+        condition: service_healthy
+    environment: *tikv-env
+    ulimits: *tikv-ulimits
+    volumes:
+      - tikv2-data:/data/tikv2
+
+  tikv3:
+    profiles: [tikv-scale-5]
+    image: pingcap/tikv:v8.5.0
+    command:
+      - --addr=0.0.0.0:20160
+      - --advertise-addr=tikv3:20160
+      - --data-dir=/data/tikv3
+      - --pd=pd0:2379
+    depends_on:
+      pd0:
+        condition: service_healthy
+    environment: *tikv-env
+    ulimits: *tikv-ulimits
+    volumes:
+      - tikv3-data:/data/tikv3
+
+  tikv4:
+    profiles: [tikv-scale-5]
+    image: pingcap/tikv:v8.5.0
+    command:
+      - --addr=0.0.0.0:20160
+      - --advertise-addr=tikv4:20160
+      - --data-dir=/data/tikv4
+      - --pd=pd0:2379
+    depends_on:
+      pd0:
+        condition: service_healthy
+    environment: *tikv-env
+    ulimits: *tikv-ulimits
+    volumes:
+      - tikv4-data:/data/tikv4
+
+  surreal:
+    profiles: [tikv-minimal, tikv-ha-3, tikv-scale-5]
+    image: surrealdb/surrealdb:v3.1.5
+    command: start --log info --user root --pass root tikv://pd0:2379
+    ports:
+      - "8000:8000"
+    depends_on:
+      pd0:
+        condition: service_healthy
+      tikv0:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8000/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 24
+
+  surreal-1:
+    profiles: [surreal-2n, surreal-4n]
+    image: surrealdb/surrealdb:v3.1.5
+    command: start --log info --user root --pass root tikv://pd0:2379
+    expose:
+      - "8000"
+    depends_on:
+      pd0:
+        condition: service_healthy
+      tikv0:
+        condition: service_started
+
+  surreal-2:
+    profiles: [surreal-2n, surreal-4n]
+    image: surrealdb/surrealdb:v3.1.5
+    command: start --log info --user root --pass root tikv://pd0:2379
+    expose:
+      - "8000"
+    depends_on:
+      pd0:
+        condition: service_healthy
+      tikv0:
+        condition: service_started
+
+  surreal-3:
+    profiles: [surreal-4n]
+    image: surrealdb/surrealdb:v3.1.5
+    command: start --log info --user root --pass root tikv://pd0:2379
+    expose:
+      - "8000"
+    depends_on:
+      pd0:
+        condition: service_healthy
+      tikv0:
+        condition: service_started
+
+  surreal-4:
+    profiles: [surreal-4n]
+    image: surrealdb/surrealdb:v3.1.5
+    command: start --log info --user root --pass root tikv://pd0:2379
+    expose:
+      - "8000"
+    depends_on:
+      pd0:
+        condition: service_healthy
+      tikv0:
+        condition: service_started
+
+  surreal-lb:
+    profiles: [surreal-2n, surreal-4n]
+    image: nginx:1.27-alpine
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./presets/nginx-surreal-lb.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - surreal-1
+      - surreal-2
+
+volumes:
+  pd0-data:
+  tikv0-data:
+  tikv1-data:
+  tikv2-data:
+  tikv3-data:
+  tikv4-data:

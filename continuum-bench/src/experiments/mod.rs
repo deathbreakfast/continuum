@@ -16,7 +16,7 @@ use bm_core::{
 };
 use bm_load::run_load;
 
-use crate::harness::{capture_hardware, ExperimentId, RunDimensions, Topology};
+use crate::harness::{capture_hardware, ExperimentId, RunDimensions};
 use crate::metrics::{evaluate_pass, results_summary, ResourceProfiler};
 use crate::report::{ReportStatus, RunReport, write_report};
 
@@ -62,6 +62,7 @@ fn failed_report(run: FailedRun) -> RunReport {
         dimensions: run.dims.into(),
         hardware_detail: run.hardware_detail,
         engine_path: run.engine_path,
+        tikv_pd_endpoint: std::env::var("CONTINUUM_BENCH_TIKV_PD_ENDPOINT").ok(),
         started_at: Utc::now(),
         elapsed_secs: run.started.elapsed().as_secs_f64(),
         metrics: serde_json::json!({}),
@@ -96,7 +97,7 @@ pub async fn run_experiment(id: ExperimentId, dims: RunDimensions) -> Result<Run
             format!("telemetry {} not implemented", dims.telemetry.slug()),
         ));
     }
-    if dims.topology == Topology::RemoteSurreal
+    if dims.needs_remote_surreal()
         && std::env::var("CONTINUUM_BENCH_SURREAL_URL").is_err()
     {
         return Ok(skipped_report(
@@ -168,6 +169,7 @@ pub async fn run_experiment(id: ExperimentId, dims: RunDimensions) -> Result<Run
         dimensions: dims.into(),
         hardware_detail,
         engine_path: ctx.handle.engine_path.clone(),
+        tikv_pd_endpoint: std::env::var("CONTINUUM_BENCH_TIKV_PD_ENDPOINT").ok(),
         started_at: Utc::now(),
         elapsed_secs: started.elapsed().as_secs_f64(),
         metrics: metrics.clone(),

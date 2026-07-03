@@ -33,7 +33,7 @@ pub async fn prepare_context(dims: RunDimensions) -> Result<ExperimentContext> {
                 Some(SharedHandle::Sqlite(pool))
             }
             Storage::Postgres => Some(SharedHandle::Postgres(open_shared_postgres().await?)),
-            Storage::Mem => None,
+            Storage::SurrealTikv | Storage::Mem => None,
         }
     } else {
         None
@@ -285,7 +285,7 @@ async fn measure_same_handle_growth(
                 Some(SharedHandle::Postgres(open_shared_postgres().await?)),
                 None,
             ),
-            Storage::Mem => (None, None),
+            Storage::SurrealTikv | Storage::Mem => (None, None),
         }
     };
 

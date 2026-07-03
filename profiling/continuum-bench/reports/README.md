@@ -2,11 +2,27 @@
 
 JSON reports from `continuum-bench` runs. Each file captures one experiment × dimension combination.
 
-**Research paper:** lab results in [`continuum-bench/PERFORMANCE_STUDY.md`](../../continuum-bench/PERFORMANCE_STUDY.md) Appendix A (39 dev-wsl runs, June 2025). **Cloud baselines** (throughput, replay/checkpoint/truncate, cost) in Appendix D (partial, June 2026: `aws-t3-medium`, `aws-t3-small`, `aws-t4g-medium`).
+**Research paper:** lab results in [`continuum-bench/PERFORMANCE_STUDY.md`](../../continuum-bench/PERFORMANCE_STUDY.md) Appendix A (39 dev-wsl runs, June 2025). **Cloud baselines** (throughput, replay/checkpoint/truncate, cost) in Appendix D (partial, June 2026: `aws-t3-medium`, `aws-t3-small`, `aws-t4g-medium`). **Distributed surreal-tikv** (budget cloud campaign) → Appendix E.
 
 ## Path
 
+**Embedded adapters:**
 `profiling/continuum-bench/reports/{experiment_id}-{storage}-{topology}-{telemetry}-{hardware}.json`
+
+**surreal-tikv** (distributed path):
+`profiling/continuum-bench/reports/{experiment_id}-surreal-tikv-{tikv_topology}-{telemetry}-{hardware}.json`
+
+Example: `bm-l2-surreal-tikv-tikv-minimal-off-aws-t4g-medium.json`
+
+**Fleet projections:**
+`projection-{hardware}-surreal-tikv-{tikv_topology}.json`
+
+## Budget surreal-tikv campaign (2026)
+
+- **Scope:** colocated `tikv-minimal` on `aws-t4g-medium` / `aws-t3-medium` only
+- **Phase 4 deferred:** ha-3/scale-5/surreal-* require multi-EC2 — not colocated on 4 GiB
+- **`component_hardware`** in surreal-tikv reports: `runtime`, optional `surreal`, optional `tikv` slugs (same slug when colocated)
+- **Do not run `fill-results`** for this campaign — update EXPERIMENTS.md and Appendix E manually
 
 ## Invalid data
 
@@ -19,7 +35,8 @@ JSON reports from `continuum-bench` runs. Each file captures one experiment × d
 | Field | Description |
 |-------|-------------|
 | `experiment_id` | e.g. `bm-c0` |
-| `dimensions` | `storage`, `topology`, `telemetry`, `hardware` |
+| `dimensions` | `storage`, `topology`, `telemetry`, `hardware`; surreal-tikv adds `tikv_topology`, `surreal_instances`, `surreal_deployment` |
+| `component_hardware` | Optional — `runtime`, `surreal`, `tikv` slugs (surreal-tikv runs) |
 | `hardware_detail` | CPU, RAM, OS, `root_mount`, `host_drive`, per-run `engine_path` |
 | `started_at` | UTC timestamp |
 | `elapsed_secs` | Wall time |
@@ -46,7 +63,8 @@ Present when `dimensions.hardware` is a cloud sizing profile (e.g. `aws-t3-mediu
 
 ```bash
 cargo run --release -p continuum-bench -- matrix --hardware dev-wsl
-cargo run -p continuum-bench -- fill-results
+# surreal-tikv budget campaign:
+continuum-bench/scripts/run-tikv-preset.sh tikv-minimal aws-t4g-medium --skip-c6
 ```
 
 Experiment registry and CLI reference: [`continuum-bench/EXPERIMENTS.md`](../../continuum-bench/EXPERIMENTS.md).

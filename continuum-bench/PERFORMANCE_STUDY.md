@@ -41,7 +41,7 @@ The same benchmark suite serves **smaller deployments** on cost-effective hardwa
 
 ### 1.4 Scope
 
-- **In scope:** Continuum-only harness (`continuum-bench`); adapters `mem`, `surreal-mem`, `surreal-rocksdb`, `sqlite`, `postgres` (when `CONTINUUM_BENCH_POSTGRES_URL` set).
+- **In scope:** Continuum-only harness (`continuum-bench`); adapters `mem`, `surreal-mem`, `surreal-rocksdb`, `surreal-tikv` (TiKV-backed remote Surreal), `sqlite`, `postgres` (when `CONTINUUM_BENCH_POSTGRES_URL` set).
 - **Out of scope:** In-repo competitor harnesses; `stub` telemetry (not implemented); claiming current systems reach 1B/s aggregate; BM-R0 reopen-after-crash (future).
 
 ### 1.5 Contributions
@@ -82,9 +82,23 @@ Payloads are opaque ciphertext; encryption is above the port ([`README.md`](../R
 | `mem` | In-memory `HashMap` | Algorithmic ceiling (non-durable) |
 | `surreal-mem` | SurrealDB `mem://` | Engine overhead without disk |
 | `surreal-rocksdb` | SurrealDB `rocksdb://{tempdir}` | Durable embedded path |
+| `surreal-tikv` | Remote SurrealDB → TiKV (`CONTINUUM_BENCH_SURREAL_URL`) | Distributed durable path (campaign §7.2) |
 | postgres | Supported when `CONTINUUM_BENCH_POSTGRES_URL` set | Requires external Postgres |
 | sqlite | Supported | Embedded temp file in matrix |
-| *future custom* | TBD | Hypothesized path to extreme scale |
+
+### 2.5 Distributed backend model (Surreal + TiKV)
+
+Production-scale Continuum deployments may use a three-tier stack:
+
+```
+Continuum (port)  →  SurrealDB (compute)  →  TiKV (storage)
+```
+
+- **Continuum** injects a remote `Surreal<Any>` client — same `SurrealLocalLogBackend` as embedded paths.
+- **SurrealDB** is stateless at the query layer; durability and replication are delegated to TiKV.
+- **TiKV** topology (PD count, TiKV node count) is a first-class benchmark dimension (`tikv_topology` in report JSON).
+
+Continuum never talks to TiKV directly. TiKV affects port-level metrics only through Surreal latency and throughput. Lab provisioning: [`infra/surreal-tikv/README.md`](../infra/surreal-tikv/README.md).
 
 ### 2.3 Topology
 
@@ -141,7 +155,34 @@ BM-C1 measures events/s vs batch size {1, 10, 100, 1000}. Fleet-scale production
 
 ### 3.5 Hypothesis
 
-General-purpose embedded adapters (Surreal/RocksDB) establish **correctness and scaling shape** on lab hardware. Extreme aggregate rates likely require a **purpose-built adapter** (future work)—co-designed with partitioning, checkpoint coalescing, and read paging.
+General-purpose embedded adapters (Surreal/RocksDB) establish **correctness and scaling shape** on lab hardware. Extreme aggregate rates likely require **distributed Surreal/TiKV** (measured via `surreal-tikv` dimension) and/or a **purpose-built adapter** (future work)—co-designed with partitioning, checkpoint coalescing, and read paging.
+
+### 3.6 Multi-component scaling decomposition
+
+Fleet throughput is bounded by the slowest tier:
+
+```
+fleet_ops/s ≈ N_partitions × N_runtime_nodes × ops_per_node
+ops_per_node ≤ min(
+  surreal_ceiling(N_surreal, tikv_topology),
+  runtime_cpu_ceiling,
+  network_ceiling
+)
+```
+
+```mermaid
+flowchart TD
+  target[Target 1B ops/s] --> parts[Partition count]
+  parts --> perShard[Per-shard BM-L ceiling]
+  perShard --> surreal[Surreal throughput]
+  perShard --> tikv[TiKV write path]
+  surreal --> bottleneck{Slowest tier}
+  tikv --> bottleneck
+  bottleneck --> nodes[Nodes required]
+  nodes --> cost["$/M ops estimate"]
+```
+
+Use `continuum-bench project-fleet` with BM-L* report JSONs to project partitions, nodes, and compute-only $/M ops per hardware profile.
 
 ---
 
@@ -224,6 +265,20 @@ cargo run -p continuum-bench -- run bm-c0 --storage mem --telemetry off
 - **BM-C2 mem FAIL:** in-process structure may not meet “flat at 100k” criterion despite low absolute latency.
 - **Load tiers:** pass criteria is error rate; **achieved ops/s** may fall below target on slow adapters (recorded in metrics).
 
+### 4.6 Multi-component experimental dimensions (TiKV campaign)
+
+**This campaign (Phases 0–3):** budget cloud only — colocated `tikv-minimal` on `aws-t4g-medium` / `aws-t3-medium`. **Phase 4** (topology/count sweeps via multi-EC2) is deferred until `infra/surreal-tikv-aws/` is merged.
+
+| Dimension | Values | Rationale |
+|-----------|--------|-----------|
+| `storage=surreal-tikv` | Distinct from embedded `surreal-rocksdb` | Unambiguous distributed path in reports |
+| `tikv_topology` | `tikv-minimal`, `tikv-ha-3`, `tikv-scale-5` | Isolate storage-layer scaling |
+| `surreal_instances` | 1, 2, 4 | Surreal compute scale-out (Phase 4) |
+| `surreal_deployment` | `colocated`, `remote`, `multi-node` | Host separation vs single-host lab |
+| `component_hardware` | runtime / surreal / tikv slugs | Per-tier sizing when components run on different instances |
+
+Matrix slices: `tikv-lab-colocated`, `tikv-topology`, `surreal-scale`, `tikv-projection-inputs` — see [`EXPERIMENTS.md`](EXPERIMENTS.md). Use `--tikv-topology` on `matrix` to match live compose preset.
+
 ---
 
 ## 5. Analytical framework
@@ -292,6 +347,40 @@ See Appendix D for full tables. Summary by research question (§1.3).
 - **Soak (BM-C6, RQ5):** surreal-rocksdb **FAIL** (~105–110× growth) on t3.medium/t4g.medium; mem/surreal-mem PASS. sqlite/postgres soak **not run** in SQL subset.
 - **Crash reopen (RQ6):** proxied by BM-C2 + BM-C3 on live durable store; **BM-R0 not run**.
 
+### 5.6 Distributed budget patterns (surreal-tikv — June 2026)
+
+Colocated `tikv-minimal` on burstable 4 GiB instances (4 GiB swap). Source: 18 reports (`9` per `aws-t4g-medium` / `aws-t3-medium`).
+
+#### Throughput ceiling (RQ1)
+
+| Adapter | aws-t4g.medium L2–L3 | aws-t3.medium L2–L3 |
+|---------|---------------------|---------------------|
+| sqlite (Appendix D) | ~1,928 ops/s | ~1,909 ops/s |
+| surreal-rocksdb (Appendix D) | ~340–440 ops/s | ~340–440 ops/s |
+| **surreal-tikv minimal** | **~38 ops/s** | **~43 ops/s** |
+
+Distributed TiKV path on colocated budget is **orders of magnitude below** embedded sqlite and **~10× below** embedded surreal-rocksdb. Ceiling is flat across L0–L3 (adapter-saturated well below 100 ops/s target tier).
+
+#### Operational paths (RQ2–3)
+
+- **Batch (BM-C1):** batching helps (~3×) but absolute rates remain low (37→124/s t4g; 43→142/s t3).
+- **Replay (BM-C2):** PASS flat-at-100k on both profiles (p95@100k ~5.6ms t4g, ~7.9ms t3).
+- **Checkpoint (BM-C3):** PASS t4g; **FAIL t3** on decile slope (p95 ~15.3ms both — criterion sensitive).
+- **Truncate (BM-C4):** PASS both (post/pre ~1.0×).
+
+#### Cost (RQ4)
+
+| Profile | Ceiling (L3) | $/M ops (compute) | vs sqlite L2 (Appendix D) |
+|---------|--------------|-------------------|---------------------------|
+| t4g.medium | 37.7/s | $0.248 | ~80× more expensive per op |
+| t3.medium | 43.5/s | $0.266 | ~85× more expensive per op |
+
+Fleet projection to 1B/s requires **tens of millions** of colocated minimal nodes — not a viable scale path at measured ceilings; topology scaling (Phase 4) untested.
+
+#### Not answered on colocated budget
+
+TiKV count (1 vs 3 vs 5), Surreal instance count (2n/4n), cross-host latency, multi-AZ — require multi-EC2 infra (`infra/surreal-tikv-aws/`, Phase 4).
+
 ---
 
 ## 6. Related work
@@ -330,6 +419,17 @@ Cost-effective tier: `aws-t3-small`, `aws-t3-medium`, `aws-t4g-medium` (Appendix
 6. **RQ6 — Recovery proxy:** C2+C3 PASS on t4g sqlite/postgres supports port-level replay/resume on running store; explicit reopen-after-crash (BM-R0) still needed.
 7. **Instance viability:** t3.small not viable for full surreal-rocksdb matrix (memory hang on BM-C1); sqlite and lite mem/surreal-mem OK.
 
+### 7.1.3 Distributed conclusions (budget tier — June 2026)
+
+Colocated `tikv-minimal` on `aws-t4g-medium` / `aws-t3-medium` **is viable** with 4 GiB swap (PD + 1 TiKV + 1 Surreal + bench on one instance).
+
+1. **RQ1 — Ceiling:** ~38 ops/s (ARM) / ~43 ops/s (x86) sustained — far below embedded sqlite (~1.9k/s) and surreal-rocksdb (~400/s) on the same tier.
+2. **RQ2 — Replay:** PASS at 100k depth on both profiles.
+3. **RQ3 — Checkpoint/truncate:** truncate PASS; checkpoint PASS on t4g, FAIL decile slope on t3 (marginal).
+4. **RQ4 — Cost:** $0.25–0.27/M ops compute-only vs ~$0.003–0.005/M for sqlite — distributed minimal colocated is not cost-competitive at these ceilings.
+5. **RQ5 — Soak:** BM-C6 not run (deferred until path stable).
+6. **Topology scaling:** Cannot conclude TiKV/Surreal count effects without multi-EC2 (Phase 4 deferred).
+
 ### 7.2 Future work
 
 Benchmark coverage should span **two adoption questions**, not only fleet-scale ceilings:
@@ -364,9 +464,9 @@ Large instances establish **headroom** for scale-out design; they are not prescr
 
 #### Other experiments
 
-3. **Distributed topology** — `CONTINUUM_BENCH_SURREAL_URL` remote Surreal / TiKV-backed deployments.
+3. **Distributed Surreal/TiKV campaign** — phased study via `infra/surreal-tikv/` compose presets and matrix slices (`tikv-lab-colocated` → `tikv-topology` → `surreal-scale`). Existing BM-C*/L* apply; results populate Appendix E. `project-fleet` builds 1B/s decomposition from BM-L* ceilings.
 
-4. **Purpose-built high-throughput adapter** — design from §3 decomposition (partition-local batch append, coalesced checkpoints, paginated tail read).
+4. **Purpose-built high-throughput adapter** — design from §3 decomposition if distributed Surreal/TiKV ceilings are insufficient.
 
 5. **Optimization iterations** — checkpoint coalescing, read paging, truncate/compaction policy ([`LogBackend` rustdoc](../continuum-core/src/backend/log_backend.rs)).
 
@@ -574,3 +674,35 @@ Best **durable** cost-efficiency: smallest instance + sqlite at observed ceiling
 | `aws-c7i-4xlarge` | Compute + NVMe | High-end append ceiling | — | — |
 | `aws-i4i.xlarge` | Storage NVMe | Durable I/O ceiling | — | — |
 | `bare-metal-large` | Dedicated NVMe | Reference upper bound | — | — |
+
+---
+
+## Appendix E — Distributed Surreal/TiKV (budget cloud — June 2026)
+
+Source: `surreal-tikv` via [`infra/surreal-tikv/`](../infra/surreal-tikv/). Campaign: [`EXPERIMENTS.md`](EXPERIMENTS.md) Distributed Surreal/TiKV section.
+
+**Scope:** colocated `tikv-minimal` on budget cloud. Topology/count sweeps **not tested** — require multi-EC2 (`infra/surreal-tikv-aws/`, Phase 4).
+
+### Table E.1 — Load-tier ceilings by TiKV topology
+
+| TiKV topology | Hardware | BM-L1 achieved | BM-L2 achieved | BM-L3 achieved | Notes |
+|---------------|----------|----------------|----------------|----------------|-------|
+| `tikv-minimal` | aws-t4g-medium | 37.4/s | 37.6/s | 37.7/s | Colocated; 4 GiB swap |
+| `tikv-minimal` | aws-t3-medium | 43.4/s | 42.6/s | 43.5/s | Colocated; 4 GiB swap |
+| `tikv-ha-3` | — | — | — | — | Requires multi-EC2 |
+| `tikv-scale-5` | — | — | — | — | Requires multi-EC2 |
+| `surreal-2n` / `surreal-4n` | — | — | — | — | Requires multi-EC2 |
+
+### Table E.2 — Fleet projection (`project-fleet`, `tikv-minimal`)
+
+| Hardware | TiKV topology | Per-shard ceiling | Partitions for 1B/s | Nodes (1 part/node) | $/M ops (compute) |
+|----------|---------------|-------------------|---------------------|---------------------|-------------------|
+| aws-t4g-medium | tikv-minimal | 37.7/s | 26,558,591 | 26,558,591 | $0.248 |
+| aws-t3-medium | tikv-minimal | 43.5/s | 22,992,285 | 22,992,285 | $0.266 |
+
+Compute $/hr at 1B/s (nodes × hourly rate): t4g ~$892k/hr; t3 ~$956k/hr. Excludes EBS/transfer.
+
+```bash
+cargo run -p continuum-bench -- project-fleet \
+  --hardware aws-t4g-medium --storage surreal-tikv --tikv-topology tikv-minimal
+```

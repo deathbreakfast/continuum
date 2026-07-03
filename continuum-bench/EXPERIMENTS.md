@@ -10,10 +10,14 @@ Pre-registered experiment IDs, dimension matrix, Results log, and runner command
 
 | Dimension | Values |
 |-----------|--------|
-| Storage | `mem`, `surreal-rocksdb`, `surreal-mem`, `postgres`, `sqlite` |
+| Storage | `mem`, `surreal-rocksdb`, `surreal-mem`, `surreal-tikv`, `postgres`, `sqlite` |
 | Topology | `isolated-lab`, `shared-handle`, `remote-surreal` |
 | Telemetry | `off`, `console`, `stub` |
 | Hardware | `dev-wsl`, `ci-small`, `bare-metal-{small,medium,large}`, `aws-t3-medium`, `aws-t3-small`, `aws-t4g-{small,medium,large}`, `aws-i4i-xlarge`, `aws-c7i-4xlarge` |
+| TiKV topology | `tikv-minimal`, `tikv-ha-3`, `tikv-scale-5`, `custom` (via env) |
+| Surreal deployment | `colocated`, `remote`, `multi-node` |
+| Surreal instances | `1`, `2`, `4` (multi-node presets; env `CONTINUUM_BENCH_SURREAL_INSTANCES`) |
+| Component hardware | `runtime`, optional `surreal`, optional `tikv` profiles in report JSON |
 
 **Planned hardware matrix (tiered):**
 
@@ -22,7 +26,7 @@ Pre-registered experiment IDs, dimension matrix, Results log, and runner command
 | Cost-effective | `ci-small`, `aws-t3.medium`, `aws-t4g.small`, `bare-metal-small` | Can a modest machine handle my load? |
 | Scale | `aws-c7i-4xlarge`, `aws-i4i.xlarge`, `bare-metal-large` | What is the upper envelope? |
 
-Extend [`dimensions.rs`](src/harness/dimensions.rs) when instances are provisioned; results → paper Appendix D.
+Extend [`dimensions/mod.rs`](src/harness/dimensions/mod.rs) when instances are provisioned; results → paper Appendix D/E.
 
 Each run JSON records CPU, RAM, root mount, host drive, and `engine_path` in `hardware_detail`.
 
@@ -114,6 +118,116 @@ Research-question coverage and interpretation: [`PERFORMANCE_STUDY.md`](PERFORMA
 
 ---
 
+## Distributed Surreal/TiKV campaign (budget cloud — completed 2026-06-30)
+
+Existing **BM-C\*** and **BM-L\*** experiment IDs apply to `surreal-tikv`. **Phase 4** (multi-TiKV / multi-Surreal topology sweeps) is **deferred** until `infra/surreal-tikv-aws/` multi-EC2 infra is built and merged.
+
+**Scope:** colocated `tikv-minimal` on `aws-t4g-medium` and `aws-t3-medium` (us-west-2). **Out of scope:** dev-wsl, high-end instances, postgres, `aws-t3-small` (not attempted), colocated ha-3/scale-5/surreal-* on 4 GiB.
+
+**Do not run `fill-results`** for this campaign — update this file and [`PERFORMANCE_STUDY.md`](PERFORMANCE_STUDY.md) Appendix E manually.
+
+| Phase | Goal | Status |
+|-------|------|--------|
+| 0 | Harness fixes (`--tikv-topology`, `run-tikv-preset.sh`, infra ulimits, Surreal v3.1.5) | **Done** |
+| 1 | Feasibility gate (bm-c0 + BM-L0–L3) | **Pass** (both profiles) |
+| 2 | Full operational + ceiling path | **Done** (9 reports × 2 hardware) |
+| 3 | Fleet projection + cost | **Done** |
+| 4 | Topology/count sweeps (multi-EC2) | **Deferred** |
+
+**Infra fixes applied:** TiKV `ulimits.nofile` in compose; SurrealDB image `v3.1.5` (matches bench client); remote WS auth (`protocol-ws` + `CONTINUUM_BENCH_SURREAL_USER/PASS`).
+
+### Feasibility (colocated budget)
+
+| Preset | RAM hint | Colocated on t3/t4g.medium (4 GiB) | Result |
+|--------|----------|-------------------------------------|--------|
+| `tikv-minimal` | ~8 GiB | MAYBE (4 GiB swap recommended) | **Pass** — ~37–43 ops/s ceiling |
+| `tikv-ha-3` | ~16 GiB | **NO** | Not tested — requires multi-EC2 |
+| `tikv-scale-5` | ~16+ GiB | **NO** | Not tested — requires multi-EC2 |
+| `surreal-2n` | ~16 GiB | **NO** | Not tested — requires multi-EC2 |
+| `surreal-4n` | ~20+ GiB | **NO** | Not tested — requires multi-EC2 |
+
+### Results — `tikv-minimal` colocated (2026-06-30)
+
+#### `aws-t4g-medium` (ARM, 2 vCPU, ~3.7 GiB + 4 GiB swap)
+
+| ID | Result | Notes |
+|----|--------|-------|
+| BM-C0 | PASS | p50=26.3ms p95=29.9ms |
+| BM-C1 | PASS | 37/s → 124/s (batch 1→1000) |
+| BM-C2 | PASS | p95@100k=5.6ms |
+| BM-C3 | PASS | p95 checkpoint=15.3ms |
+| BM-C4 | PASS | post/pre=0.96× |
+| BM-L0–L3 | PASS | ceiling **~37.7 ops/s** (L3), p99 ~34.5ms |
+
+#### `aws-t3-medium` (x86, 2 vCPU, ~3.7 GiB + 4 GiB swap)
+
+| ID | Result | Notes |
+|----|--------|-------|
+| BM-C0 | PASS | p50=18.3ms p95=25.0ms |
+| BM-C1 | PASS | 43/s → 142/s (batch 1→1000) |
+| BM-C2 | PASS | p95@100k=7.9ms |
+| BM-C3 | **FAIL** | p95 checkpoint=15.3ms (decile slope criterion) |
+| BM-C4 | PASS | post/pre=1.03× |
+| BM-L0–L3 | PASS | ceiling **~43.5 ops/s** (L3), p99 ~34.6ms |
+
+**Compare Appendix D (same hardware):** sqlite ~1,928/s L2; surreal-rocksdb ~340–440/s L2; postgres ~246/s L2 (t4g). surreal-tikv colocated minimal is **~50–100× slower** than sqlite on burstable cloud.
+
+### Fleet projection (`tikv-minimal`, compute-only us-west-2 on-demand)
+
+| Hardware | Per-node ceiling (L3) | $/M ops | Nodes for 1B/s | Compute $/hr @ 1B/s |
+|----------|----------------------|---------|----------------|---------------------|
+| `aws-t4g-medium` | 37.7 ops/s | $0.248 | 26,558,591 | ~$892k/hr |
+| `aws-t3-medium` | 43.5 ops/s | $0.266 | 22,992,285 | ~$956k/hr |
+
+Projection JSON: `profiling/continuum-bench/reports/projection-aws-*-surreal-tikv-tikv-minimal.json`
+
+### Runbooks
+
+Region: **us-west-2**. SSH key: `~/.ssh/continuum-bench.pem`. Pre-build binary off-instance; SCP to worker (do not compile on burstable worker).
+
+```bash
+# On EC2 worker (after Docker + optional 4 GiB swap)
+infra/surreal-tikv/scripts/up.sh tikv-minimal
+eval "$(infra/surreal-tikv/scripts/export-env.sh tikv-minimal)"
+export CONTINUUM_BENCH_SURREAL_HARDWARE=aws-t4g-medium
+export CONTINUUM_BENCH_TIKV_HARDWARE=aws-t4g-medium
+
+continuum-bench run bm-c0 --storage surreal-tikv \
+  --tikv-topology tikv-minimal --hardware aws-t4g-medium --telemetry off
+
+continuum-bench matrix --subset tikv-projection-inputs \
+  --hardware aws-t4g-medium --tikv-topology tikv-minimal \
+  --skip-experiments bm-c6 --skip-existing
+```
+
+Pass: bm-c0 completes; BM-L0–L3 JSON with non-zero `achieved_ops_per_sec`; no OOM/hang >30 min. Repeat on `aws-t3-medium` if t4g passes.
+
+### Phase 2 runbook (full campaign)
+
+```bash
+continuum-bench/scripts/run-tikv-preset.sh tikv-minimal aws-t4g-medium --skip-c6
+# repeat for aws-t3-medium
+```
+
+Runs `tikv-lab-colocated` filtered to `tikv-minimal` (BM-C1/C2/C3/C4 + BM-L0–L3; skips BM-C5/C6). Run BM-C6 separately after minimal path is stable.
+
+### Phase 3 — Fleet projection
+
+```bash
+cargo run -p continuum-bench -- project-fleet \
+  --hardware aws-t4g-medium --storage surreal-tikv --tikv-topology tikv-minimal
+```
+
+### Phase 4 — Multi-EC2 (deferred)
+
+Topology/count sweeps (`tikv-ha-3`, `tikv-scale-5`, `surreal-2n`) require separate EC2 instances — see future `infra/surreal-tikv-aws/`. Planned layout: bench on 1× t3.medium; PD+TiKV on 1–3× t3.small; Surreal on 1–2× t3.small.
+
+**Reports (surreal-tikv):** `{id}-surreal-tikv-{tikv_topology}-{telemetry}-{hardware}.json`
+
+**Compare against Appendix D baselines** on same hardware: sqlite ~1.9k/s L2; surreal-rocksdb ~340–440/s L2; postgres ~246/s L2 (t4g.medium).
+
+---
+
 ## Run
 
 ```bash
@@ -137,7 +251,13 @@ cargo run -p continuum-bench -- fill-results
 # Hardware profile (CPU, RAM, root mount, host drive)
 cargo run -p continuum-bench -- hardware
 
-cargo run -p continuum-bench -- experiments
+# Fleet projection from BM-L* reports
+cargo run -p continuum-bench -- project-fleet --storage surreal-tikv --tikv-topology tikv-ha-3
+
+# TiKV campaign slices (require CONTINUUM_BENCH_SURREAL_URL; budget cloud default)
+continuum-bench/scripts/run-tikv-preset.sh tikv-minimal aws-t4g-medium --skip-c6
+cargo run --release -p continuum-bench -- matrix --subset tikv-projection-inputs \
+  --hardware aws-t4g-medium --tikv-topology tikv-minimal --skip-experiments bm-c6
 ```
 
 **PostgreSQL:** set `CONTINUUM_BENCH_POSTGRES_URL` to include postgres in the matrix and run `--storage postgres`. **SQLite** is included in the default matrix (temp file per run).
