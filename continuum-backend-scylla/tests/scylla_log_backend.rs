@@ -162,9 +162,10 @@ async fn topic_index_legacy_writes_each_append_when_cache_off() {
     std::env::remove_var("CONTINUUM_APPEND_DEBUG_OPS");
 
     assert!(rt1 >= 3, "first append should include index write (rt1={rt1})");
+    // First append also pays stream-row bootstrap RTs; compare warm appends only.
     assert!(
-        rt2 >= rt1.saturating_sub(1),
-        "legacy mode should not skip index RT (rt1={rt1}, rt2={rt2})"
+        rt2 >= 3,
+        "legacy mode should retain index write on repeat append (rt1={rt1}, rt2={rt2})"
     );
 }
 

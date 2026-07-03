@@ -7,8 +7,7 @@ static OPS: AtomicU64 = AtomicU64::new(0);
 
 fn enabled() -> bool {
     std::env::var("CONTINUUM_APPEND_DEBUG_OPS")
-        .ok()
-        .is_some_and(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+        .is_ok_and(|v| v == "1" || v.eq_ignore_ascii_case("true"))
 }
 
 /// Record one storage round-trip comprising `ops` `TiKV` operations.

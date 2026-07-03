@@ -27,16 +27,35 @@ cargo test --doc -p continuum-telemetry
 
 Optional: `cargo outdated --root-deps-only --workspace`
 
-## Postgres contract tests
+## Remote backend contract tests
 
-Postgres integration tests are `#[ignore]` by default. With a running Postgres instance:
+Postgres, Scylla, and TiKV-raw integration tests are `#[ignore]` by default and need a live store.
+Mem, SQLite, and Surreal (`mem://`) contract tests run in `cargo test --workspace` with no extra services.
+
+**Postgres** — with a running instance:
 
 ```bash
 CONTINUUM_TEST_POSTGRES_URL=postgres://postgres:postgres@localhost:5432/postgres \
   cargo test -p continuum-backend-postgres -- --ignored
 ```
 
-CI runs the same against a service container (see [`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
+**Scylla** — after `infra/scylla/scripts/up.sh scylla-1` (or any CQL endpoint):
+
+```bash
+CONTINUUM_TEST_SCYLLA_CONTACT_POINTS=127.0.0.1:9042 \
+CONTINUUM_TEST_SCYLLA_KEYSPACE=continuum_test \
+  cargo test -p continuum-backend-scylla -- --ignored
+```
+
+**TiKV-raw** — after `infra/tikv-raw/scripts/up.sh` (lab host networking):
+
+```bash
+CONTINUUM_TEST_TIKV_PD_ENDPOINT=127.0.0.1:2379 \
+  cargo test -p continuum-backend-tikv-raw -- --ignored
+```
+
+CI runs all three on every push and pull request to `main` (see [`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
+TiKV CI uses [`infra/tikv-raw/compose.ci.yaml`](infra/tikv-raw/compose.ci.yaml) (host networking on Linux runners).
 
 ## Pull request expectations
 

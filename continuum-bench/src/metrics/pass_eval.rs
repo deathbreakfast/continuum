@@ -252,8 +252,7 @@ pub fn results_summary(id: ExperimentId, metrics: &serde_json::Value, pass: bool
 /// Append adapter round-trip debug counters to BM-M* notes when enabled.
 pub fn append_debug_notes(storage: Storage, metrics: &serde_json::Value) -> Option<String> {
     let enabled = std::env::var("CONTINUUM_APPEND_DEBUG_OPS")
-        .ok()
-        .is_some_and(|v| v == "1" || v.eq_ignore_ascii_case("true"));
+        .is_ok_and(|v| v == "1" || v.eq_ignore_ascii_case("true"));
     if !enabled || storage != Storage::Scylla {
         return None;
     }

@@ -131,11 +131,36 @@ struct CountRow {
     cnt: i64,
 }
 
+/// LWT result when only `[applied]` is present.
 #[derive(DeserializeRow)]
-struct AppliedRow {
+struct AppliedFlag {
+    #[scylla(rename = "[applied]")]
+    applied: bool,
+}
+
+/// Stream seq CAS row (`[applied]`, `next_seq`).
+///
+/// Scylla may include `next_seq` as null on success; the driver requires every
+/// result column on the struct.
+#[derive(DeserializeRow)]
+struct StreamLwtRow {
     #[scylla(rename = "[applied]")]
     applied: bool,
     next_seq: Option<i64>,
+}
+
+/// Event-id LWT row (`[applied]`, `stream_key`, `event_id`, `seq`).
+///
+/// On success Scylla returns nulls for the non-applied columns; on conflict it
+/// returns the existing values. All non-flag fields are therefore optional.
+#[derive(DeserializeRow)]
+#[allow(dead_code)]
+struct EventIdLwtRow {
+    #[scylla(rename = "[applied]")]
+    applied: bool,
+    stream_key: Option<String>,
+    event_id: Option<Uuid>,
+    seq: Option<i64>,
 }
 
 #[derive(DeserializeRow)]
@@ -689,22 +714,40 @@ impl fmt::Debug for ScyllaLogBackend {
     }
 }
 
-fn lwt_applied(result: &scylla::response::query_result::QueryResult) -> bool {
+fn try_lwt_row<R>(result: &scylla::response::query_result::QueryResult) -> Option<R>
+where
+    R: for<'frame> scylla::deserialize::row::DeserializeRow<'frame, 'frame>,
+{
     result
         .clone()
         .into_rows_result()
         .ok()
-        .and_then(|rows| rows.maybe_first_row::<AppliedRow>().ok().flatten())
-        .is_none_or(|r| r.applied)
+        .and_then(|rows| rows.maybe_first_row::<R>().ok().flatten())
+}
+
+/// Read `[applied]` from an LWT result.
+///
+/// The scylla driver type-checks that **every result column** maps to a struct
+/// field, so the row shape depends on the statement:
+/// - stream CAS: `[applied]`, `next_seq`
+/// - event-id miss: `[applied]`, `stream_key`, `event_id`, `seq`
+/// - successful insert: `[applied]` only
+fn lwt_applied(result: &scylla::response::query_result::QueryResult) -> bool {
+    if let Some(r) = try_lwt_row::<StreamLwtRow>(result) {
+        return r.applied;
+    }
+    if let Some(r) = try_lwt_row::<EventIdLwtRow>(result) {
+        return r.applied;
+    }
+    try_lwt_row::<AppliedFlag>(result).is_some_and(|r| r.applied)
 }
 
 fn lwt_missing_row(result: &scylla::response::query_result::QueryResult) -> bool {
-    result
-        .clone()
-        .into_rows_result()
-        .ok()
-        .and_then(|rows| rows.maybe_first_row::<AppliedRow>().ok().flatten())
-        .is_some_and(|r| !r.applied && r.next_seq.is_none())
+    if lwt_applied(result) {
+        return false;
+    }
+    // Not applied: conflict includes existing `next_seq`; missing row has null/absent.
+    try_lwt_row::<StreamLwtRow>(result).is_none_or(|r| r.next_seq.is_none())
 }
 
 fn maybe_first_row<R>(result: scylla::response::query_result::QueryResult) -> Option<R>

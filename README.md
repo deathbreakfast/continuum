@@ -144,7 +144,9 @@ RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
 cargo outdated --root-deps-only --workspace
 ```
 
-CI runs on every push and pull request to `main` (see [`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
+CI runs on every push and pull request to `main` (see [`.github/workflows/ci.yml`](.github/workflows/ci.yml)):
+workspace tests (mem, sqlite, surreal, router, telemetry), plus Postgres, Scylla, and TiKV-raw contract suites.
+Remote backend setup is documented in [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Documentation
 
