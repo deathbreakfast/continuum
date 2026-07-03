@@ -52,7 +52,7 @@ fn cpu_percent_to_micro(cpu: f64) -> u64 {
     (cpu * 10_000.0).round() as u64
 }
 
-/// Background sampler; call [`finish`] to stop and build the profile.
+/// Background sampler; call [`ResourceProfiler::finish`] to stop and build the profile.
 pub struct ResourceProfiler {
     stop_tx: watch::Sender<bool>,
     task: JoinHandle<(u64, u64, u64, u64)>,
@@ -72,7 +72,7 @@ impl ResourceProfiler {
         });
 
         let shared_task = Arc::clone(&shared);
-        let mut stop_rx_task = stop_rx.clone();
+        let mut stop_rx_task = stop_rx;
         let interval = Duration::from_millis(sample_interval_ms);
 
         let task = tokio::spawn(async move {

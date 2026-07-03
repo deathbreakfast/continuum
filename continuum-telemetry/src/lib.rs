@@ -4,12 +4,13 @@
 //! to emit structured timing and outcome hooks via a [`TelemetrySink`]. This layer logs port
 //! diagnostics only — not transport payload contents.
 //!
-//! Enable via the `telemetry-console` feature on the `continuum` facade crate.
+//! Enable via the `telemetry-console` feature on the [`continuum`](https://docs.rs/continuum) facade.
+//! See [Getting started](https://docs.rs/continuum/latest/continuum/index.html#getting-started)
+//! and the [documentation map](https://docs.rs/continuum/latest/continuum/index.html#documentation-map).
 //!
 //! # Examples
 //!
-//! ```
-//! use std::sync::Arc;
+//! ```rust
 //! use continuum_backend_mem::InMemoryLogBackend;
 //! use continuum_telemetry::{InstrumentedLogBackend, NoTelemetry};
 //!
@@ -187,7 +188,7 @@ pub fn telemetry_from_env() -> Arc<dyn TelemetrySink> {
 ///
 /// # Examples
 ///
-/// ```
+/// ```rust
 /// use continuum_backend_mem::InMemoryLogBackend;
 /// use continuum_telemetry::{InstrumentedLogBackend, NoTelemetry};
 ///
@@ -201,7 +202,7 @@ pub struct InstrumentedLogBackend<B, T> {
 
 impl<B, T> InstrumentedLogBackend<B, T> {
     /// Wrap `inner` with `telemetry`.
-    pub fn new(inner: B, telemetry: T) -> Self {
+    pub const fn new(inner: B, telemetry: T) -> Self {
         Self { inner, telemetry }
     }
 }

@@ -1,0 +1,11 @@
+# 1 bench + 1 Scylla node (c7i.4xlarge)
+name: native-scylla-1n-c7i
+bench_topology: scylla-1
+roles:
+  - role: bench
+    count: 1
+    instance_type: c7i.4xlarge
+  - role: scylla
+    count: 1
+    instance_type: c7i.4xlarge
+    scylla_indexed: true

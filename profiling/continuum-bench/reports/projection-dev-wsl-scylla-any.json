@@ -1,0 +1,16 @@
+{
+  "hardware": "dev-wsl",
+  "storage": "scylla",
+  "tikv_topology": null,
+  "per_shard_ops_per_sec": 14.5258772267316,
+  "surreal_instances": 1,
+  "partitions_modeled": 64,
+  "clients_modeled": 64,
+  "aggregate_ops_per_sec": 25.34597143129581,
+  "partitions_for_1e9": 68842659,
+  "nodes_required": 68842659,
+  "fleet_aggregate_ops_per_sec": 25.34597143129581,
+  "cost_per_million_ops_usd": null,
+  "target_ops_per_sec": 1000000000,
+  "disclaimer": "Projection from measured BM-L* ceilings; not a 1B/s demonstration."
+}

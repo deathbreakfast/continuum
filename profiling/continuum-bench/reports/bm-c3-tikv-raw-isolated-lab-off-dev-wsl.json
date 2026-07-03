@@ -1,0 +1,45 @@
+{
+  "experiment_id": "bm-c3",
+  "dimensions": {
+    "storage": "tikv-raw",
+    "topology": "isolated-lab",
+    "telemetry": "off",
+    "hardware": "dev-wsl"
+  },
+  "hardware_detail": {
+    "cpu_model": "11th Gen Intel(R) Core(TM) i7-11700KF @ 3.60GHz",
+    "cpu_cores": 16,
+    "ram_gib": 19.53091049194336,
+    "os": "linux WSL2 (Linux 6.18.33.2-microsoft-standard-WSL2)",
+    "root_mount": {
+      "device": "/dev/sdd",
+      "mount_point": "/",
+      "fs_type": "ext4",
+      "size_gib": 1945.6
+    },
+    "host_drive": {
+      "model": "X16 SSD 2TB",
+      "media_type": "SSD",
+      "bus_type": "NVMe",
+      "size_gib": 1907.7,
+      "wsl_distro_path": "\\\\?\\J:\\wsl\\ubuntu"
+    }
+  },
+  "engine_path": "tikv://127.0.0.1:2379",
+  "tikv_pd_endpoint": "127.0.0.1:2379",
+  "started_at": "2026-07-01T09:53:01.642469618Z",
+  "elapsed_secs": 352.87920413,
+  "metrics": {
+    "decile_p95_slope": 1.011784842424249,
+    "mean_ms": 28.32686136989995,
+    "p50_ms": 27.131985,
+    "p95_ms": 38.60744,
+    "p99_ms": 58.090761,
+    "sample_count": 10000,
+    "slope_vs_index": 0.00028202396351972403
+  },
+  "pass_criteria": "Flat over 10k commits",
+  "pass": false,
+  "status": "completed",
+  "notes": "p95=38.607ms FAIL"
+}

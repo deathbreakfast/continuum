@@ -9,7 +9,7 @@ pub struct LatencySamples {
 }
 
 impl LatencySamples {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             samples_ms: Vec::new(),
         }
@@ -25,7 +25,7 @@ impl LatencySamples {
         self.samples_ms.push(duration.as_secs_f64() * 1000.0);
     }
 
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.samples_ms.len()
     }
 
@@ -75,11 +75,11 @@ impl LatencySamples {
             .map(|(i, y)| usize_to_f64(i) * y)
             .sum();
         let sum_x2: f64 = (0..n).map(|i| usize_to_f64(i).powi(2)).sum();
-        let denom = n_f * sum_x2 - sum_x * sum_x;
+        let denom = sum_x.mul_add(-sum_x, n_f * sum_x2);
         if denom.abs() < f64::EPSILON {
             return 0.0;
         }
-        (n_f * sum_cross - sum_x * sum_y) / denom
+        sum_x.mul_add(-sum_y, n_f * sum_cross) / denom
     }
 
     /// Slope of decile midpoints vs decile p95 values.
@@ -91,7 +91,7 @@ impl LatencySamples {
         let mut xs = Vec::new();
         let mut ys = Vec::new();
         for (i, window) in self.samples_ms.chunks(chunk).enumerate().take(10) {
-            let sub = LatencySamples {
+            let sub = Self {
                 samples_ms: window.to_vec(),
             };
             xs.push(usize_to_f64(i));
@@ -116,11 +116,11 @@ fn linear_slope(xs: &[f64], ys: &[f64]) -> f64 {
     let sum_y: f64 = ys.iter().sum();
     let sum_cross: f64 = xs.iter().zip(ys).map(|(x, y)| x * y).sum();
     let sum_x2: f64 = xs.iter().map(|x| x * x).sum();
-    let denom = n_f * sum_x2 - sum_x * sum_x;
+    let denom = sum_x.mul_add(-sum_x, n_f * sum_x2);
     if denom.abs() < f64::EPSILON {
         return 0.0;
     }
-    (n_f * sum_cross - sum_x * sum_y) / denom
+    sum_x.mul_add(-sum_y, n_f * sum_cross) / denom
 }
 
 #[cfg(test)]

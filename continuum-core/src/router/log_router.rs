@@ -1,10 +1,10 @@
 //! Named backend registry.
 //!
 //! Maps logical [`LogDestination`] names to concrete [`LogBackend`] implementations.
-//! The host registers backends during startup; [`LogStreamId::resolve_backend`] looks up
+//! The host registers backends during startup; [`LogRouter::resolve_backend`] looks up
 //! by destination at runtime.
 //!
-//! See also: [`LogEvaluator`], [`crate::types::LogDestination`].
+//! See also: [`crate::LogEvaluator`], [`crate::types::LogDestination`].
 
 use std::collections::HashMap;
 use std::sync::{Arc, OnceLock, RwLock};
@@ -16,6 +16,19 @@ use crate::types::LogDestination;
 static GLOBAL_ROUTER: OnceLock<Arc<LogRouter>> = OnceLock::new();
 
 /// Maps logical destinations to concrete [`LogBackend`] implementations.
+///
+/// # Examples
+///
+/// ```rust
+/// # use std::sync::Arc;
+/// # use continuum_core::{LogBackendKind, LogDestination, LogRouter};
+/// # use continuum_backend_mem::InMemoryLogBackend;
+/// let dest = LogDestination::new("default", LogBackendKind::Memory);
+/// let backend = Arc::new(InMemoryLogBackend::new());
+/// let router = LogRouter::with_default(&dest, backend);
+/// let resolved = router.resolve_backend(&dest).expect("registered");
+/// let _ = resolved;
+/// ```
 #[derive(Debug)]
 pub struct LogRouter {
     backends: RwLock<HashMap<String, Arc<dyn LogBackend>>>,
@@ -97,7 +110,7 @@ impl LogRouter {
     /// # Panics
     ///
     /// Panics if [`Self::set_global`] was not called.
-    pub fn global() -> Arc<LogRouter> {
+    pub fn global() -> Arc<Self> {
         GLOBAL_ROUTER
             .get()
             .cloned()
@@ -105,7 +118,7 @@ impl LogRouter {
     }
 
     /// Optional global router.
-    pub fn try_global() -> Option<Arc<LogRouter>> {
+    pub fn try_global() -> Option<Arc<Self>> {
         GLOBAL_ROUTER.get().cloned()
     }
 }

@@ -1,0 +1,11 @@
+# 1 bench + 1 PD + 4 TiKV (all t3.medium by default)
+name: native-tikv-scale-4
+bench_topology: tikv-scale-4
+roles:
+  - role: bench
+    count: 1
+  - role: pd
+    count: 1
+  - role: tikv
+    count: 4
+    tikv_indexed: true

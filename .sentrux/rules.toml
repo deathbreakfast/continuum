@@ -1,0 +1,44 @@
+# Continuum quality gates (benchmark harness work).
+# Run Sentrux scan + check_rules before merging large bench PRs.
+
+[project]
+name = "continuum"
+profile = "monorepo-pragmatic"
+
+[constraints]
+max_cycles = 0
+max_cc = 25
+no_god_files = true
+
+[thresholds]
+max_coupling_score = 8.0
+max_cross_module_edges = 80
+
+[[boundaries]]
+from = "continuum-core/**"
+to = "continuum-backend-*"
+reason = "Port layer must not depend on backend implementations"
+
+[[boundaries]]
+from = "continuum-core/**"
+to = "continuum-bench/**"
+reason = "Port layer must not depend on benchmark harness"
+
+[[boundaries]]
+from = "continuum-backend-*"
+to = "continuum-bench/**"
+reason = "Backend crates must not depend on benchmark harness"
+
+[[boundaries]]
+from = "continuum-bench/src/metrics/**"
+to = "continuum-bench/src/experiments/**"
+reason = "Metrics must not depend on experiment runners"
+
+[[boundaries]]
+from = "continuum-bench/src/report/**"
+to = "continuum-bench/src/experiments/**"
+reason = "Report schema stays independent of experiment dispatch"
+
+[revisit]
+trigger = "Tighten thresholds after TiKV campaign baselines stabilize."
+note = "Target <=400 LOC per .rs file; hard stop at 450."

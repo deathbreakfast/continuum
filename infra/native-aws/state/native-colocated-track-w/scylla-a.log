@@ -1,0 +1,865 @@
+Unable to find image 'scylladb/cassandra-stress:latest' locally
+latest: Pulling from scylladb/cassandra-stress
+b40150c1c271: Pulling fs layer
+166e3ac40fca: Pulling fs layer
+8a89ec8f5419: Pulling fs layer
+ea035da72e5f: Pulling fs layer
+3c5d8083e928: Pulling fs layer
+eedaa885c198: Pulling fs layer
+b7773b0711ef: Pulling fs layer
+4c71d0a11eae: Pulling fs layer
+3c5d8083e928: Waiting
+eedaa885c198: Waiting
+b7773b0711ef: Waiting
+4c71d0a11eae: Waiting
+ea035da72e5f: Waiting
+b40150c1c271: Verifying Checksum
+b40150c1c271: Download complete
+ea035da72e5f: Verifying Checksum
+ea035da72e5f: Download complete
+3c5d8083e928: Verifying Checksum
+3c5d8083e928: Download complete
+166e3ac40fca: Verifying Checksum
+166e3ac40fca: Download complete
+eedaa885c198: Download complete
+4c71d0a11eae: Verifying Checksum
+4c71d0a11eae: Download complete
+b40150c1c271: Pull complete
+8a89ec8f5419: Verifying Checksum
+8a89ec8f5419: Download complete
+166e3ac40fca: Pull complete
+b7773b0711ef: Verifying Checksum
+b7773b0711ef: Download complete
+8a89ec8f5419: Pull complete
+ea035da72e5f: Pull complete
+3c5d8083e928: Pull complete
+eedaa885c198: Pull complete
+b7773b0711ef: Pull complete
+4c71d0a11eae: Pull complete
+Digest: sha256:dfd3b171750f84c1f30ad95365df89fc54ff0f589858c309e76306e5f9f1707f
+Status: Downloaded newer image for scylladb/cassandra-stress:latest
+******************** Stress Settings ********************
+Command:
+  Type: write
+  Count: 500,000
+  No Warmup: false
+  Consistency Level: ONE
+  Serial Consistency Level: SERIAL
+  Target Uncertainty: not applicable
+  Key Size (bytes): 10
+  Counter Increment Distibution: add=fixed(1)
+Rate:
+  Auto: true
+  Min Threads: 16
+  Max Threads: 512
+Population:
+  Sequence: 1..500000
+  Order: ARBITRARY
+  Wrap: true
+Insert:
+  Revisits: Uniform:  min=1,max=1000000
+  Visits: Fixed:  key=1
+  Row Population Ratio: Ratio: divisor=1.000000;delegate=Fixed:  key=1
+  Batch Type: not batching
+Columns:
+  Max Columns Per Key: 5
+  Column Names: [C0, C1, C2, C3, C4]
+  Comparator: AsciiType
+  Timestamp: null
+  Variable Column Count: false
+  Slice: false
+  Size Distribution: Fixed:  key=256
+  Count Distribution: Fixed:  key=5
+Errors:
+  Ignore: false
+  Fail fast setting: false
+  Tries: 10
+Log:
+  No Summary: false
+  No Settings: false
+  File: null
+  Interval Millis: 1000
+  Level: NORMAL
+Mode:
+  API: JAVA_DRIVER_NATIVE
+  Connection Style: CQL_PREPARED
+  CQL Version: CQL3
+  Protocol Version: DEFAULT
+  Username: null
+  Password: null
+  Auth Provide Class: null
+  Max Pending Per Connection: null
+  Connections Per Host: 8
+  Request Timeout: 12000 ms
+  Compression: NONE
+Node:
+  Nodes: [127.0.0.1]
+  Is White List: false
+  Datacenter: null
+  Rack: null
+  Load Balance: auto
+  Remote DC Hosts: disabled
+Schema:
+  Keyspace: keyspace1
+  Replication Strategy: org.apache.cassandra.locator.NetworkTopologyStrategy
+  Replication Strategy Options: {replication_factor=1}
+  Storage Options: {}
+  Table Compression: null
+  Table Compaction Strategy: null
+  Table Compaction Strategy Options: {}
+Transport:
+  factory=org.apache.cassandra.thrift.TFramedTransportFactory; truststore=null; truststore-password=null; keystore=null; keystore-password=null; ssl-protocol=TLS; ssl-alg=SunX509; store-type=JKS; ssl-ciphers=TLS_AES_256_GCM_SHA384,TLS_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256; hostname-verification=false; 
+Port:
+  Native Port: 9042
+  Thrift Port: 9160
+  JMX Port: 7199
+Send To Daemon:
+  *not set*
+Graph:
+  File: null
+  Revision: unknown
+  Title: null
+  Operation: WRITE
+TokenRange:
+  Wrap: false
+  Split Factor: 1
+
+INFO  [main] 2026-07-02 16:05:27,208 Cluster.java:272 - ScyllaDB Java Driver 3.11.5.15
+INFO  [main] 2026-07-02 16:05:27,261 Native.java:113 - Could not load JNR C Library, native system calls through this library will not be available (set this logger level to DEBUG to see the full stack trace).
+INFO  [main] 2026-07-02 16:05:27,262 Clock.java:60 - Using java.lang.System clock to generate timestamps.
+INFO  [main] 2026-07-02 16:05:27,299 Cluster.java:187 - ===== Using optimized driver!!! =====
+INFO  [main] 2026-07-02 16:05:27,367 NettyUtil.java:84 - Detected shaded Netty classes in the classpath; native epoll transport will not work properly, defaulting to NIO.
+INFO  [main] 2026-07-02 16:05:27,922 DCAwareRoundRobinPolicy.java:110 - Using data-center name 'datacenter1' for DCAwareRoundRobinPolicy (if this is incorrect, please provide the correct datacenter name with DCAwareRoundRobinPolicy constructor)
+INFO  [main] 2026-07-02 16:05:27,924 Cluster.java:1770 - New Cassandra host /127.0.0.1:9042 added
+Connected to cluster: , max pending requests per connection null, max connections per host 8
+Datatacenter: datacenter1; Host: /127.0.0.1; Rack: rack1
+INFO  [main] 2026-07-02 16:05:27,945 HostConnectionPool.java:201 - Using advanced port-based shard awareness with /127.0.0.1:9042
+WARN  [cluster1-nio-worker-1] 2026-07-02 16:05:27,956 Connection.java:288 - Error creating netty channel to /127.0.0.1:9042
+com.datastax.shaded.netty.channel.AbstractChannel$AnnotatedConnectException: Connection refused: /127.0.0.1:19042
+Caused by: java.net.ConnectException: Connection refused
+	at java.base/sun.nio.ch.Net.pollConnect(Native Method)
+	at java.base/sun.nio.ch.Net.pollConnectNow(Unknown Source)
+	at java.base/sun.nio.ch.SocketChannelImpl.finishConnect(Unknown Source)
+	at com.datastax.shaded.netty.channel.socket.nio.NioSocketChannel.doFinishConnect(NioSocketChannel.java:336)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.finishConnect(AbstractNioChannel.java:339)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:784)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:732)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:658)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:562)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+WARN  [cluster1-nio-worker-2] 2026-07-02 16:05:27,959 Connection.java:288 - Error creating netty channel to /127.0.0.1:9042
+com.datastax.shaded.netty.channel.AbstractChannel$AnnotatedConnectException: Connection refused: /127.0.0.1:19042
+Caused by: java.net.ConnectException: Connection refused
+	at java.base/sun.nio.ch.Net.pollConnect(Native Method)
+	at java.base/sun.nio.ch.Net.pollConnectNow(Unknown Source)
+	at java.base/sun.nio.ch.SocketChannelImpl.finishConnect(Unknown Source)
+	at com.datastax.shaded.netty.channel.socket.nio.NioSocketChannel.doFinishConnect(NioSocketChannel.java:336)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.finishConnect(AbstractNioChannel.java:339)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:784)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:732)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:658)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:562)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+WARN  [cluster1-nio-worker-1] 2026-07-02 16:05:27,961 HostConnectionPool.java:478 - Error creating connection to /127.0.0.1:9042
+com.datastax.driver.core.exceptions.TransportException: [/127.0.0.1:9042] Cannot connect
+	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:324)
+	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:251)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListener0(DefaultPromise.java:603)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListeners0(DefaultPromise.java:596)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListenersNow(DefaultPromise.java:572)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListeners(DefaultPromise.java:505)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.setValue0(DefaultPromise.java:649)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.setFailure0(DefaultPromise.java:642)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.tryFailure(DefaultPromise.java:131)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.fulfillConnectPromise(AbstractNioChannel.java:326)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.finishConnect(AbstractNioChannel.java:342)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:784)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:732)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:658)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:562)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+Caused by: com.datastax.shaded.netty.channel.AbstractChannel$AnnotatedConnectException: Connection refused: /127.0.0.1:19042
+Caused by: java.net.ConnectException: Connection refused
+	at java.base/sun.nio.ch.Net.pollConnect(Native Method)
+	at java.base/sun.nio.ch.Net.pollConnectNow(Unknown Source)
+	at java.base/sun.nio.ch.SocketChannelImpl.finishConnect(Unknown Source)
+	at com.datastax.shaded.netty.channel.socket.nio.NioSocketChannel.doFinishConnect(NioSocketChannel.java:336)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.finishConnect(AbstractNioChannel.java:339)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:784)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:732)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:658)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:562)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+WARN  [cluster1-nio-worker-0] 2026-07-02 16:05:27,962 Connection.java:288 - Error creating netty channel to /127.0.0.1:9042
+com.datastax.shaded.netty.channel.AbstractChannel$AnnotatedConnectException: Connection refused: /127.0.0.1:19042
+Caused by: java.net.ConnectException: Connection refused
+	at java.base/sun.nio.ch.Net.pollConnect(Native Method)
+	at java.base/sun.nio.ch.Net.pollConnectNow(Unknown Source)
+	at java.base/sun.nio.ch.SocketChannelImpl.finishConnect(Unknown Source)
+	at com.datastax.shaded.netty.channel.socket.nio.NioSocketChannel.doFinishConnect(NioSocketChannel.java:336)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.finishConnect(AbstractNioChannel.java:339)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:784)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:732)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:658)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:562)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+WARN  [cluster1-nio-worker-0] 2026-07-02 16:05:27,968 HostConnectionPool.java:478 - Error creating connection to /127.0.0.1:9042
+com.datastax.driver.core.exceptions.TransportException: [/127.0.0.1:9042] Cannot connect
+	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:324)
+	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:251)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListener0(DefaultPromise.java:603)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListeners0(DefaultPromise.java:596)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListenersNow(DefaultPromise.java:572)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListeners(DefaultPromise.java:505)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.setValue0(DefaultPromise.java:649)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.setFailure0(DefaultPromise.java:642)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.tryFailure(DefaultPromise.java:131)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.fulfillConnectPromise(AbstractNioChannel.java:326)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.finishConnect(AbstractNioChannel.java:342)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:784)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:732)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:658)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:562)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+Caused by: com.datastax.shaded.netty.channel.AbstractChannel$AnnotatedConnectException: Connection refused: /127.0.0.1:19042
+Caused by: java.net.ConnectException: Connection refused
+	at java.base/sun.nio.ch.Net.pollConnect(Native Method)
+	at java.base/sun.nio.ch.Net.pollConnectNow(Unknown Source)
+	at java.base/sun.nio.ch.SocketChannelImpl.finishConnect(Unknown Source)
+	at com.datastax.shaded.netty.channel.socket.nio.NioSocketChannel.doFinishConnect(NioSocketChannel.java:336)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.finishConnect(AbstractNioChannel.java:339)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:784)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:732)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:658)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:562)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+WARN  [cluster1-nio-worker-0] 2026-07-02 16:05:27,970 Connection.java:288 - Error creating netty channel to /127.0.0.1:9042
+com.datastax.shaded.netty.channel.AbstractChannel$AnnotatedConnectException: Connection refused: /127.0.0.1:19042
+Caused by: java.net.ConnectException: Connection refused
+	at java.base/sun.nio.ch.Net.pollConnect(Native Method)
+	at java.base/sun.nio.ch.Net.pollConnectNow(Unknown Source)
+	at java.base/sun.nio.ch.SocketChannelImpl.finishConnect(Unknown Source)
+	at com.datastax.shaded.netty.channel.socket.nio.NioSocketChannel.doFinishConnect(NioSocketChannel.java:336)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.finishConnect(AbstractNioChannel.java:339)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:784)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:732)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:658)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:562)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+WARN  [cluster1-nio-worker-0] 2026-07-02 16:05:27,971 HostConnectionPool.java:478 - Error creating connection to /127.0.0.1:9042
+com.datastax.driver.core.exceptions.TransportException: [/127.0.0.1:9042] Cannot connect
+	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:324)
+	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:251)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListener0(DefaultPromise.java:603)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListeners0(DefaultPromise.java:596)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListenersNow(DefaultPromise.java:572)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListeners(DefaultPromise.java:505)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.setValue0(DefaultPromise.java:649)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.setFailure0(DefaultPromise.java:642)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.tryFailure(DefaultPromise.java:131)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.fulfillConnectPromise(AbstractNioChannel.java:326)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.finishConnect(AbstractNioChannel.java:342)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:784)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:732)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:658)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:562)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+Caused by: com.datastax.shaded.netty.channel.AbstractChannel$AnnotatedConnectException: Connection refused: /127.0.0.1:19042
+Caused by: java.net.ConnectException: Connection refused
+	at java.base/sun.nio.ch.Net.pollConnect(Native Method)
+	at java.base/sun.nio.ch.Net.pollConnectNow(Unknown Source)
+	at java.base/sun.nio.ch.SocketChannelImpl.finishConnect(Unknown Source)
+	at com.datastax.shaded.netty.channel.socket.nio.NioSocketChannel.doFinishConnect(NioSocketChannel.java:336)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.finishConnect(AbstractNioChannel.java:339)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:784)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:732)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:658)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:562)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+WARN  [cluster1-nio-worker-2] 2026-07-02 16:05:27,961 HostConnectionPool.java:478 - Error creating connection to /127.0.0.1:9042
+com.datastax.driver.core.exceptions.TransportException: [/127.0.0.1:9042] Cannot connect
+	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:324)
+	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:251)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListener0(DefaultPromise.java:603)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListeners0(DefaultPromise.java:596)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListenersNow(DefaultPromise.java:572)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListeners(DefaultPromise.java:505)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.setValue0(DefaultPromise.java:649)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.setFailure0(DefaultPromise.java:642)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.tryFailure(DefaultPromise.java:131)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.fulfillConnectPromise(AbstractNioChannel.java:326)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.finishConnect(AbstractNioChannel.java:342)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:784)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:732)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:658)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:562)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+Caused by: com.datastax.shaded.netty.channel.AbstractChannel$AnnotatedConnectException: Connection refused: /127.0.0.1:19042
+Caused by: java.net.ConnectException: Connection refused
+	at java.base/sun.nio.ch.Net.pollConnect(Native Method)
+	at java.base/sun.nio.ch.Net.pollConnectNow(Unknown Source)
+	at java.base/sun.nio.ch.SocketChannelImpl.finishConnect(Unknown Source)
+	at com.datastax.shaded.netty.channel.socket.nio.NioSocketChannel.doFinishConnect(NioSocketChannel.java:336)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.finishConnect(AbstractNioChannel.java:339)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:784)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:732)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:658)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:562)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+WARN  [cluster1-nio-worker-3] 2026-07-02 16:05:27,970 Connection.java:288 - Error creating netty channel to /127.0.0.1:9042
+com.datastax.shaded.netty.channel.AbstractChannel$AnnotatedConnectException: Connection refused: /127.0.0.1:19042
+Caused by: java.net.ConnectException: Connection refused
+	at java.base/sun.nio.ch.Net.pollConnect(Native Method)
+	at java.base/sun.nio.ch.Net.pollConnectNow(Unknown Source)
+	at java.base/sun.nio.ch.SocketChannelImpl.finishConnect(Unknown Source)
+	at com.datastax.shaded.netty.channel.socket.nio.NioSocketChannel.doFinishConnect(NioSocketChannel.java:336)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.finishConnect(AbstractNioChannel.java:339)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:784)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:732)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:658)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:562)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+WARN  [cluster1-nio-worker-3] 2026-07-02 16:05:27,978 HostConnectionPool.java:478 - Error creating connection to /127.0.0.1:9042
+com.datastax.driver.core.exceptions.TransportException: [/127.0.0.1:9042] Cannot connect
+	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:324)
+	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:251)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListener0(DefaultPromise.java:603)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListeners0(DefaultPromise.java:596)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListenersNow(DefaultPromise.java:572)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListeners(DefaultPromise.java:505)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.setValue0(DefaultPromise.java:649)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.setFailure0(DefaultPromise.java:642)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.tryFailure(DefaultPromise.java:131)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.fulfillConnectPromise(AbstractNioChannel.java:326)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.finishConnect(AbstractNioChannel.java:342)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:784)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:732)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:658)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:562)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+Caused by: com.datastax.shaded.netty.channel.AbstractChannel$AnnotatedConnectException: Connection refused: /127.0.0.1:19042
+Caused by: java.net.ConnectException: Connection refused
+	at java.base/sun.nio.ch.Net.pollConnect(Native Method)
+	at java.base/sun.nio.ch.Net.pollConnectNow(Unknown Source)
+	at java.base/sun.nio.ch.SocketChannelImpl.finishConnect(Unknown Source)
+	at com.datastax.shaded.netty.channel.socket.nio.NioSocketChannel.doFinishConnect(NioSocketChannel.java:336)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.finishConnect(AbstractNioChannel.java:339)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:784)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:732)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:658)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:562)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+WARN  [cluster1-nio-worker-2] 2026-07-02 16:05:27,979 Connection.java:288 - Error creating netty channel to /127.0.0.1:9042
+com.datastax.shaded.netty.channel.AbstractChannel$AnnotatedConnectException: Connection refused: /127.0.0.1:19042
+Caused by: java.net.ConnectException: Connection refused
+	at java.base/sun.nio.ch.Net.pollConnect(Native Method)
+	at java.base/sun.nio.ch.Net.pollConnectNow(Unknown Source)
+	at java.base/sun.nio.ch.SocketChannelImpl.finishConnect(Unknown Source)
+	at com.datastax.shaded.netty.channel.socket.nio.NioSocketChannel.doFinishConnect(NioSocketChannel.java:336)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.finishConnect(AbstractNioChannel.java:339)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:784)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:732)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:658)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:562)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+WARN  [cluster1-nio-worker-3] 2026-07-02 16:05:27,980 Connection.java:288 - Error creating netty channel to /127.0.0.1:9042
+com.datastax.shaded.netty.channel.AbstractChannel$AnnotatedConnectException: Connection refused: /127.0.0.1:19042
+Caused by: java.net.ConnectException: Connection refused
+	at java.base/sun.nio.ch.Net.pollConnect(Native Method)
+	at java.base/sun.nio.ch.Net.pollConnectNow(Unknown Source)
+	at java.base/sun.nio.ch.SocketChannelImpl.finishConnect(Unknown Source)
+	at com.datastax.shaded.netty.channel.socket.nio.NioSocketChannel.doFinishConnect(NioSocketChannel.java:336)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.finishConnect(AbstractNioChannel.java:339)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:784)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:732)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:658)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:562)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+WARN  [cluster1-nio-worker-2] 2026-07-02 16:05:27,981 HostConnectionPool.java:478 - Error creating connection to /127.0.0.1:9042
+com.datastax.driver.core.exceptions.TransportException: [/127.0.0.1:9042] Cannot connect
+	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:324)
+	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:251)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListener0(DefaultPromise.java:603)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListeners0(DefaultPromise.java:596)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListenersNow(DefaultPromise.java:572)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListeners(DefaultPromise.java:505)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.setValue0(DefaultPromise.java:649)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.setFailure0(DefaultPromise.java:642)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.tryFailure(DefaultPromise.java:131)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.fulfillConnectPromise(AbstractNioChannel.java:326)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.finishConnect(AbstractNioChannel.java:342)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:784)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:732)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:658)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:562)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+Caused by: com.datastax.shaded.netty.channel.AbstractChannel$AnnotatedConnectException: Connection refused: /127.0.0.1:19042
+Caused by: java.net.ConnectException: Connection refused
+	at java.base/sun.nio.ch.Net.pollConnect(Native Method)
+	at java.base/sun.nio.ch.Net.pollConnectNow(Unknown Source)
+	at java.base/sun.nio.ch.SocketChannelImpl.finishConnect(Unknown Source)
+	at com.datastax.shaded.netty.channel.socket.nio.NioSocketChannel.doFinishConnect(NioSocketChannel.java:336)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.finishConnect(AbstractNioChannel.java:339)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:784)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:732)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:658)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:562)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+WARN  [cluster1-nio-worker-3] 2026-07-02 16:05:27,981 HostConnectionPool.java:478 - Error creating connection to /127.0.0.1:9042
+com.datastax.driver.core.exceptions.TransportException: [/127.0.0.1:9042] Cannot connect
+	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:324)
+	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:251)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListener0(DefaultPromise.java:603)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListeners0(DefaultPromise.java:596)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListenersNow(DefaultPromise.java:572)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListeners(DefaultPromise.java:505)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.setValue0(DefaultPromise.java:649)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.setFailure0(DefaultPromise.java:642)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.tryFailure(DefaultPromise.java:131)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.fulfillConnectPromise(AbstractNioChannel.java:326)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.finishConnect(AbstractNioChannel.java:342)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:784)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:732)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:658)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:562)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+Caused by: com.datastax.shaded.netty.channel.AbstractChannel$AnnotatedConnectException: Connection refused: /127.0.0.1:19042
+Caused by: java.net.ConnectException: Connection refused
+	at java.base/sun.nio.ch.Net.pollConnect(Native Method)
+	at java.base/sun.nio.ch.Net.pollConnectNow(Unknown Source)
+	at java.base/sun.nio.ch.SocketChannelImpl.finishConnect(Unknown Source)
+	at com.datastax.shaded.netty.channel.socket.nio.NioSocketChannel.doFinishConnect(NioSocketChannel.java:336)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.finishConnect(AbstractNioChannel.java:339)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:784)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:732)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:658)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:562)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+WARN  [cluster1-nio-worker-1] 2026-07-02 16:05:28,009 RequestHandler.java:260 - Query '[0 bound values] CREATE KEYSPACE IF NOT EXISTS "keyspace1" WITH replication = {'class': 'org.apache.cassandra.locator.NetworkTopologyStrategy', 'replication_factor' : '1'} AND durable_writes = true;' generated server side warning(s): Tables in this keyspace will be replicated using Tablets and will not support CDC, LWT and counters features. To use CDC, LWT or counters, drop this keyspace and re-create it without tablets by adding AND TABLETS = {'enabled': false} to the CREATE KEYSPACE statement.
+WARN  [cluster1-nio-worker-1] 2026-07-02 16:05:28,010 RequestHandler.java:260 - Query '[0 bound values] CREATE KEYSPACE IF NOT EXISTS "keyspace1" WITH replication = {'class': 'org.apache.cassandra.locator.NetworkTopologyStrategy', 'replication_factor' : '1'} AND durable_writes = true;' generated server side warning(s): Using Replication Factor replication_factor=1 lower than the minimum_replication_factor_warn_threshold=3 is not recommended.
+Created keyspaces. Sleeping 1s for propagation.
+Sleeping 2s...
+Warming up WRITE with 50000 iterations...
+Failed to connect over JMX; not collecting these stats
+Thread count was not specified
+
+Running with 16 threadCount
+Running WRITE with 16 threads for 500000 iteration
+Failed to connect over JMX; not collecting these stats
+type       total ops,    op/s,    pk/s,   row/s,    mean,     med,     .95,     .99,    .999,     max,   time,   stderr, errors,  gc: #,  max ms,  sum ms,  sdv ms,      mb
+total,          4766,    4766,    4766,    4766,     3.1,     2.8,     6.2,    10.5,    22.0,    43.8,    1.0,  0.00000,      0,      0,       0,       0,       0,       0
+total,         10428,    5662,    5662,    5662,     2.8,     2.5,     5.6,     8.7,    20.3,    25.1,    2.0,  0.05394,      0,      0,       0,       0,       0,       0
+total,         16063,    5635,    5635,    5635,     2.8,     2.4,     5.9,     9.4,    20.7,    33.4,    3.0,  0.04100,      0,      0,       0,       0,       0,       0
+total,         22568,    6505,    6505,    6505,     2.4,     2.1,     5.2,     7.5,    11.8,    15.5,    4.0,  0.04942,      0,      0,       0,       0,       0,       0
+total,         28773,    6205,    6205,    6205,     2.5,     2.1,     5.9,     8.7,    17.7,    20.0,    5.0,  0.04195,      0,      0,       0,       0,       0,       0
+total,         34959,    6186,    6186,    6186,     2.5,     2.2,     5.5,     8.2,    17.5,    20.7,    6.0,  0.03606,      0,      0,       0,       0,       0,       0
+total,         40887,    5928,    5928,    5928,     2.7,     2.2,     5.9,    10.4,    23.2,    24.5,    7.0,  0.03091,      0,      0,       0,       0,       0,       0
+total,         46625,    5738,    5738,    5738,     2.8,     2.5,     5.4,     7.7,    10.9,    12.7,    8.0,  0.02739,      0,      0,       0,       0,       0,       0
+total,         52269,    5644,    5644,    5644,     2.8,     2.5,     5.1,     7.9,    18.6,    43.7,    9.0,  0.02440,      0,      0,       0,       0,       0,       0
+total,         57287,    5018,    5018,    5018,     3.2,     2.7,     6.6,    12.1,    19.7,    23.8,   10.0,  0.02593,      0,      0,       0,       0,       0,       0
+total,         63511,    6224,    6224,    6224,     2.5,     2.2,     5.0,     9.6,    23.6,    27.5,   11.0,  0.02458,      0,      0,       0,       0,       0,       0
+total,         69954,    6443,    6443,    6443,     2.5,     2.2,     5.3,     8.3,    13.6,    15.6,   12.0,  0.02381,      0,      0,       0,       0,       0,       0
+total,         76104,    6150,    6150,    6150,     2.6,     2.1,     5.7,    10.2,    26.4,    36.2,   13.0,  0.02242,      0,      0,       0,       0,       0,       0
+total,         82940,    6836,    6836,    6836,     2.3,     2.1,     4.6,     6.6,    16.6,    18.5,   14.0,  0.02325,      0,      0,       0,       0,       0,       0
+total,         89371,    6431,    6431,    6431,     2.4,     2.1,     4.7,     7.0,    22.2,    27.5,   15.0,  0.02229,      0,      0,       0,       0,       0,       0
+total,         95424,    6053,    6053,    6053,     2.6,     2.4,     4.8,     7.5,    14.6,    17.9,   16.0,  0.02089,      0,      0,       0,       0,       0,       0
+total,        101390,    5966,    5966,    5966,     2.6,     2.3,     4.9,     8.0,    21.0,    22.8,   17.0,  0.01967,      0,      0,       0,       0,       0,       0
+total,        107080,    5690,    5690,    5690,     2.8,     2.4,     5.1,     8.4,    25.4,    29.7,   18.0,  0.01875,      0,      0,       0,       0,       0,       0
+total,        113459,    6379,    6379,    6379,     2.5,     2.2,     4.6,     6.6,    11.0,    28.8,   19.0,  0.01812,      0,      0,       0,       0,       0,       0
+total,        119703,    6244,    6244,    6244,     2.5,     1.9,     6.0,    12.6,    28.4,    31.0,   20.0,  0.01735,      0,      0,       0,       0,       0,       0
+total,        126839,    7136,    7136,    7136,     2.2,     1.7,     4.9,    12.6,    29.0,    50.8,   21.0,  0.01932,      0,      0,       0,       0,       0,       0
+total,        134831,    7992,    7992,    7992,     2.0,     1.7,     4.3,     7.7,    20.4,    40.7,   22.0,  0.02352,      0,      0,       0,       0,       0,       0
+total,        142099,    7268,    7268,    7268,     2.2,     1.9,     4.4,     7.4,    21.5,    26.0,   23.0,  0.02363,      0,      0,       0,       0,       0,       0
+total,        148671,    6572,    6572,    6572,     2.4,     2.1,     4.1,     7.7,    23.1,    58.4,   24.0,  0.02290,      0,      0,       0,       0,       0,       0
+total,        155840,    7169,    7169,    7169,     2.2,     1.8,     4.7,     9.5,    14.9,    71.6,   25.0,  0.02328,      0,      0,       0,       0,       0,       0
+total,        162089,    6249,    6249,    6249,     2.5,     2.0,     6.0,    12.6,    18.5,    20.4,   26.0,  0.02239,      0,      0,       0,       0,       0,       0
+total,        168649,    6560,    6560,    6560,     2.4,     2.0,     5.3,    11.6,    26.1,    33.1,   27.0,  0.02161,      0,      0,       0,       0,       0,       0
+total,        176195,    7546,    7546,    7546,     2.1,     1.6,     4.8,    10.8,    20.2,    39.1,   28.0,  0.02203,      0,      0,       0,       0,       0,       0
+total,        184108,    7913,    7913,    7913,     2.0,     1.6,     4.2,     9.0,    27.0,    42.7,   29.0,  0.02297,      0,      0,       0,       0,       0,       0
+total,        191198,    7090,    7090,    7090,     2.2,     2.0,     4.1,     7.0,    17.2,    30.0,   30.0,  0.02244,      0,      0,       0,       0,       0,       0
+total,        198166,    6968,    6968,    6968,     2.3,     2.1,     3.8,     5.5,     8.8,     9.8,   31.0,  0.02177,      0,      0,       0,       0,       0,       0
+total,        205691,    7525,    7525,    7525,     2.1,     1.9,     3.4,     5.6,    18.8,    34.0,   32.0,  0.02169,      0,      0,       0,       0,       0,       0
+total,        213098,    7407,    7407,    7407,     2.1,     2.0,     3.5,     5.4,    16.3,    19.1,   33.0,  0.02135,      0,      0,       0,       0,       0,       0
+total,        220434,    7336,    7336,    7336,     2.1,     2.0,     4.0,     5.8,    10.5,    13.0,   34.0,  0.02092,      0,      0,       0,       0,       0,       0
+total,        228404,    7970,    7970,    7970,     2.0,     1.8,     3.6,     6.1,    16.0,    39.6,   35.0,  0.02128,      0,      0,       0,       0,       0,       0
+total,        236691,    8287,    8287,    8287,     1.9,     1.8,     3.3,     4.4,     9.7,    11.3,   36.0,  0.02161,      0,      0,       0,       0,       0,       0
+total,        244814,    8123,    8123,    8123,     1.9,     1.8,     3.1,     4.9,    29.5,    43.8,   37.0,  0.02193,      0,      0,       0,       0,       0,       0
+total,        252087,    7273,    7273,    7273,     2.2,     2.0,     3.8,     5.1,    14.8,    16.7,   38.0,  0.02142,      0,      0,       0,       0,       0,       0
+total,        259575,    7488,    7488,    7488,     2.1,     2.0,     3.6,     4.7,     6.8,     9.6,   39.0,  0.02098,      0,      0,       0,       0,       0,       0
+total,        266655,    7080,    7080,    7080,     2.2,     1.7,     4.2,    11.9,    54.1,    70.5,   40.0,  0.02058,      0,      0,       0,       0,       0,       0
+total,        274420,    7765,    7765,    7765,     2.0,     1.9,     3.6,     5.5,    13.0,    15.4,   41.0,  0.02032,      0,      0,       0,       0,       0,       0
+total,        281983,    7563,    7563,    7563,     2.1,     1.9,     4.1,     6.4,    13.0,    14.6,   42.0,  0.01996,      0,      0,       0,       0,       0,       0
+total,        289649,    7666,    7666,    7666,     2.1,     1.7,     3.8,     8.9,    27.6,    28.9,   43.0,  0.01970,      0,      0,       0,       0,       0,       0
+total,        298123,    8474,    8474,    8474,     1.9,     1.7,     3.3,     5.9,    13.1,    15.9,   44.0,  0.01988,      0,      0,       0,       0,       0,       0
+total,        305445,    7322,    7322,    7322,     2.2,     1.7,     4.5,    12.7,    23.3,    37.3,   45.0,  0.01950,      0,      0,       0,       0,       0,       0
+total,        313681,    8236,    8236,    8236,     1.9,     1.6,     3.9,     7.0,    11.6,    13.1,   46.0,  0.01944,      0,      0,       0,       0,       0,       0
+total,        322312,    8631,    8631,    8631,     1.8,     1.5,     3.6,     6.6,    10.0,    10.8,   47.0,  0.01960,      0,      0,       0,       0,       0,       0
+total,        330804,    8492,    8492,    8492,     1.9,     1.5,     3.8,     8.3,    15.4,    24.1,   48.0,  0.01969,      0,      0,       0,       0,       0,       0
+total,        340117,    9313,    9313,    9313,     1.7,     1.5,     3.0,     4.4,    12.1,    18.9,   49.0,  0.02032,      0,      0,       0,       0,       0,       0
+total,        349983,    9866,    9866,    9866,     1.6,     1.3,     3.6,     6.3,    10.8,    13.6,   50.0,  0.02127,      0,      0,       0,       0,       0,       0
+total,        359408,    9425,    9425,    9425,     1.7,     1.4,     3.8,     7.1,    18.0,    23.2,   51.0,  0.02172,      0,      0,       0,       0,       0,       0
+total,        367869,    8461,    8461,    8461,     1.9,     1.6,     3.2,     7.9,    20.3,    29.9,   52.0,  0.02157,      0,      0,       0,       0,       0,       0
+total,        376917,    9048,    9048,    9048,     1.7,     1.6,     3.3,     4.8,    11.3,    13.4,   53.0,  0.02161,      0,      0,       0,       0,       0,       0
+total,        385464,    8547,    8547,    8547,     1.8,     1.6,     3.4,     6.6,    29.5,    41.0,   54.0,  0.02150,      0,      0,       0,       0,       0,       0
+total,        394503,    9039,    9039,    9039,     1.7,     1.5,     3.2,     5.6,     9.8,    11.1,   55.0,  0.02147,      0,      0,       0,       0,       0,       0
+total,        403220,    8717,    8717,    8717,     1.8,     1.5,     3.4,     6.7,    17.4,    22.3,   56.0,  0.02133,      0,      0,       0,       0,       0,       0
+total,        412422,    9202,    9202,    9202,     1.7,     1.5,     3.1,     5.2,    13.2,    16.4,   57.0,  0.02135,      0,      0,       0,       0,       0,       0
+total,        421778,    9356,    9356,    9356,     1.7,     1.5,     2.9,     4.0,    18.1,    22.7,   58.0,  0.02145,      0,      0,       0,       0,       0,       0
+total,        431098,    9320,    9320,    9320,     1.7,     1.5,     3.0,     4.2,    10.2,    13.3,   59.0,  0.02145,      0,      0,       0,       0,       0,       0
+total,        439862,    8764,    8764,    8764,     1.8,     1.5,     3.4,     6.6,    17.4,    18.6,   60.0,  0.02126,      0,      0,       0,       0,       0,       0
+total,        448440,    8578,    8578,    8578,     1.8,     1.5,     4.0,     7.0,    12.4,    14.4,   61.0,  0.02101,      0,      0,       0,       0,       0,       0
+total,        457075,    8635,    8635,    8635,     1.8,     1.6,     3.7,     6.3,    11.2,    13.5,   62.0,  0.02077,      0,      0,       0,       0,       0,       0
+total,        466003,    8928,    8928,    8928,     1.8,     1.6,     3.2,     4.9,    11.6,    13.2,   63.0,  0.02061,      0,      0,       0,       0,       0,       0
+total,        474192,    8189,    8189,    8189,     1.9,     1.6,     4.0,     8.2,    19.5,    25.1,   64.0,  0.02032,      0,      0,       0,       0,       0,       0
+total,        483470,    9278,    9278,    9278,     1.7,     1.5,     3.2,     5.3,    12.3,    14.7,   65.0,  0.02026,      0,      0,       0,       0,       0,       0
+total,        492024,    8554,    8554,    8554,     1.8,     1.5,     3.6,     6.6,    22.1,    26.4,   66.0,  0.02004,      0,      0,       0,       0,       0,       0
+total,        500000,    8509,    8509,    8509,     1.9,     1.6,     3.6,     6.1,    15.1,    16.6,   66.9,  0.01980,      0,      0,       0,       0,       0,       0
+
+
+Results:
+Op rate                   :    7,470 op/s  [WRITE: 7,470 op/s]
+Partition rate            :    7,470 pk/s  [WRITE: 7,470 pk/s]
+Row rate                  :    7,470 row/s [WRITE: 7,470 row/s]
+Latency mean              :    2.1 ms [WRITE: 2.1 ms]
+Latency median            :    1.8 ms [WRITE: 1.8 ms]
+Latency 95th percentile   :    4.3 ms [WRITE: 4.3 ms]
+Latency 99th percentile   :    7.7 ms [WRITE: 7.7 ms]
+Latency 99.9th percentile :   19.6 ms [WRITE: 19.6 ms]
+Latency max               :   71.6 ms [WRITE: 71.6 ms]
+Total partitions          :    500,000 [WRITE: 500,000]
+Total errors              :          0 [WRITE: 0]
+Total GC count            : 0
+Total GC memory           : 0.000 KiB
+Total GC time             :    0.0 seconds
+Avg GC time               :    NaN ms
+StdDev GC time            :    0.0 ms
+Total operation time      : 00:01:06
+
+Sleeping for 15s
+
+Running with 116 threadCount
+Running WRITE with 116 threads for 500000 iteration
+Failed to connect over JMX; not collecting these stats
+type       total ops,    op/s,    pk/s,   row/s,    mean,     med,     .95,     .99,    .999,     max,   time,   stderr, errors,  gc: #,  max ms,  sum ms,  sdv ms,      mb
+total,         13454,   13454,   13454,   13454,     8.3,     7.1,    21.6,    40.2,    62.1,    69.5,    2.0,  0.70711,      0,      0,       0,       0,       0,       0
+total,         26679,   13225,   13225,   13225,     8.6,     7.5,    19.0,    33.4,    45.4,    51.8,    3.0,  0.40845,      0,      0,       0,       0,       0,       0
+total,         37772,   11093,   11093,   11093,    10.3,     8.4,    25.6,    54.2,    70.3,    78.3,    4.0,  0.29211,      0,      0,       0,       0,       0,       0
+total,         52109,   14337,   14337,   14337,     8.2,     7.3,    17.7,    26.8,    40.6,    48.1,    5.0,  0.22731,      0,      0,       0,       0,       0,       0
+total,         67129,   15020,   15020,   15020,     7.7,     7.3,    13.5,    17.0,    25.9,    42.3,    6.0,  0.18672,      0,      0,       0,       0,       0,       0
+total,         81688,   14559,   14559,   14559,     7.9,     6.6,    18.9,    36.7,    48.2,    49.6,    7.0,  0.15804,      0,      0,       0,       0,       0,       0
+total,         97258,   15570,   15570,   15570,     7.3,     6.6,    14.8,    29.6,    40.1,    40.9,    8.0,  0.13767,      0,      0,       0,       0,       0,       0
+total,        112206,   14948,   14948,   14948,     7.7,     6.9,    16.5,    23.0,    28.9,    33.6,    9.0,  0.12147,      0,      0,       0,       0,       0,       0
+total,        125514,   13308,   13308,   13308,     8.7,     6.7,    16.3,    35.2,   153.9,   243.0,   10.0,  0.11021,      0,      0,       0,       0,       0,       0
+total,        140464,   14950,   14950,   14950,     7.7,     7.6,    14.3,    18.1,    22.7,    30.9,   11.0,  0.09965,      0,      0,       0,       0,       0,       0
+total,        155061,   14597,   14597,   14597,     7.9,     7.8,    13.0,    19.4,    35.3,    36.1,   12.0,  0.09094,      0,      0,       0,       0,       0,       0
+total,        170292,   15231,   15231,   15231,     7.5,     7.5,    13.9,    18.5,    23.2,    29.5,   13.0,  0.08366,      0,      0,       0,       0,       0,       0
+total,        185704,   15412,   15412,   15412,     7.5,     6.9,    15.0,    21.1,    27.9,    31.6,   14.0,  0.07749,      0,      0,       0,       0,       0,       0
+total,        202296,   16592,   16592,   16592,     7.0,     6.7,    13.0,    16.4,    27.6,    32.3,   15.0,  0.07258,      0,      0,       0,       0,       0,       0
+total,        219000,   16704,   16704,   16704,     6.9,     6.6,    13.2,    18.3,    27.5,    30.3,   16.0,  0.06827,      0,      0,       0,       0,       0,       0
+total,        234071,   15071,   15071,   15071,     7.7,     7.6,    13.2,    17.5,    20.2,    23.6,   17.0,  0.06411,      0,      0,       0,       0,       0,       0
+total,        248836,   14765,   14765,   14765,     7.8,     7.4,    14.8,    19.7,    34.6,    37.7,   18.0,  0.06044,      0,      0,       0,       0,       0,       0
+total,        263845,   15009,   15009,   15009,     7.7,     7.2,    14.8,    19.3,    30.7,    32.9,   19.0,  0.05716,      0,      0,       0,       0,       0,       0
+total,        279411,   15566,   15566,   15566,     7.4,     7.1,    14.4,    17.7,    22.2,    23.6,   20.0,  0.05423,      0,      0,       0,       0,       0,       0
+total,        294386,   14975,   14975,   14975,     7.7,     7.3,    14.2,    19.3,    33.4,    38.1,   21.0,  0.05158,      0,      0,       0,       0,       0,       0
+total,        310555,   16169,   16169,   16169,     7.2,     7.0,    13.3,    17.6,    22.3,    24.4,   22.0,  0.04926,      0,      0,       0,       0,       0,       0
+total,        325321,   14766,   14766,   14766,     7.8,     7.6,    14.7,    19.4,    23.9,    28.3,   23.0,  0.04708,      0,      0,       0,       0,       0,       0
+total,        340812,   15491,   15491,   15491,     7.4,     6.9,    15.5,    20.6,    28.1,    31.5,   24.0,  0.04508,      0,      0,       0,       0,       0,       0
+total,        355600,   14788,   14788,   14788,     7.7,     7.3,    15.6,    20.9,    29.1,    38.3,   25.0,  0.04324,      0,      0,       0,       0,       0,       0
+total,        371747,   16147,   16147,   16147,     7.1,     6.9,    13.1,    16.8,    25.8,    28.9,   26.0,  0.04162,      0,      0,       0,       0,       0,       0
+total,        387071,   15324,   15324,   15324,     7.5,     6.9,    15.4,    20.5,    35.5,    36.5,   27.0,  0.04005,      0,      0,       0,       0,       0,       0
+total,        401509,   14438,   14438,   14438,     8.0,     7.5,    16.4,    20.8,    24.1,    27.8,   28.0,  0.03863,      0,      0,       0,       0,       0,       0
+total,        417195,   15686,   15686,   15686,     7.3,     7.1,    14.3,    18.1,    23.0,    24.2,   29.0,  0.03729,      0,      0,       0,       0,       0,       0
+total,        432149,   14954,   14954,   14954,     7.7,     7.0,    15.5,    23.5,    41.0,    55.2,   30.0,  0.03602,      0,      0,       0,       0,       0,       0
+total,        448537,   16388,   16388,   16388,     7.1,     6.5,    14.8,    22.1,    31.6,    33.8,   31.0,  0.03494,      0,      0,       0,       0,       0,       0
+total,        464868,   16331,   16331,   16331,     7.1,     6.5,    14.3,    18.3,    22.6,    38.2,   32.0,  0.03393,      0,      0,       0,       0,       0,       0
+total,        481112,   16244,   16244,   16244,     7.1,     6.7,    14.0,    17.6,    28.0,    30.6,   33.0,  0.03294,      0,      0,       0,       0,       0,       0
+total,        495287,   14175,   14175,   14175,     8.1,     8.0,    15.3,    19.1,    22.2,    25.1,   34.0,  0.03204,      0,      0,       0,       0,       0,       0
+total,        500000,   15344,   15344,   15344,     7.6,     7.2,    14.3,    21.6,    23.7,    24.1,   34.3,  0.03115,      0,      0,       0,       0,       0,       0
+
+
+Results:
+Op rate                   :   14,574 op/s  [WRITE: 15,012 op/s]
+Partition rate            :   14,574 pk/s  [WRITE: 15,012 pk/s]
+Row rate                  :   14,574 row/s [WRITE: 15,012 row/s]
+Latency mean              :    7.7 ms [WRITE: 7.7 ms]
+Latency median            :    7.1 ms [WRITE: 7.1 ms]
+Latency 95th percentile   :   15.0 ms [WRITE: 15.0 ms]
+Latency 99th percentile   :   22.0 ms [WRITE: 22.0 ms]
+Latency 99.9th percentile :   42.1 ms [WRITE: 42.1 ms]
+Latency max               :  243.0 ms [WRITE: 243.0 ms]
+Total partitions          :    500,000 [WRITE: 500,000]
+Total errors              :          0 [WRITE: 0]
+Total GC count            : 0
+Total GC memory           : 0.000 KiB
+Total GC time             :    0.0 seconds
+Avg GC time               :    NaN ms
+StdDev GC time            :    0.0 ms
+Total operation time      : 00:00:34
+
+Improvement over 16 threadCount: 95%
+Sleeping for 15s
+
+Running with 216 threadCount
+Running WRITE with 216 threads for 500000 iteration
+type       total ops,    op/s,    pk/s,   row/s,    mean,     med,     .95,     .99,    .999,     max,   time,   stderr, errors,  gc: #,  max ms,  sum ms,  sdv ms,      mb
+Failed to connect over JMX; not collecting these stats
+total,          9177,    9177,    9177,    9177,    12.7,    12.1,    21.9,    31.6,    54.3,   106.2,    1.0,  0.00000,      0,      0,       0,       0,       0,       0
+total,         25879,   16702,   16702,   16702,    12.9,    12.3,    22.4,    50.4,    56.1,    59.2,    2.0,  0.18889,      0,      0,       0,       0,       0,       0
+total,         41908,   16029,   16029,   16029,    13.4,    12.7,    25.8,    41.3,    61.5,    64.8,    3.0,  0.13015,      0,      0,       0,       0,       0,       0
+total,         56536,   14628,   14628,   14628,    14.7,    15.3,    23.0,    28.8,    31.9,    34.9,    4.0,  0.09746,      0,      0,       0,       0,       0,       0
+total,         71657,   15121,   15121,   15121,    14.1,    13.5,    25.0,    41.2,    51.8,    55.0,    5.0,  0.07778,      0,      0,       0,       0,       0,       0
+total,         86790,   15133,   15133,   15133,    14.2,    14.2,    24.4,    30.2,    34.1,    35.9,    6.0,  0.06465,      0,      0,       0,       0,       0,       0
+total,        101991,   15201,   15201,   15201,    14.2,    14.1,    23.3,    30.1,    58.2,    69.5,    7.0,  0.05556,      0,      0,       0,       0,       0,       0
+total,        116638,   14647,   14647,   14647,    14.6,    13.5,    24.3,    82.4,   104.5,   111.3,    8.0,  0.04881,      0,      0,       0,       0,       0,       0
+total,        132374,   15736,   15736,   15736,    13.7,    13.7,    23.9,    30.6,    40.6,    43.8,    9.0,  0.04350,      0,      0,       0,       0,       0,       0
+total,        147447,   15073,   15073,   15073,    14.2,    13.8,    24.4,    31.1,    45.6,    48.1,   10.0,  0.03912,      0,      0,       0,       0,       0,       0
+total,        160290,   12843,   12843,   12843,    16.7,    16.8,    30.3,    41.4,    65.8,    68.0,   11.0,  0.03755,      0,      0,       0,       0,       0,       0
+total,        175030,   14740,   14740,   14740,    14.6,    14.0,    26.0,    45.2,    68.4,    70.1,   12.0,  0.03440,      0,      0,       0,       0,       0,       0
+total,        189846,   14816,   14816,   14816,    14.5,    14.5,    24.6,    30.3,    38.1,    41.3,   13.0,  0.03178,      0,      0,       0,       0,       0,       0
+total,        203797,   13951,   13951,   13951,    15.4,    14.5,    27.4,    49.1,    59.0,    64.8,   14.0,  0.02973,      0,      0,       0,       0,       0,       0
+total,        215354,   11557,   11557,   11557,    18.4,    15.3,    49.2,    66.5,    79.0,    80.8,   15.0,  0.03070,      0,      0,       0,       0,       0,       0
+total,        231320,   15966,   15966,   15966,    13.5,    13.4,    24.3,    35.4,    41.4,    49.3,   16.0,  0.02919,      0,      0,       0,       0,       0,       0
+total,        246710,   15390,   15390,   15390,    14.0,    14.0,    25.1,    35.5,    46.5,    49.7,   17.0,  0.02754,      0,      0,       0,       0,       0,       0
+total,        262617,   15907,   15907,   15907,    13.5,    13.6,    24.4,    31.6,    37.0,    38.9,   18.0,  0.02619,      0,      0,       0,       0,       0,       0
+total,        277431,   14814,   14814,   14814,    14.4,    14.5,    23.7,    27.9,    32.5,    37.1,   19.0,  0.02483,      0,      0,       0,       0,       0,       0
+total,        292929,   15498,   15498,   15498,    13.9,    14.0,    22.9,    29.3,    42.6,    50.3,   20.0,  0.02366,      0,      0,       0,       0,       0,       0
+total,        308123,   15194,   15194,   15194,    14.1,    14.5,    23.6,    30.3,    39.1,    41.2,   21.0,  0.02253,      0,      0,       0,       0,       0,       0
+total,        323089,   14966,   14966,   14966,    14.3,    14.5,    24.5,    30.3,    38.0,    41.3,   22.0,  0.02151,      0,      0,       0,       0,       0,       0
+total,        338277,   15188,   15188,   15188,    14.1,    14.3,    22.9,    27.0,    30.9,    37.5,   23.0,  0.02057,      0,      0,       0,       0,       0,       0
+total,        353470,   15193,   15193,   15193,    14.1,    14.4,    24.4,    31.2,    42.9,    44.8,   24.0,  0.01971,      0,      0,       0,       0,       0,       0
+total,        368073,   14603,   14603,   14603,    14.7,    14.9,    23.9,    32.1,    43.6,    45.8,   25.0,  0.01895,      0,      0,       0,       0,       0,       0
+total,        383162,   15089,   15089,   15089,    14.3,    14.3,    24.2,    31.1,    42.8,    46.8,   26.0,  0.01822,      0,      0,       0,       0,       0,       0
+total,        397805,   14643,   14643,   14643,    14.6,    14.8,    25.1,    38.0,    46.6,    59.1,   27.0,  0.01755,      0,      0,       0,       0,       0,       0
+total,        413093,   15288,   15288,   15288,    14.0,    14.3,    24.3,    29.8,    35.7,    37.0,   28.0,  0.01692,      0,      0,       0,       0,       0,       0
+total,        427583,   14490,   14490,   14490,    14.8,    14.9,    26.1,    33.0,    38.6,    40.4,   29.0,  0.01639,      0,      0,       0,       0,       0,       0
+total,        441830,   14247,   14247,   14247,    15.0,    15.2,    23.9,    28.3,    38.7,    41.2,   30.0,  0.01594,      0,      0,       0,       0,       0,       0
+total,        455899,   14069,   14069,   14069,    15.2,    15.1,    26.2,    34.2,    50.9,    53.3,   31.0,  0.01551,      0,      0,       0,       0,       0,       0
+total,        470099,   14200,   14200,   14200,    15.2,    15.3,    24.8,    31.0,    35.9,    40.2,   32.0,  0.01512,      0,      0,       0,       0,       0,       0
+total,        484986,   14887,   14887,   14887,    14.4,    14.7,    23.3,    28.0,    32.5,    38.5,   33.0,  0.01466,      0,      0,       0,       0,       0,       0
+total,        498485,   13499,   13499,   13499,    15.9,    16.3,    24.5,    34.8,    40.7,    50.2,   34.0,  0.01447,      0,      0,       0,       0,       0,       0
+total,        500000,    8273,    8273,    8273,    22.4,    15.8,    94.6,   100.5,   101.3,   101.4,   34.2,  0.01504,      0,      0,       0,       0,       0,       0
+
+
+Results:
+Op rate                   :   14,627 op/s  [WRITE: 14,627 op/s]
+Partition rate            :   14,627 pk/s  [WRITE: 14,627 pk/s]
+Row rate                  :   14,627 row/s [WRITE: 14,627 row/s]
+Latency mean              :   14.5 ms [WRITE: 14.5 ms]
+Latency median            :   14.3 ms [WRITE: 14.3 ms]
+Latency 95th percentile   :   24.6 ms [WRITE: 24.6 ms]
+Latency 99th percentile   :   35.2 ms [WRITE: 35.2 ms]
+Latency 99.9th percentile :   65.9 ms [WRITE: 65.9 ms]
+Latency max               :  111.3 ms [WRITE: 111.3 ms]
+Total partitions          :    500,000 [WRITE: 500,000]
+Total errors              :          0 [WRITE: 0]
+Total GC count            : 0
+Total GC memory           : 0.000 KiB
+Total GC time             :    0.0 seconds
+Avg GC time               :    NaN ms
+StdDev GC time            :    0.0 ms
+Total operation time      : 00:00:34
+
+Improvement over 116 threadCount: 0%
+Sleeping for 15s
+
+Running with 316 threadCount
+Running WRITE with 316 threads for 500000 iteration
+Failed to connect over JMX; not collecting these stats
+type       total ops,    op/s,    pk/s,   row/s,    mean,     med,     .95,     .99,    .999,     max,   time,   stderr, errors,  gc: #,  max ms,  sum ms,  sdv ms,      mb
+total,         10411,   10411,   10411,   10411,    17.4,    16.3,    31.7,    45.5,    88.3,    90.3,    1.0,  0.00000,      0,      0,       0,       0,       0,       0
+total,         26015,   15604,   15604,   15604,    20.8,    18.3,    46.8,    59.0,    71.4,    72.9,    2.0,  0.13469,      0,      0,       0,       0,       0,       0
+total,         43211,   17196,   17196,   17196,    18.4,    17.0,    38.0,    55.5,    69.7,    79.8,    3.0,  0.11328,      0,      0,       0,       0,       0,       0
+total,         59443,   16232,   16232,   16232,    19.1,    18.6,    33.6,    43.6,    54.6,    77.7,    4.0,  0.08643,      0,      0,       0,       0,       0,       0
+total,         76323,   16880,   16880,   16880,    18.6,    17.8,    33.9,    47.3,    64.8,    73.9,    5.0,  0.07107,      0,      0,       0,       0,       0,       0
+total,         91580,   15257,   15257,   15257,    20.5,    20.5,    33.4,    39.3,    48.2,    63.0,    6.0,  0.05944,      0,      0,       0,       0,       0,       0
+total,        106486,   14906,   14906,   14906,    21.1,    21.3,    31.4,    36.7,    40.7,    42.3,    7.0,  0.05194,      0,      0,       0,       0,       0,       0
+total,        121395,   14909,   14909,   14909,    20.9,    20.6,    32.5,    51.3,    68.7,    70.3,    8.0,  0.04563,      0,      0,       0,       0,       0,       0
+total,        130507,    9112,    9112,    9112,    34.4,    20.0,    37.4,   456.4,   465.3,   483.1,    9.0,  0.04104,      0,      0,       0,       0,       0,       0
+total,        146908,   16401,   16401,   16401,    18.9,    18.8,    32.5,    41.7,    52.1,    54.8,   10.0,  0.03708,      0,      0,       0,       0,       0,       0
+total,        162268,   15360,   15360,   15360,    20.3,    20.7,    32.9,    43.6,    57.2,    64.5,   11.0,  0.03374,      0,      0,       0,       0,       0,       0
+total,        177654,   15386,   15386,   15386,    20.3,    20.2,    30.5,    37.8,    43.9,    45.4,   12.0,  0.03107,      0,      0,       0,       0,       0,       0
+total,        191407,   13753,   13753,   13753,    23.0,    19.8,    34.5,   165.7,   171.3,   191.1,   13.0,  0.02870,      0,      0,       0,       0,       0,       0
+total,        206545,   15138,   15138,   15138,    20.6,    20.5,    30.6,    51.7,    75.4,    79.2,   14.0,  0.02667,      0,      0,       0,       0,       0,       0
+total,        222762,   16217,   16217,   16217,    19.4,    19.2,    35.3,    46.5,    58.8,    68.6,   15.0,  0.02503,      0,      0,       0,       0,       0,       0
+total,        238274,   15512,   15512,   15512,    20.3,    20.1,    32.2,    53.6,    72.5,    73.7,   16.0,  0.02346,      0,      0,       0,       0,       0,       0
+total,        252739,   14465,   14465,   14465,    21.8,    21.9,    32.3,    37.9,    44.2,    47.5,   17.0,  0.02273,      0,      0,       0,       0,       0,       0
+total,        268928,   16189,   16189,   16189,    19.4,    19.4,    31.0,    36.4,    42.8,    49.2,   18.0,  0.02149,      0,      0,       0,       0,       0,       0
+total,        283185,   14257,   14257,   14257,    22.0,    21.7,    32.6,    42.9,    50.5,    54.8,   19.0,  0.02096,      0,      0,       0,       0,       0,       0
+total,        298051,   14866,   14866,   14866,    21.1,    21.3,    32.1,    39.9,    50.2,    52.3,   20.0,  0.02010,      0,      0,       0,       0,       0,       0
+total,        312793,   14742,   14742,   14742,    21.4,    21.2,    31.2,    44.2,    51.5,    58.0,   21.0,  0.01932,      0,      0,       0,       0,       0,       0
+total,        327972,   15179,   15179,   15179,    20.7,    20.6,    32.2,    39.0,    44.6,    65.3,   22.0,  0.01845,      0,      0,       0,       0,       0,       0
+total,        342619,   14647,   14647,   14647,    21.4,    21.3,    30.5,    37.3,    50.2,    61.9,   23.0,  0.01780,      0,      0,       0,       0,       0,       0
+total,        356243,   13624,   13624,   13624,    23.0,    22.2,    36.5,    63.7,    69.1,    73.8,   24.0,  0.01762,      0,      0,       0,       0,       0,       0
+total,        366305,   10062,   10062,   10062,    30.8,    24.3,    68.7,    83.7,    99.4,   106.6,   25.0,  0.02106,      0,      0,       0,       0,       0,       0
+total,        376447,   10142,   10142,   10142,    31.6,    25.2,    67.8,    77.9,    92.9,    93.7,   26.0,  0.02355,      0,      0,       0,       0,       0,       0
+total,        389662,   13215,   13215,   13215,    23.8,    22.2,    45.4,    70.9,    82.0,    92.0,   27.0,  0.02296,      0,      0,       0,       0,       0,       0
+total,        404444,   14782,   14782,   14782,    21.1,    20.9,    33.6,    47.3,    72.1,    75.4,   28.0,  0.02214,      0,      0,       0,       0,       0,       0
+total,        418684,   14240,   14240,   14240,    22.1,    22.0,    34.2,    44.1,    53.5,    59.1,   29.0,  0.02146,      0,      0,       0,       0,       0,       0
+total,        432155,   13471,   13471,   13471,    23.0,    22.7,    33.8,    39.5,    43.0,    44.7,   30.0,  0.02113,      0,      0,       0,       0,       0,       0
+total,        445869,   13714,   13714,   13714,    23.2,    22.9,    33.0,    40.2,    49.3,    55.1,   31.0,  0.02066,      0,      0,       0,       0,       0,       0
+total,        459555,   13686,   13686,   13686,    22.8,    22.3,    34.9,    40.0,    48.4,    55.4,   32.0,  0.02021,      0,      0,       0,       0,       0,       0
+total,        473743,   14188,   14188,   14188,    22.2,    21.8,    33.7,    45.4,    53.7,    80.3,   33.0,  0.01962,      0,      0,       0,       0,       0,       0
+total,        486993,   13250,   13250,   13250,    23.7,    23.5,    33.9,    45.6,    54.8,    70.5,   34.0,  0.01927,      0,      0,       0,       0,       0,       0
+total,        500000,   14394,   14394,   14394,    21.7,    21.4,    31.8,    38.9,    48.8,    55.5,   34.9,  0.01874,      0,      0,       0,       0,       0,       0
+
+
+Results:
+Op rate                   :   14,325 op/s  [WRITE: 14,325 op/s]
+Partition rate            :   14,325 pk/s  [WRITE: 14,325 pk/s]
+Row rate                  :   14,325 row/s [WRITE: 14,325 row/s]
+Latency mean              :   21.7 ms [WRITE: 21.7 ms]
+Latency median            :   20.9 ms [WRITE: 20.9 ms]
+Latency 95th percentile   :   34.9 ms [WRITE: 34.9 ms]
+Latency 99th percentile   :   55.7 ms [WRITE: 55.7 ms]
+Latency 99.9th percentile :  163.6 ms [WRITE: 163.6 ms]
+Latency max               :  483.1 ms [WRITE: 483.1 ms]
+Total partitions          :    500,000 [WRITE: 500,000]
+Total errors              :          0 [WRITE: 0]
+Total GC count            : 0
+Total GC memory           : 0.000 KiB
+Total GC time             :    0.0 seconds
+Avg GC time               :    NaN ms
+StdDev GC time            :    0.0 ms
+Total operation time      : 00:00:34
+
+Improvement over 216 threadCount: -2%
+Sleeping for 15s
+
+Running with 416 threadCount
+Running WRITE with 416 threads for 500000 iteration
+type       total ops,    op/s,    pk/s,   row/s,    mean,     med,     .95,     .99,    .999,     max,   time,   stderr, errors,  gc: #,  max ms,  sum ms,  sdv ms,      mb
+Failed to connect over JMX; not collecting these stats
+total,         11325,   11325,   11325,   11325,    30.8,    27.5,    66.9,    87.2,   128.3,   154.9,    1.0,  0.00000,      0,      0,       0,       0,       0,       0
+total,         24109,   12784,   12784,   12784,    32.4,    32.1,    43.7,    55.1,    68.2,    75.7,    2.0,  0.01116,      0,      0,       0,       0,       0,       0
+total,         37985,   13876,   13876,   13876,    27.8,    26.1,    54.6,    85.6,   103.7,   106.6,    3.0,  0.03727,      0,      0,       0,       0,       0,       0
+total,         53405,   15420,   15420,   15420,    26.5,    22.9,    51.6,   145.9,   178.0,   185.9,    4.0,  0.07065,      0,      0,       0,       0,       0,       0
+total,         70646,   17241,   17241,   17241,    24.2,    22.8,    48.5,    59.5,    76.9,    93.0,    5.0,  0.06703,      0,      0,       0,       0,       0,       0
+total,         85806,   15160,   15160,   15160,    27.3,    25.2,    54.5,    67.2,    71.6,    76.1,    6.0,  0.05576,      0,      0,       0,       0,       0,       0
+total,        101328,   15522,   15522,   15522,    26.5,    24.5,    52.8,    67.2,    77.9,    89.1,    7.0,  0.04794,      0,      0,       0,       0,       0,       0
+total,        117615,   16287,   16287,   16287,    25.3,    23.4,    51.6,    66.8,    76.0,    78.2,    8.0,  0.04263,      0,      0,       0,       0,       0,       0
+total,        132950,   15335,   15335,   15335,    27.1,    25.3,    52.1,    66.7,    89.1,    91.6,    9.0,  0.03787,      0,      0,       0,       0,       0,       0
+total,        148042,   15092,   15092,   15092,    27.5,    27.0,    42.3,    54.4,    68.2,    72.4,   10.0,  0.03417,      0,      0,       0,       0,       0,       0
+total,        162536,   14494,   14494,   14494,    28.6,    28.4,    37.2,    42.3,    50.7,    56.8,   11.0,  0.03182,      0,      0,       0,       0,       0,       0
+total,        177268,   14732,   14732,   14732,    28.0,    27.8,    37.1,    43.1,    51.8,    59.0,   12.0,  0.02950,      0,      0,       0,       0,       0,       0
+total,        191287,   14019,   14019,   14019,    29.5,    29.1,    39.3,    45.8,    53.2,    54.9,   13.0,  0.02827,      0,      0,       0,       0,       0,       0
+total,        204896,   13609,   13609,   13609,    30.6,    29.4,    45.3,    55.4,    61.6,    63.7,   14.0,  0.02741,      0,      0,       0,       0,       0,       0
+total,        219591,   14695,   14695,   14695,    27.9,    27.6,    39.3,    45.9,    56.6,    66.6,   15.0,  0.02566,      0,      0,       0,       0,       0,       0
+total,        234268,   14677,   14677,   14677,    28.3,    27.9,    40.3,    51.9,    63.4,    66.4,   16.0,  0.02412,      0,      0,       0,       0,       0,       0
+total,        248397,   14129,   14129,   14129,    29.4,    29.2,    39.3,    51.5,    65.4,    68.2,   17.0,  0.02300,      0,      0,       0,       0,       0,       0
+total,        263009,   14612,   14612,   14612,    28.5,    28.2,    38.2,    43.0,    48.5,    56.2,   18.0,  0.02183,      0,      0,       0,       0,       0,       0
+total,        276559,   13550,   13550,   13550,    30.5,    29.5,    44.4,    54.8,    74.1,    85.6,   19.0,  0.02109,      0,      0,       0,       0,       0,       0
+total,        290369,   13810,   13810,   13810,    30.0,    29.8,    39.1,    46.6,    53.4,    60.9,   20.0,  0.02045,      0,      0,       0,       0,       0,       0
+total,        305372,   15003,   15003,   15003,    27.7,    26.8,    40.1,    56.2,    63.7,    67.4,   21.0,  0.01947,      0,      0,       0,       0,       0,       0
+total,        319404,   14032,   14032,   14032,    29.4,    28.8,    39.4,    46.3,    53.7,    54.6,   22.0,  0.01886,      0,      0,       0,       0,       0,       0
+total,        333469,   14065,   14065,   14065,    29.5,    29.2,    41.0,    47.4,    53.1,    59.7,   23.0,  0.01823,      0,      0,       0,       0,       0,       0
+total,        347182,   13713,   13713,   13713,    30.3,    29.8,    38.4,    43.3,    47.9,    48.8,   24.0,  0.01789,      0,      0,       0,       0,       0,       0
+total,        361264,   14082,   14082,   14082,    29.4,    28.9,    38.8,    56.3,    71.2,    74.4,   25.0,  0.01724,      0,      0,       0,       0,       0,       0
+total,        375095,   13831,   13831,   13831,    29.9,    29.7,    38.6,    43.7,    47.9,    49.1,   26.0,  0.01686,      0,      0,       0,       0,       0,       0
+total,        389188,   14093,   14093,   14093,    29.5,    29.1,    40.8,    49.1,    62.1,    63.7,   27.0,  0.01632,      0,      0,       0,       0,       0,       0
+total,        402740,   13552,   13552,   13552,    30.6,    30.7,    39.9,    46.0,    51.0,    52.4,   28.0,  0.01606,      0,      0,       0,       0,       0,       0
+total,        417012,   14272,   14272,   14272,    29.0,    28.6,    39.3,    47.2,    56.0,    58.7,   29.0,  0.01555,      0,      0,       0,       0,       0,       0
+total,        431150,   14138,   14138,   14138,    29.3,    28.9,    37.9,    41.6,    44.8,    50.9,   30.0,  0.01512,      0,      0,       0,       0,       0,       0
+total,        443598,   12448,   12448,   12448,    33.3,    32.5,    44.9,    70.2,    81.5,    89.5,   31.0,  0.01519,      0,      0,       0,       0,       0,       0
+total,        457579,   13981,   13981,   13981,    29.8,    29.6,    38.4,    44.0,    50.0,    53.0,   32.0,  0.01480,      0,      0,       0,       0,       0,       0
+total,        471747,   14168,   14168,   14168,    29.1,    28.9,    38.1,    51.2,    68.2,    74.3,   33.0,  0.01436,      0,      0,       0,       0,       0,       0
+total,        483900,   12153,   12153,   12153,    34.3,    34.0,    43.4,    50.7,    53.1,    58.8,   34.0,  0.01481,      0,      0,       0,       0,       0,       0
+total,        490464,    6564,    6564,    6564,    58.1,    36.0,   150.1,   276.6,   293.1,   293.9,   35.0,  0.01841,      0,      0,       0,       0,       0,       0
+total,        497239,    6775,    6775,    6775,    66.2,    59.6,   136.2,   231.9,   317.5,   318.8,   36.0,  0.02045,      0,      0,       0,       0,       0,       0
+total,        500000,   14061,   14061,   14061,    28.7,    28.6,    36.1,    40.5,    42.9,    43.5,   36.2,  0.02048,      0,      0,       0,       0,       0,       0
+
+
+Results:
+Op rate                   :   13,814 op/s  [WRITE: 13,814 op/s]
+Partition rate            :   13,814 pk/s  [WRITE: 13,814 pk/s]
+Row rate                  :   13,814 row/s [WRITE: 13,814 row/s]
+Latency mean              :   29.8 ms [WRITE: 29.8 ms]
+Latency median            :   28.7 ms [WRITE: 28.7 ms]
+Latency 95th percentile   :   45.5 ms [WRITE: 45.5 ms]
+Latency 99th percentile   :   73.9 ms [WRITE: 73.9 ms]
+Latency 99.9th percentile :  160.8 ms [WRITE: 160.8 ms]
+Latency max               :  318.8 ms [WRITE: 318.8 ms]
+Total partitions          :    500,000 [WRITE: 500,000]
+Total errors              :          0 [WRITE: 0]
+Total GC count            : 0
+Total GC memory           : 0.000 KiB
+Total GC time             :    0.0 seconds
+Avg GC time               :    NaN ms
+StdDev GC time            :    0.0 ms
+Total operation time      : 00:00:36
+
+Improvement over 316 threadCount: -4%
+             id, type       total ops,    op/s,    pk/s,   row/s,    mean,     med,     .95,     .99,    .999,     max,   time,   stderr, errors,  gc: #,  max ms,  sum ms,  sdv ms,      mb
+ 16 threadCount, WRITE,        500000,    7470,    7470,    7470,     2.1,     1.8,     4.3,     7.7,    19.6,    71.6,   66.9,  0.01980,      0,      0,       0,       0,       0,       0
+ 16 threadCount, total,        500000,    7470,    7470,    7470,     2.1,     1.8,     4.3,     7.7,    19.6,    71.6,   66.9,  0.01980,      0,      0,       0,       0,       0,       0
+116 threadCount, WRITE,        500000,   15012,   15012,   15012,     7.7,     7.1,    15.0,    22.0,    42.1,   243.0,   33.3,  0.03115,      0,      0,       0,       0,       0,       0
+116 threadCount, total,        500000,   14574,   14574,   14574,     7.7,     7.1,    15.0,    22.0,    42.1,   243.0,   34.3,  0.03115,      0,      0,       0,       0,       0,       0
+216 threadCount, WRITE,        500000,   14627,   14627,   14627,    14.5,    14.3,    24.6,    35.2,    65.9,   111.3,   34.2,  0.01504,      0,      0,       0,       0,       0,       0
+216 threadCount, total,        500000,   14627,   14627,   14627,    14.5,    14.3,    24.6,    35.2,    65.9,   111.3,   34.2,  0.01504,      0,      0,       0,       0,       0,       0
+316 threadCount, WRITE,        500000,   14325,   14325,   14325,    21.7,    20.9,    34.9,    55.7,   163.6,   483.1,   34.9,  0.01874,      0,      0,       0,       0,       0,       0
+316 threadCount, total,        500000,   14325,   14325,   14325,    21.7,    20.9,    34.9,    55.7,   163.6,   483.1,   34.9,  0.01874,      0,      0,       0,       0,       0,       0
+416 threadCount, WRITE,        500000,   13814,   13814,   13814,    29.8,    28.7,    45.5,    73.9,   160.8,   318.8,   36.2,  0.02048,      0,      0,       0,       0,       0,       0
+416 threadCount, total,        500000,   13814,   13814,   13814,    29.8,    28.7,    45.5,    73.9,   160.8,   318.8,   36.2,  0.02048,      0,      0,       0,       0,       0,       0
+END

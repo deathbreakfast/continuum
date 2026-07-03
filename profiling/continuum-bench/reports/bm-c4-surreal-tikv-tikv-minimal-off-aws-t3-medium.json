@@ -1,0 +1,57 @@
+{
+  "experiment_id": "bm-c4",
+  "dimensions": {
+    "storage": "surreal-tikv",
+    "topology": "remote-surreal",
+    "telemetry": "off",
+    "hardware": "aws-t3-medium",
+    "tikv_topology": "tikv-minimal",
+    "surreal_instances": 1,
+    "surreal_deployment": "colocated",
+    "component_hardware": {
+      "runtime": "aws-t3-medium",
+      "surreal": "aws-t3-small",
+      "tikv": "aws-t3-medium"
+    }
+  },
+  "hardware_detail": {
+    "cpu_model": "Intel(R) Xeon(R) Platinum 8259CL CPU @ 2.50GHz",
+    "cpu_cores": 2,
+    "ram_gib": 3.7495574951171875,
+    "os": "linux (Linux 6.1.175-219.359.amzn2023.x86_64)",
+    "root_mount": {
+      "device": "/dev/nvme0n1p1",
+      "mount_point": "/",
+      "fs_type": "xfs",
+      "size_gib": 19.9
+    },
+    "host_drive": {
+      "model": null,
+      "media_type": null,
+      "bus_type": null,
+      "size_gib": null,
+      "wsl_distro_path": null
+    }
+  },
+  "engine_path": "ws://172.31.38.6:8000",
+  "tikv_pd_endpoint": "http://172.31.39.223:2379",
+  "started_at": "2026-06-30T22:16:27.993406607Z",
+  "elapsed_secs": 6007.826449612,
+  "metrics": {},
+  "resource_profile": {
+    "process_rss_bytes_start": 55750688768,
+    "process_rss_bytes_end": 54261710848,
+    "process_rss_bytes_peak": 55750688768,
+    "process_cpu_percent_mean": 1.5428623953098826,
+    "process_cpu_percent_peak": 5.102,
+    "system_mem_used_bytes_start": 610414592,
+    "system_mem_used_bytes_peak": 610668544,
+    "system_mem_used_bytes_end": 587784192,
+    "sample_count": 5970,
+    "sample_interval_ms": 1000
+  },
+  "pass_criteria": "Read stable after truncate",
+  "pass": false,
+  "status": "failed",
+  "notes": "backend: Connection reset"
+}

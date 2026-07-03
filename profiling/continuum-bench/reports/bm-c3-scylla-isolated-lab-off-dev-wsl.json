@@ -1,0 +1,45 @@
+{
+  "experiment_id": "bm-c3",
+  "dimensions": {
+    "storage": "scylla",
+    "topology": "isolated-lab",
+    "telemetry": "off",
+    "hardware": "dev-wsl"
+  },
+  "hardware_detail": {
+    "cpu_model": "11th Gen Intel(R) Core(TM) i7-11700KF @ 3.60GHz",
+    "cpu_cores": 16,
+    "ram_gib": 19.53091049194336,
+    "os": "linux WSL2 (Linux 6.18.33.2-microsoft-standard-WSL2)",
+    "root_mount": {
+      "device": "/dev/sdd",
+      "mount_point": "/",
+      "fs_type": "ext4",
+      "size_gib": 1945.6
+    },
+    "host_drive": {
+      "model": "X16 SSD 2TB",
+      "media_type": "SSD",
+      "bus_type": "NVMe",
+      "size_gib": 1907.7,
+      "wsl_distro_path": "\\\\?\\J:\\wsl\\ubuntu"
+    }
+  },
+  "engine_path": "scylla://127.0.0.1:9042/continuum",
+  "tikv_pd_endpoint": "127.0.0.1:2379",
+  "started_at": "2026-07-01T09:47:05.145430549Z",
+  "elapsed_secs": 39.66118633,
+  "metrics": {
+    "decile_p95_slope": 0.05482995151515173,
+    "mean_ms": 1.6060835820000015,
+    "p50_ms": 0.805572,
+    "p95_ms": 6.536865000000001,
+    "p99_ms": 10.457057,
+    "sample_count": 10000,
+    "slope_vs_index": -5.731320484671848e-6
+  },
+  "pass_criteria": "Flat over 10k commits",
+  "pass": false,
+  "status": "completed",
+  "notes": "p95=6.537ms FAIL"
+}

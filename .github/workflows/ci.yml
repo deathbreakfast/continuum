@@ -33,6 +33,17 @@ jobs:
       - name: Clippy (deny warnings)
         run: cargo clippy --workspace --all-targets -- -D warnings
 
+      - name: Documentation (deny warnings)
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --workspace --no-deps
+
+      - name: Doctests
+        run: |
+          cargo test --doc -p continuum-core
+          cargo test --doc -p continuum-backend-mem
+          cargo test --doc -p continuum-telemetry
+
   postgres:
     runs-on: ubuntu-latest
     services:
@@ -58,3 +69,73 @@ jobs:
         env:
           CONTINUUM_TEST_POSTGRES_URL: postgres://postgres:postgres@localhost:5432/postgres
         run: cargo test -p continuum-backend-postgres -- --ignored
+
+  scylla:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@nightly
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Start Scylla
+        run: |
+          docker run -d --name scylla \
+            -p 9042:9042 \
+            scylladb/scylla:6.2 \
+            --smp 1 --memory 750M --overprovisioned 1 --api-address 0.0.0.0
+
+      - name: Wait for Scylla CQL
+        run: |
+          for i in $(seq 1 60); do
+            if docker exec scylla cqlsh -e "SELECT now() FROM system.local" >/dev/null 2>&1; then
+              echo "Scylla is ready"
+              exit 0
+            fi
+            echo "waiting for Scylla ($i)..."
+            sleep 5
+          done
+          echo "Scylla did not become ready in time" >&2
+          docker logs scylla
+          exit 1
+
+      - name: Scylla contract tests
+        env:
+          CONTINUUM_TEST_SCYLLA_CONTACT_POINTS: 127.0.0.1:9042
+          CONTINUUM_TEST_SCYLLA_KEYSPACE: continuum_test
+        # Serial: topic-index debug-counter tests share process-global env/atomics.
+        run: cargo test -p continuum-backend-scylla -- --ignored --test-threads=1
+
+  tikv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@nightly
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Start PD + TiKV
+        run: docker compose -f infra/tikv-raw/compose.ci.yaml up -d
+
+      - name: Wait for TiKV store
+        run: |
+          for i in $(seq 1 60); do
+            body=$(curl -sf http://127.0.0.1:2379/pd/api/v1/stores 2>/dev/null || true)
+            if echo "$body" | grep -qE '"state_name"[[:space:]]*:[[:space:]]*"Up"'; then
+              echo "TiKV store is Up"
+              exit 0
+            fi
+            echo "waiting for TiKV ($i)..."
+            sleep 2
+          done
+          echo "TiKV store did not become Up in time" >&2
+          curl -sS http://127.0.0.1:2379/pd/api/v1/stores || true
+          docker compose -f infra/tikv-raw/compose.ci.yaml logs
+          exit 1
+
+      - name: TiKV-raw contract tests
+        env:
+          CONTINUUM_TEST_TIKV_PD_ENDPOINT: 127.0.0.1:2379
+        run: cargo test -p continuum-backend-tikv-raw -- --ignored --test-threads=1

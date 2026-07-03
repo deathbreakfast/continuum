@@ -1,0 +1,42 @@
+{
+  "experiment_id": "bm-c1",
+  "dimensions": {
+    "storage": "scylla",
+    "topology": "isolated-lab",
+    "telemetry": "off",
+    "hardware": "dev-wsl"
+  },
+  "hardware_detail": {
+    "cpu_model": "11th Gen Intel(R) Core(TM) i7-11700KF @ 3.60GHz",
+    "cpu_cores": 16,
+    "ram_gib": 19.53091049194336,
+    "os": "linux WSL2 (Linux 6.18.33.2-microsoft-standard-WSL2)",
+    "root_mount": {
+      "device": "/dev/sdd",
+      "mount_point": "/",
+      "fs_type": "ext4",
+      "size_gib": 1945.6
+    },
+    "host_drive": {
+      "model": "X16 SSD 2TB",
+      "media_type": "SSD",
+      "bus_type": "NVMe",
+      "size_gib": 1907.7,
+      "wsl_distro_path": "\\\\?\\J:\\wsl\\ubuntu"
+    }
+  },
+  "engine_path": "scylla://127.0.0.1:9042/continuum",
+  "tikv_pd_endpoint": "127.0.0.1:2379",
+  "started_at": "2026-07-01T04:39:16.236828229Z",
+  "elapsed_secs": 956.327669004,
+  "metrics": {
+    "events_per_sec_batch_1": 12.787926772735641,
+    "events_per_sec_batch_10": 89.8792202142665,
+    "events_per_sec_batch_100": 279.644996346102,
+    "events_per_sec_batch_1000": 374.3342644973528
+  },
+  "pass_criteria": "Throughput scales with batch",
+  "pass": true,
+  "status": "completed",
+  "notes": "1=13/s 1000=374/s PASS"
+}

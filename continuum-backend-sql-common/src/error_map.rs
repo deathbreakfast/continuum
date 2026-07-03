@@ -1,4 +1,4 @@
-//! Map sqlx errors to [`LogError`](continuum_core::error::LogError).
+//! Map sqlx errors to [`LogError`].
 
 use continuum_core::error::LogError;
 

@@ -1,0 +1,48 @@
+{
+  "experiment_id": "bm-m4",
+  "dimensions": {
+    "storage": "scylla",
+    "topology": "isolated-lab",
+    "telemetry": "off",
+    "hardware": "aws-t3-medium"
+  },
+  "hardware_detail": {
+    "cpu_model": "Intel(R) Xeon(R) Platinum 8259CL CPU @ 2.50GHz",
+    "cpu_cores": 2,
+    "ram_gib": 3.7495498657226562,
+    "os": "linux (Linux 6.1.175-219.359.amzn2023.x86_64)",
+    "root_mount": {
+      "device": "/dev/nvme0n1p1",
+      "mount_point": "/",
+      "fs_type": "xfs",
+      "size_gib": 19.9
+    },
+    "host_drive": {
+      "model": null,
+      "media_type": null,
+      "bus_type": null,
+      "size_gib": null,
+      "wsl_distro_path": null
+    }
+  },
+  "engine_path": "",
+  "started_at": "2026-07-02T02:25:00.051599412Z",
+  "elapsed_secs": 10.359003298,
+  "metrics": {},
+  "resource_profile": {
+    "process_rss_bytes_start": 19205718016,
+    "process_rss_bytes_end": 19205718016,
+    "process_rss_bytes_peak": 19205718016,
+    "process_cpu_percent_mean": 0.86412,
+    "process_cpu_percent_peak": 4.6512,
+    "system_mem_used_bytes_start": 389726208,
+    "system_mem_used_bytes_peak": 389984256,
+    "system_mem_used_bytes_end": 389984256,
+    "sample_count": 10,
+    "sample_interval_ms": 1000
+  },
+  "pass_criteria": "error rate <0.1%",
+  "pass": false,
+  "status": "failed",
+  "notes": "backend: Failed to perform initial cluster metadata fetch: Control connection pool error: The pool is broken; Last connection failed with: Connect timeout elapsed"
+}

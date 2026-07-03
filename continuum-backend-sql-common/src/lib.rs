@@ -1,7 +1,7 @@
-//! Shared SQL [`LogBackend`](continuum_core::backend::LogBackend) for `PostgreSQL` and `SQLite`.
+//! Shared SQL [`LogBackend`] for `PostgreSQL` and `SQLite`.
 //!
 //! Uses `continuum_event`, `continuum_stream`, and `continuum_checkpoint` tables
-//! (bootstrapped by [`schema::ensure_schema`]).
+//! (bootstrapped on connect).
 
 mod error_map;
 mod schema;
@@ -136,13 +136,13 @@ impl SqlLogBackend {
 
     /// Underlying connection pool (for shared-handle benchmarks).
     #[must_use]
-    pub fn pool(&self) -> &SqlPool {
+    pub const fn pool(&self) -> &SqlPool {
         &self.pool
     }
 
     /// Engine dialect.
     #[must_use]
-    pub fn dialect(&self) -> SqlDialect {
+    pub const fn dialect(&self) -> SqlDialect {
         self.dialect
     }
 

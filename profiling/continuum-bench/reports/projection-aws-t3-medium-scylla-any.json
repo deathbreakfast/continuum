@@ -1,0 +1,17 @@
+{
+  "hardware": "aws-t3-medium",
+  "storage": "scylla",
+  "tikv_topology": null,
+  "scylla_topology": null,
+  "per_shard_ops_per_sec": 63.66775491817894,
+  "surreal_instances": 1,
+  "partitions_modeled": null,
+  "clients_modeled": null,
+  "aggregate_ops_per_sec": null,
+  "partitions_for_1e9": 15706538,
+  "nodes_required": 15706538,
+  "fleet_aggregate_ops_per_sec": 1000000011.9970645,
+  "cost_per_million_ops_usd": 0.181497770267004,
+  "target_ops_per_sec": 1000000000,
+  "disclaimer": "Projection from measured BM-L* ceilings; not a 1B/s demonstration."
+}

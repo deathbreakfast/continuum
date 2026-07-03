@@ -10,6 +10,8 @@ pub fn log_router_key(logical: &str, kind: LogBackendKind) -> String {
         LogBackendKind::Memory => "memory",
         LogBackendKind::Postgres => "postgres",
         LogBackendKind::Sqlite => "sqlite",
+        LogBackendKind::Scylla => "scylla",
+        LogBackendKind::TikvRaw => "tikv",
     };
     format!("{prefix}:{logical}")
 }

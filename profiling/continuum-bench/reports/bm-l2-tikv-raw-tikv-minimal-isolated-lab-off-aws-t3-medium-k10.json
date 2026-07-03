@@ -1,0 +1,67 @@
+{
+  "experiment_id": "bm-l2",
+  "dimensions": {
+    "storage": "tikv-raw",
+    "topology": "isolated-lab",
+    "telemetry": "off",
+    "hardware": "aws-t3-medium",
+    "tikv_topology": "tikv-minimal",
+    "surreal_instances": 1,
+    "component_hardware": {
+      "runtime": "aws-t3-medium",
+      "surreal": "aws-t3-medium",
+      "tikv": "aws-t3-medium"
+    }
+  },
+  "hardware_detail": {
+    "cpu_model": "Intel(R) Xeon(R) Platinum 8259CL CPU @ 2.50GHz",
+    "cpu_cores": 2,
+    "ram_gib": 3.7495498657226562,
+    "os": "linux (Linux 6.1.175-219.359.amzn2023.x86_64)",
+    "root_mount": {
+      "device": "/dev/nvme0n1p1",
+      "mount_point": "/",
+      "fs_type": "xfs",
+      "size_gib": 19.9
+    },
+    "host_drive": {
+      "model": null,
+      "media_type": null,
+      "bus_type": null,
+      "size_gib": null,
+      "wsl_distro_path": null
+    }
+  },
+  "engine_path": "tikv://http://127.0.0.1:2379",
+  "tikv_pd_endpoint": "http://127.0.0.1:2379",
+  "started_at": "2026-07-01T22:08:00.475751475Z",
+  "elapsed_secs": 61.012185023,
+  "metrics": {
+    "achieved_ops_per_sec": 133.80752558548517,
+    "duration_secs": 60.004098909,
+    "error_rate": 0.0,
+    "load_partition_count": 10,
+    "ops_err": 0,
+    "ops_ok": 8029,
+    "p50_ms": 7.061176,
+    "p95_ms": 8.571886000000001,
+    "p99_ms": 16.453608000000003,
+    "target_ops_per_sec": 10000
+  },
+  "resource_profile": {
+    "process_rss_bytes_start": 34594619392,
+    "process_rss_bytes_end": 34053554176,
+    "process_rss_bytes_peak": 34594619392,
+    "process_cpu_percent_mean": 33.77723833333333,
+    "process_cpu_percent_peak": 38.1503,
+    "system_mem_used_bytes_start": 2754334720,
+    "system_mem_used_bytes_peak": 2775588864,
+    "system_mem_used_bytes_end": 2775556096,
+    "sample_count": 60,
+    "sample_interval_ms": 1000
+  },
+  "pass_criteria": "error rate <0.1%",
+  "pass": true,
+  "status": "completed",
+  "notes": "p99=16.454ms 134/s err=0.0000% PASS"
+}

@@ -1,0 +1,26 @@
+{
+  "completed": [
+    "colocated_provision",
+    "U_colocated",
+    "V_colocated",
+    "W_colocated",
+    "Y_colocated",
+    "fetch_colocated",
+    "teardown_colocated",
+    "2n_provision",
+    "U_2n",
+    "V_2n",
+    "W_2n",
+    "X_2n",
+    "fetch_2n",
+    "teardown_2n",
+    "4n_provision",
+    "U_4n",
+    "W_4n",
+    "fetch_4n",
+    "teardown_4n",
+    "teardown_all"
+  ],
+  "current": null,
+  "failed": null
+}

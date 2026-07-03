@@ -19,11 +19,13 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
-continuum = { path = "../continuum", features = ["mem", "surreal-local", "sqlite", "postgres", "telemetry-console"] }
+continuum = { path = "../continuum", features = ["mem", "surreal-local", "sqlite", "postgres", "scylla", "tikv-raw", "telemetry-console"] }
+continuum-backend-scylla = { path = "../continuum-backend-scylla" }
+scylla = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sqlx = { workspace = true, default-features = false, features = ["runtime-tokio", "sqlite", "postgres"] }
-surrealdb = { workspace = true, default-features = false, features = ["kv-mem", "kv-rocksdb"] }
+surrealdb = { workspace = true, default-features = false, features = ["kv-mem", "kv-rocksdb", "protocol-ws", "rustls"] }
 sysinfo = { workspace = true }
 tempfile = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time", "sync"] }

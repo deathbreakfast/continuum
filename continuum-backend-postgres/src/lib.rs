@@ -1,6 +1,8 @@
-//! `PostgreSQL` [`LogBackend`](continuum_core::backend::LogBackend) for the continuum transport log.
+//! `PostgreSQL` [`LogBackend`] for the continuum transport log.
 //!
-//! Enable via the `postgres` feature on the `continuum` facade crate.
+//! Enable via the `postgres` feature on the [`continuum`](https://docs.rs/continuum) facade.
+//! See [Getting started](https://docs.rs/continuum/latest/continuum/index.html#getting-started)
+//! and the [documentation map](https://docs.rs/continuum/latest/continuum/index.html#documentation-map).
 
 use async_trait::async_trait;
 use continuum_backend_sql_common::SqlLogBackend;
@@ -25,6 +27,18 @@ impl PostgresLogBackend {
     }
 
     /// Connect using a `PostgreSQL` connection URL.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # async fn run() -> continuum_core::Result<()> {
+    /// use continuum_backend_postgres::PostgresLogBackend;
+    ///
+    /// let backend = PostgresLogBackend::connect("postgres://localhost/continuum").await?;
+    /// let _ = backend;
+    /// # Ok(())
+    /// # }
+    /// ```
     ///
     /// # Errors
     ///

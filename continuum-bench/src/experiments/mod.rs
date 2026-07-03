@@ -1,7 +1,15 @@
 //! Experiment registry and dispatch.
 
+// Bench helpers bind `&Arc<dyn LogBackend>` and intentionally hold handles across
+// measurement windows; clippy's suggestions are false positives in that context.
+#[allow(clippy::significant_drop_tightening)]
 mod bm_core;
+#[allow(clippy::significant_drop_tightening)]
 mod bm_load;
+#[allow(clippy::significant_drop_tightening)]
+mod bm_multi_client;
+#[allow(clippy::significant_drop_tightening)]
+mod bm_partition;
 pub mod fixtures;
 
 use std::time::Instant;
@@ -15,9 +23,11 @@ use bm_core::{
     run_bm_c0, run_bm_c1, run_bm_c2, run_bm_c3, run_bm_c4, run_bm_c5, run_bm_c6,
 };
 use bm_load::run_load;
+use bm_multi_client::run_multi_client;
+use bm_partition::run_partition;
 
-use crate::harness::{capture_hardware, ExperimentId, RunDimensions, Topology};
-use crate::metrics::{evaluate_pass, results_summary, ResourceProfiler};
+use crate::harness::{capture_hardware, ExperimentId, RunDimensions};
+use crate::metrics::{append_debug_notes, evaluate_pass, results_summary, ResourceProfiler};
 use crate::report::{ReportStatus, RunReport, write_report};
 
 fn skipped_report(
@@ -42,6 +52,11 @@ async fn run_experiment_metrics(id: ExperimentId, ctx: &bm_core::ExperimentConte
         ExperimentId::BmL0 | ExperimentId::BmL1 | ExperimentId::BmL2 | ExperimentId::BmL3 => {
             run_load(ctx, id).await
         }
+        ExperimentId::BmP1 | ExperimentId::BmP2 => run_partition(ctx, id).await,
+        ExperimentId::BmM1 | ExperimentId::BmM2 | ExperimentId::BmM3 | ExperimentId::BmM4
+        | ExperimentId::BmM5 => {
+            run_multi_client(ctx, id).await
+        }
     }
 }
 
@@ -62,6 +77,7 @@ fn failed_report(run: FailedRun) -> RunReport {
         dimensions: run.dims.into(),
         hardware_detail: run.hardware_detail,
         engine_path: run.engine_path,
+        tikv_pd_endpoint: std::env::var("CONTINUUM_BENCH_TIKV_PD_ENDPOINT").ok(),
         started_at: Utc::now(),
         elapsed_secs: run.started.elapsed().as_secs_f64(),
         metrics: serde_json::json!({}),
@@ -96,7 +112,7 @@ pub async fn run_experiment(id: ExperimentId, dims: RunDimensions) -> Result<Run
             format!("telemetry {} not implemented", dims.telemetry.slug()),
         ));
     }
-    if dims.topology == Topology::RemoteSurreal
+    if dims.needs_remote_surreal()
         && std::env::var("CONTINUUM_BENCH_SURREAL_URL").is_err()
     {
         return Ok(skipped_report(
@@ -105,6 +121,28 @@ pub async fn run_experiment(id: ExperimentId, dims: RunDimensions) -> Result<Run
             hardware_detail,
             ReportStatus::SkippedNoRemote,
             "CONTINUUM_BENCH_SURREAL_URL not set",
+        ));
+    }
+    if dims.needs_remote_scylla()
+        && std::env::var("CONTINUUM_BENCH_SCYLLA_CONTACT_POINTS")
+            .or_else(|_| std::env::var("CONTINUUM_BENCH_SCYLLA_URL"))
+            .is_err()
+    {
+        return Ok(skipped_report(
+            id,
+            dims,
+            hardware_detail,
+            ReportStatus::SkippedNoRemote,
+            "CONTINUUM_BENCH_SCYLLA_CONTACT_POINTS not set",
+        ));
+    }
+    if dims.needs_remote_tikv_raw() && std::env::var("CONTINUUM_BENCH_TIKV_PD_ENDPOINT").is_err() {
+        return Ok(skipped_report(
+            id,
+            dims,
+            hardware_detail,
+            ReportStatus::SkippedNoRemote,
+            "CONTINUUM_BENCH_TIKV_PD_ENDPOINT not set",
         ));
     }
 
@@ -136,6 +174,7 @@ pub async fn run_experiment(id: ExperimentId, dims: RunDimensions) -> Result<Run
         }
     };
 
+    let engine_path = ctx.handle.engine_path.clone();
     let metrics = match run_experiment_metrics(id, &ctx).await {
         Ok(m) => m,
         Err(e) => {
@@ -156,6 +195,7 @@ pub async fn run_experiment(id: ExperimentId, dims: RunDimensions) -> Result<Run
             }));
         }
     };
+    drop(ctx);
     let resource_profile = if let Some(p) = profiler {
         Some(p.finish().await)
     } else {
@@ -163,11 +203,18 @@ pub async fn run_experiment(id: ExperimentId, dims: RunDimensions) -> Result<Run
     };
     let pass = evaluate_pass(id, &metrics);
 
+    let mut notes = results_summary(id, &metrics, pass);
+    if let Some(extra) = append_debug_notes(dims.storage, &metrics) {
+        notes.push(' ');
+        notes.push_str(&extra);
+    }
+
     Ok(RunReport {
         experiment_id: id.slug().into(),
         dimensions: dims.into(),
         hardware_detail,
-        engine_path: ctx.handle.engine_path.clone(),
+        engine_path,
+        tikv_pd_endpoint: std::env::var("CONTINUUM_BENCH_TIKV_PD_ENDPOINT").ok(),
         started_at: Utc::now(),
         elapsed_secs: started.elapsed().as_secs_f64(),
         metrics: metrics.clone(),
@@ -175,7 +222,7 @@ pub async fn run_experiment(id: ExperimentId, dims: RunDimensions) -> Result<Run
         pass_criteria,
         pass,
         status: ReportStatus::Completed,
-        notes: results_summary(id, &metrics, pass),
+        notes,
     })
 }
 
@@ -183,7 +230,12 @@ pub async fn run_experiment(id: ExperimentId, dims: RunDimensions) -> Result<Run
 pub async fn run_and_report(id: ExperimentId, dims: RunDimensions) -> Result<RunReport> {
     let mut report = run_experiment(id, dims).await?;
     if report.status == ReportStatus::Completed {
-        report.notes = results_summary(id, &report.metrics, report.pass);
+        let mut notes = results_summary(id, &report.metrics, report.pass);
+        if let Some(extra) = append_debug_notes(dims.storage, &report.metrics) {
+            notes.push(' ');
+            notes.push_str(&extra);
+        }
+        report.notes = notes;
     }
     let _path = write_report(&report, dims)?;
     Ok(report)

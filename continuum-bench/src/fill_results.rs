@@ -11,7 +11,7 @@ use crate::report::{load_all_reports, ReportStatus};
 
 const EXPERIMENTS_MD: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/EXPERIMENTS.md");
 
-fn row_key(id: ExperimentId) -> &'static str {
+const fn row_key(id: ExperimentId) -> &'static str {
     match id {
         ExperimentId::BmC0 => "BM-C0",
         ExperimentId::BmC1 => "BM-C1",
@@ -24,6 +24,13 @@ fn row_key(id: ExperimentId) -> &'static str {
         ExperimentId::BmL1 => "BM-L1",
         ExperimentId::BmL2 => "BM-L2",
         ExperimentId::BmL3 => "BM-L3",
+        ExperimentId::BmP1 => "BM-P1",
+        ExperimentId::BmP2 => "BM-P2",
+        ExperimentId::BmM1 => "BM-M1",
+        ExperimentId::BmM2 => "BM-M2",
+        ExperimentId::BmM3 => "BM-M3",
+        ExperimentId::BmM4 => "BM-M4",
+        ExperimentId::BmM5 => "BM-M5",
     }
 }
 

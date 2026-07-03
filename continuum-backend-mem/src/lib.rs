@@ -4,11 +4,13 @@
 //! [`LogBackend`](continuum_core::backend::LogBackend) contract including idempotent append
 //! and checkpoint monotonicity.
 //!
-//! Enable via the `mem` feature on the `continuum` facade crate.
+//! Enable via the `mem` feature on the [`continuum`](https://docs.rs/continuum) facade.
+//! See [Getting started](https://docs.rs/continuum/latest/continuum/index.html#getting-started)
+//! and the [documentation map](https://docs.rs/continuum/latest/continuum/index.html#documentation-map).
 //!
 //! # Examples
 //!
-//! ```
+//! ```rust
 //! use continuum_backend_mem::InMemoryLogBackend;
 //! use continuum_core::{AppendRecord, LogBackend, LogBackendKind, LogDestination, LogStreamId, Seq};
 //! use uuid::Uuid;

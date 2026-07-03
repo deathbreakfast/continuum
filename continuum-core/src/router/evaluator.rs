@@ -40,6 +40,24 @@ pub trait LogEvaluator: Send + Sync + Debug + 'static {
 ///
 /// Wraps a [`LogDestination`] and returns it unchanged for every topic. Pair with
 /// [`super::LogRouter::with_default`] at boot for single-backend setups.
+///
+/// # Examples
+///
+/// ```rust
+/// # use continuum_core::{
+/// #     LogBackendKind, LogDestination, LogEvaluator, LogFromDestination, LogResolverContext,
+/// # };
+/// # #[tokio::main]
+/// # async fn main() -> continuum_core::Result<()> {
+/// let dest = LogDestination::new("default", LogBackendKind::Memory);
+/// let evaluator = LogFromDestination(dest.clone());
+/// let got = evaluator
+///     .resolve_for_topic(&LogResolverContext::default(), "events", None)
+///     .await?;
+/// assert_eq!(got, dest);
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Debug, Clone)]
 pub struct LogFromDestination(
     /// Destination returned for every topic.
@@ -66,7 +84,7 @@ impl LogEvaluator for LogFromDestination {
 ///
 /// # Examples
 ///
-/// ```
+/// ```rust
 /// # use continuum_core::{LogBackendKind, LogDestination, LogEvaluator, LogResolverContext, LogTopicRouter};
 /// # #[tokio::main]
 /// # async fn main() {
@@ -91,7 +109,7 @@ pub struct LogTopicRouter {
 impl LogTopicRouter {
     /// Empty router — use [`Self::with_fallback`] or [`Self::prefix`].
     #[must_use]
-    pub fn new(fallback: LogDestination) -> Self {
+    pub const fn new(fallback: LogDestination) -> Self {
         Self {
             rules: Vec::new(),
             fallback,
@@ -141,7 +159,7 @@ impl LogEvaluator for LogTopicRouter {
 ///
 /// # Examples
 ///
-/// ```
+/// ```rust
 /// # use std::sync::Arc;
 /// # use continuum_core::{
 /// #     LogBackendKind, LogDestination, LogEvaluator, LogFromDestination, LogResolverContext,

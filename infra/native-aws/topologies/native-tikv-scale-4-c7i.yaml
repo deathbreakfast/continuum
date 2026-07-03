@@ -1,0 +1,14 @@
+# Phase 5: 1 bench (c7i-4xlarge) + 1 PD + 4 TiKV (c7i-4xlarge) — gated on manual verification
+name: native-tikv-scale-4-c7i
+bench_topology: tikv-scale-4
+roles:
+  - role: bench
+    count: 1
+    instance_type: c7i.4xlarge
+  - role: pd
+    count: 1
+    instance_type: c7i.4xlarge
+  - role: tikv
+    count: 4
+    instance_type: c7i.4xlarge
+    tikv_indexed: true

@@ -1,5 +1,7 @@
 //! Continuum core: the [`LogBackend`] port, DTOs, routing, and validation.
 //!
+//! **Requires nightly Rust** (workspace `rust-toolchain.toml`). Stable is not supported in v0.1.
+//!
 //! # Overview
 //!
 //! This crate defines an append-only, sequenced event log **storage port** and the types
@@ -41,8 +43,8 @@ pub mod validation;
 pub use backend::LogBackend;
 pub use error::{LogError, Result};
 pub use router::{
-    log_router_key, LogEvaluator, LogFromDestination, LogResolverContext, LogRouter,
-    LogTopicRouter,
+    log_router_key, KeyHashEvaluator, LogEvaluator, LogFromDestination, LogResolverContext,
+    LogRouter, LogTopicRouter,
 };
 pub use types::{
     AppendRecord, CheckpointKey, EventRecord, LogBackendKind, LogDestination, LogStreamId,

@@ -1,0 +1,9 @@
+# 1 bench + 4 Scylla nodes (all t3.medium by default)
+name: native-scylla-4n
+bench_topology: scylla-4n
+roles:
+  - role: bench
+    count: 1
+  - role: scylla
+    count: 4
+    scylla_indexed: true

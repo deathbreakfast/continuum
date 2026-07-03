@@ -1,4 +1,4 @@
-//! Shared [`LogBackend`](continuum_core::backend::LogBackend) contract assertions.
+//! Shared [`LogBackend`] contract assertions.
 
 use continuum_core::backend::LogBackend;
 use continuum_core::types::{AppendRecord, LogStreamId, Seq, SubscriptionId};
@@ -215,8 +215,8 @@ pub async fn e2e_lifecycle(b: &dyn LogBackend, env: &BackendEnv) {
 ///
 /// Panics if the backend operation fails or assertions do not hold.
 pub async fn independent_destinations(b: &dyn LogBackend, env: &BackendEnv) {
-    let d1 = env.destination_named("a");
-    let d2 = env.destination_named("b");
+    let d1 = env.destination_named(&format!("{}-a", env.logical_dest));
+    let d2 = env.destination_named(&format!("{}-b", env.logical_dest));
     let s1 = LogStreamId::new(d1, "topic", Some("k".into()));
     let s2 = LogStreamId::new(d2, "topic", Some("k".into()));
     let a = b.append(s1, &[sample_record()]).await.unwrap();

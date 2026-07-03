@@ -1,0 +1,44 @@
+{
+  "experiment_id": "bm-c2",
+  "dimensions": {
+    "storage": "sqlite",
+    "topology": "isolated-lab",
+    "telemetry": "off",
+    "hardware": "dev-wsl"
+  },
+  "hardware_detail": {
+    "cpu_model": "11th Gen Intel(R) Core(TM) i7-11700KF @ 3.60GHz",
+    "cpu_cores": 16,
+    "ram_gib": 19.53091049194336,
+    "os": "linux WSL2 (Linux 6.18.33.2-microsoft-standard-WSL2)",
+    "root_mount": {
+      "device": "/dev/sdd",
+      "mount_point": "/",
+      "fs_type": "ext4",
+      "size_gib": 1945.6
+    },
+    "host_drive": {
+      "model": "X16 SSD 2TB",
+      "media_type": "SSD",
+      "bus_type": "NVMe",
+      "size_gib": 1907.7,
+      "wsl_distro_path": "\\\\?\\J:\\wsl\\ubuntu"
+    }
+  },
+  "engine_path": "sqlite:///tmp/.tmpqtJ9rX/bench.db?mode=rwc",
+  "tikv_pd_endpoint": "127.0.0.1:2379",
+  "started_at": "2026-07-01T06:03:00.220534977Z",
+  "elapsed_secs": 4285.567190109,
+  "metrics": {
+    "p50_poll_ms_100k": 0.190611,
+    "p50_poll_ms_10k": 0.15182800000000002,
+    "p50_poll_ms_1k": 0.142802,
+    "p95_poll_ms_100k": 0.384322,
+    "p95_poll_ms_10k": 0.382684,
+    "p95_poll_ms_1k": 1.7230489999999998
+  },
+  "pass_criteria": "Flat at 100k rows",
+  "pass": true,
+  "status": "completed",
+  "notes": "p95@100k=0.384ms PASS"
+}

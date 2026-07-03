@@ -1,0 +1,9 @@
+# 1 bench + 1 Scylla node (t3.medium dedicated bench)
+name: native-scylla-1n
+bench_topology: scylla-1
+roles:
+  - role: bench
+    count: 1
+  - role: scylla
+    count: 1
+    scylla_indexed: true

@@ -11,17 +11,17 @@ pub struct Seq(
 
 impl Seq {
     /// Sequence value used before any events exist (`read_from` returns all when `after = ZERO`).
-    pub const ZERO: Seq = Seq(0);
+    pub const ZERO: Self = Self(0);
 
     /// Next sequence (saturating add).
     #[must_use]
-    pub fn next(self) -> Seq {
-        Seq(self.0.saturating_add(1))
+    pub const fn next(self) -> Self {
+        Self(self.0.saturating_add(1))
     }
 
     /// Raw counter value.
     #[must_use]
-    pub fn as_i64(self) -> i64 {
+    pub const fn as_i64(self) -> i64 {
         self.0
     }
 }

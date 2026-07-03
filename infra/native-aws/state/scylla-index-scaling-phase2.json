@@ -1,0 +1,15 @@
+{
+  "completed": [
+    "2n_provision",
+    "2n_validate",
+    "2n_fetch",
+    "2n_teardown",
+    "4n_provision",
+    "4n_validate",
+    "4n_fetch",
+    "4n_teardown",
+    "teardown_all"
+  ],
+  "current": null,
+  "failed": null
+}

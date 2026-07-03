@@ -31,16 +31,16 @@ pub struct AppendRecord {
 impl AppendRecord {
     /// Build a minimal append record for tests and examples.
     ///
-    /// # Examples
-    ///
-    /// ```
-    /// use continuum_core::AppendRecord;
-    /// use uuid::Uuid;
-    ///
-    /// let record = AppendRecord::new(Uuid::new_v4(), vec![1, 2, 3]);
-    /// assert_eq!(record.attempt, 0);
-    /// assert!(record.actor_ref.is_none());
-    /// ```
+/// # Examples
+///
+/// ```rust
+/// use continuum_core::AppendRecord;
+/// use uuid::Uuid;
+///
+/// let record = AppendRecord::new(Uuid::new_v4(), vec![1, 2, 3]);
+/// assert_eq!(record.attempt, 0);
+/// assert!(record.actor_ref.is_none());
+/// ```
     #[must_use]
     pub fn new(event_id: Uuid, payload_ciphertext: Vec<u8>) -> Self {
         Self {

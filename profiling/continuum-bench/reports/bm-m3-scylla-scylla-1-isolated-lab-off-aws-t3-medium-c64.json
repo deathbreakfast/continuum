@@ -1,0 +1,60 @@
+{
+  "experiment_id": "bm-m3",
+  "dimensions": {
+    "storage": "scylla",
+    "topology": "isolated-lab",
+    "telemetry": "off",
+    "hardware": "aws-t3-medium"
+  },
+  "hardware_detail": {
+    "cpu_model": "Intel(R) Xeon(R) Platinum 8259CL CPU @ 2.50GHz",
+    "cpu_cores": 2,
+    "ram_gib": 3.7495498657226562,
+    "os": "linux (Linux 6.1.175-219.359.amzn2023.x86_64)",
+    "root_mount": {
+      "device": "/dev/nvme0n1p1",
+      "mount_point": "/",
+      "fs_type": "xfs",
+      "size_gib": 19.9
+    },
+    "host_drive": {
+      "model": null,
+      "media_type": null,
+      "bus_type": null,
+      "size_gib": null,
+      "wsl_distro_path": null
+    }
+  },
+  "engine_path": "scylla://127.0.0.1:9042/continuum",
+  "started_at": "2026-07-01T21:58:34.118708709Z",
+  "elapsed_secs": 41.642220674,
+  "metrics": {
+    "achieved_ops_per_sec": 3.597783285182535,
+    "client_count": 64,
+    "clients_modeled": 64,
+    "duration_secs": 41.136441044,
+    "error_rate": 0.0,
+    "hot_stream": true,
+    "ops_err": 0,
+    "ops_ok": 148,
+    "p50_ms": 18098.112521,
+    "p95_ms": 22646.477971,
+    "p99_ms": 22661.57758
+  },
+  "resource_profile": {
+    "process_rss_bytes_start": 24037556224,
+    "process_rss_bytes_end": 25794969600,
+    "process_rss_bytes_peak": 25794969600,
+    "process_cpu_percent_mean": 5.573309756097561,
+    "process_cpu_percent_peak": 13.3333,
+    "system_mem_used_bytes_start": 1337528320,
+    "system_mem_used_bytes_peak": 1343922176,
+    "system_mem_used_bytes_end": 1343922176,
+    "sample_count": 41,
+    "sample_interval_ms": 1000
+  },
+  "pass_criteria": "error rate <0.1%",
+  "pass": true,
+  "status": "completed",
+  "notes": "C=64 4/s err=0.0000% PASS"
+}

@@ -17,6 +17,10 @@ pub enum LogBackendKind {
     Postgres,
     /// `SQLite` transport log.
     Sqlite,
+    /// Native `ScyllaDB` transport log.
+    Scylla,
+    /// Native `TiKV` transport log (PD client, no Surreal).
+    TikvRaw,
 }
 
 /// Logical destination — host chooses `logical`; no product presets in this crate.

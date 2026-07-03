@@ -1,4 +1,4 @@
-//! Map Surreal and serde errors to [`LogError`](continuum_core::error::LogError).
+//! Map Surreal and serde errors to [`LogError`].
 
 use continuum_core::error::LogError;
 

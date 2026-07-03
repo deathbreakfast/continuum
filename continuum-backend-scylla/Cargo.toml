@@ -1,0 +1,25 @@
+[package]
+name = "continuum-backend-scylla"
+version = "0.1.0"
+edition = "2021"
+authors = ["Sean O'Rourke"]
+license = "MIT"
+repository = "https://github.com/unified-field-dev/continuum"
+description = "ScyllaDB LogBackend for continuum transport log"
+
+[lints]
+workspace = true
+
+[dependencies]
+async-trait = { workspace = true }
+chrono = { workspace = true }
+continuum-core = { path = "../continuum-core" }
+scylla = { workspace = true }
+dashmap = "6"
+tokio = { workspace = true, features = ["macros"] }
+uuid = { workspace = true, features = ["serde", "v4"] }
+
+[dev-dependencies]
+continuum-test-utils = { path = "../continuum-test-utils" }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+uuid = { workspace = true, features = ["v4"] }

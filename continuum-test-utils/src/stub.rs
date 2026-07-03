@@ -1,4 +1,4 @@
-//! Smoke tests for stub backends that return [`LogError::Unsupported`](continuum_core::LogError::Unsupported).
+//! Smoke tests for stub backends that return [`LogError::Unsupported`].
 
 use continuum_core::backend::LogBackend;
 use continuum_core::error::LogError;

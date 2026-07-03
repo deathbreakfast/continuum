@@ -1,0 +1,7 @@
+waiting for scylla on host :9042...
+scylla ready
+>>> start scylla-a 2026-07-01T20:38:48+00:00
+>>> done scylla-a 2026-07-01T20:43:34+00:00
+>>> start scylla-b 2026-07-01T20:43:34+00:00
+>>> done scylla-b 2026-07-01T20:57:04+00:00
+scylla-run-all complete

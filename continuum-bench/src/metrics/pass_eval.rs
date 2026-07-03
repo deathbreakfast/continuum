@@ -1,7 +1,7 @@
 //! Pass/fail evaluators aligned with EXPERIMENTS.md criteria.
 
 use super::latency::LatencySamples;
-use crate::harness::ExperimentId;
+use crate::harness::{ExperimentId, Storage};
 
 /// Evaluate pass criteria for an experiment given collected metrics.
 pub fn evaluate_pass(id: ExperimentId, metrics: &serde_json::Value) -> bool {
@@ -72,12 +72,35 @@ pub fn evaluate_pass(id: ExperimentId, metrics: &serde_json::Value) -> bool {
         ExperimentId::BmL0
         | ExperimentId::BmL1
         | ExperimentId::BmL2
-        | ExperimentId::BmL3 => {
+        | ExperimentId::BmL3
+        | ExperimentId::BmM1
+        | ExperimentId::BmM2
+        | ExperimentId::BmM3
+        | ExperimentId::BmM4
+        | ExperimentId::BmM5 => {
             let error_rate = metrics
                 .get("error_rate")
                 .and_then(serde_json::Value::as_f64)
                 .unwrap_or(1.0);
             error_rate < 0.001
+        }
+        ExperimentId::BmP1 => {
+            let ops = metrics
+                .get("achieved_ops_per_sec")
+                .and_then(serde_json::Value::as_f64)
+                .unwrap_or(0.0);
+            ops > 0.0
+        }
+        ExperimentId::BmP2 => {
+            let expected = metrics
+                .get("expected_rows")
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(0);
+            let read = metrics
+                .get("rows_read")
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(0);
+            read == expected && expected > 0
         }
     }
 }
@@ -162,7 +185,98 @@ pub fn results_summary(id: ExperimentId, metrics: &serde_json::Value, pass: bool
                 * 100.0,
             status
         ),
+        ExperimentId::BmP1 => format!(
+            "K={} {:.0}/s {}",
+            metrics
+                .get("partition_count")
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(0),
+            metrics
+                .get("achieved_ops_per_sec")
+                .and_then(serde_json::Value::as_f64)
+                .unwrap_or(0.0),
+            status
+        ),
+        ExperimentId::BmP2 => format!(
+            "read={}/{} {}",
+            metrics
+                .get("rows_read")
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(0),
+            metrics
+                .get("expected_rows")
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(0),
+            status
+        ),
+        ExperimentId::BmM1 | ExperimentId::BmM2 | ExperimentId::BmM3 | ExperimentId::BmM4
+        | ExperimentId::BmM5 => {
+            let hot = metrics
+                .get("hot_stream")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false);
+            let k = metrics
+                .get("partition_count")
+                .or_else(|| metrics.get("partitions_modeled"))
+                .and_then(serde_json::Value::as_u64);
+            let prefix = if hot {
+                "hot".to_string()
+            } else if let Some(k) = k {
+                format!("K={k}")
+            } else {
+                String::new()
+            };
+            format!(
+                "C={}{}{} {:.0}/s err={:.4}% {}",
+                metrics
+                    .get("client_count")
+                    .and_then(serde_json::Value::as_u64)
+                    .unwrap_or(0),
+                if prefix.is_empty() { String::new() } else { format!(" {prefix}") },
+                String::new(),
+                metrics
+                    .get("achieved_ops_per_sec")
+                    .and_then(serde_json::Value::as_f64)
+                    .unwrap_or(0.0),
+                metrics
+                    .get("error_rate")
+                    .and_then(serde_json::Value::as_f64)
+                    .unwrap_or(0.0)
+                    * 100.0,
+                status
+            )
+        }
     }
+}
+
+/// Append adapter round-trip debug counters to BM-M* notes when enabled.
+pub fn append_debug_notes(storage: Storage, metrics: &serde_json::Value) -> Option<String> {
+    let enabled = std::env::var("CONTINUUM_APPEND_DEBUG_OPS")
+        .is_ok_and(|v| v == "1" || v.eq_ignore_ascii_case("true"));
+    if !enabled || storage != Storage::Scylla {
+        return None;
+    }
+    let (round_trips, ops) = continuum_backend_scylla::append_debug_snapshot();
+    let ok = metrics
+        .get("ops_ok")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(0);
+    // Display-only ratios; precision loss for huge counters is acceptable.
+    #[allow(clippy::cast_precision_loss)]
+    let per_append = if ok > 0 {
+        ops as f64 / ok as f64
+    } else {
+        0.0
+    };
+    #[allow(clippy::cast_precision_loss)]
+    let rt_per_append = if ok > 0 {
+        round_trips as f64 / ok as f64
+    } else {
+        0.0
+    };
+    Some(format!(
+        "round_trips={round_trips} ops={ops} per_append={per_append:.2} rt_per_append={rt_per_append:.2}"
+    ))
 }
 
 /// Helper to merge latency stats into JSON object.
