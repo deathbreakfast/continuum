@@ -6,9 +6,10 @@ ROOT="${HOME}/raw-engine-bench"
 mkdir -p "$ROOT/logs" "$ROOT/done"
 
 wait_scylla() {
-  echo "waiting for scylla on host :9042..."
+  local host="${SCYLLA_WAIT_HOST:-127.0.0.1}"
+  echo "waiting for scylla on $host:9042..."
   for _ in $(seq 1 60); do
-    if timeout 1 bash -c 'cat < /dev/null > /dev/tcp/127.0.0.1/9042' 2>/dev/null; then
+    if timeout 1 bash -c "cat < /dev/null > /dev/tcp/${host}/9042" 2>/dev/null; then
       echo "scylla ready"
       return 0
     fi
@@ -17,6 +18,9 @@ wait_scylla() {
   echo "scylla not ready after 300s" >&2
   return 1
 }
+
+SCYLLA_NODE="${SCYLLA_NODES:-127.0.0.1}"
+SCYLLA_WAIT_HOST="${SCYLLA_NODE%%,*}"
 
 wait_scylla
 
@@ -43,14 +47,14 @@ RATE=( -rate 'threads>=16' 'threads<=512' auto )
 # Test A: spread keys — 500k ops enough for auto-rate saturation
 run_test scylla-a write n=500000 cl=ONE \
   -mode native cql3 \
-  -node 127.0.0.1 \
+  -node "$SCYLLA_NODE" \
   -col 'size=fixed(256)' \
   "${RATE[@]}"
 
 # Test B: single key — duration-based (2M ops on one partition would take hours)
 run_test scylla-b write duration=180s cl=ONE \
   -mode native cql3 \
-  -node 127.0.0.1 \
+  -node "$SCYLLA_NODE" \
   -col 'size=fixed(256)' \
   -pop seq=1..1 \
   "${RATE[@]}"

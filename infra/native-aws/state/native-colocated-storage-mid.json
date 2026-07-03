@@ -1,0 +1,16 @@
+{
+  "topology": "native-colocated",
+  "phase": "mid",
+  "collected_at": "2026-07-02T15:53:22.981158+00:00",
+  "nodes": [
+    {
+      "host": "54.201.45.158",
+      "container": "continuum-scylla0",
+      "nodetool_status": "Datacenter: datacenter1\n=======================\nStatus=Up/Down\n|/ State=Normal/Leaving/Joining/Moving\n-- Address    Load      Tokens Owns Host ID                              Rack \nUN 172.17.0.2 201.64 KB 256    ?    1a92ca90-c24b-4bc4-8419-2112836bab12 rack1\n\nNote: Non-system keyspaces don't have the same replication settings, effective ownership information is meaningless",
+      "tablestats_tail": "\t\tLocal write count: 1536\n\t\tLocal write latency: 0.003 ms\n\t\tPending flushes: 0\n\t\tPercent repaired: 0.0\n\t\tBloom filter false positives: 0\n\t\tBloom filter false ratio: 0.00000\n\t\tBloom filter space used: 0\n\t\tBloom filter off heap memory used: 0\n\t\tIndex summary off heap memory used: 0\n\t\tCompression metadata off heap memory used: 0\n\t\tCompacted partition minimum bytes: 0\n\t\tCompacted partition maximum bytes: 0\n\t\tCompacted partition mean bytes: 0\n\t\tAverage live cells per slice (last five minutes): 0.0\n\t\tMaximum live cells per slice (last five minutes): 0\n\t\tAverage tombstones per slice (last five minutes): 0.0\n\t\tMaximum tombstones per slice (last five minutes): 0\n\t\tDropped Mutations: 0\n\n----------------",
+      "docker_stats": "CONTAINER ID   NAME                CPU %     MEM USAGE / LIMIT    MEM %     NET I/O           BLOCK I/O        PIDS\n3b673cd6bc74   continuum-scylla0   109.29%   282.4MiB / 3.75GiB   7.35%     35.9MB / 16.2MB   1.48MB / 994MB   14",
+      "loadavg": "1.46 0.61 0.24 2/195 28431",
+      "mpstat_tail": "15:53:20     CPU    %usr   %nice    %sys %iowait    %irq   %soft  %steal  %guest  %gnice   %idle\n15:53:21     all   57.07    0.00    2.09    0.00    0.00    1.57    0.00    0.00    0.00   39.27\n15:53:22     all   59.07    0.00    1.04    0.00    0.00    1.04    0.00    0.00    0.00   38.86\n15:53:23     all   54.45    0.00    4.19    0.00    0.00    1.05    0.00    0.00    0.00   40.31\nAverage:     all   56.87    0.00    2.43    0.00    0.00    1.22    0.00    0.00    0.00   39.48"
+    }
+  ]
+}

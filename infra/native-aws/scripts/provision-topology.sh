@@ -102,13 +102,17 @@ def launch(role, index, role_itype=None):
 
 def wait_ips(instance_id):
     for _ in range(60):
-        row = subprocess.check_output([
+        proc = subprocess.run([
             "aws", "ec2", "describe-instances",
             "--region", region,
             "--instance-ids", instance_id,
             "--query", "Reservations[0].Instances[0].[PublicIpAddress,PrivateIpAddress,State.Name]",
             "--output", "text",
-        ], text=True).split()
+        ], capture_output=True, text=True)
+        if proc.returncode != 0:
+            time.sleep(5)
+            continue
+        row = proc.stdout.split()
         if len(row) >= 3 and row[2] == "running" and row[0] != "None":
             return row[0], row[1]
         time.sleep(5)

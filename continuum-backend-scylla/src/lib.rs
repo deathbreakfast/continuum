@@ -25,7 +25,18 @@ use continuum_core::validation::{validate_read_limit, validate_topic};
 use error_map::map_err;
 
 /// Reserved seq numbers per stream (client-side block after one LWT).
-const SEQ_BLOCK_SIZE: i64 = 64;
+fn seq_block_size() -> i64 {
+    std::env::var("CONTINUUM_SCYLLA_SEQ_BLOCK_SIZE")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .filter(|&n| n > 0)
+        .unwrap_or(64)
+}
+
+/// Snapshot append round-trip counters when `CONTINUUM_APPEND_DEBUG_OPS` is enabled.
+pub fn append_debug_snapshot() -> (u64, u64) {
+    append_ops::snapshot()
+}
 
 #[derive(Debug, Clone, Copy)]
 struct SeqBlock {
@@ -333,7 +344,7 @@ impl ScyllaLogBackend {
                 }
             }
             let block = self
-                .reserve_seq_block_lwt(stream_key, SEQ_BLOCK_SIZE)
+                .reserve_seq_block_lwt(stream_key, seq_block_size())
                 .await?;
             let available = (block.end - block.next) as usize;
             let take = remaining.min(available);

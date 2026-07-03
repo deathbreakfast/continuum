@@ -34,6 +34,10 @@ if ! command -v docker >/dev/null 2>&1; then
   sudo systemctl enable --now docker
   sudo usermod -aG docker ec2-user
 fi
+if ! sudo docker info >/dev/null 2>&1; then
+  echo "docker install failed on $(hostname)" >&2
+  exit 1
+fi
 if ! swapon --show | grep -q swapfile; then
   sudo fallocate -l 4G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=4096
   sudo chmod 600 /swapfile
@@ -42,7 +46,7 @@ if ! swapon --show | grep -q swapfile; then
 fi
 mkdir -p ~/continuum-bench/reports
 EOF
-  ssh_cmd "$host" "sudo docker pull ${CONTINUUM_NATIVE_SCYLLA_IMAGE}; sudo docker pull ${CONTINUUM_NATIVE_PD_IMAGE}; sudo docker pull ${CONTINUUM_NATIVE_TIKV_IMAGE}" || true
+  ssh_cmd "$host" "sudo docker pull ${CONTINUUM_NATIVE_SCYLLA_IMAGE}; sudo docker pull ${CONTINUUM_NATIVE_PD_IMAGE}; sudo docker pull ${CONTINUUM_NATIVE_TIKV_IMAGE}; sudo docker pull scylladb/cassandra-stress" || true
 done < <(python3 - <<PY | sort -u
 import json
 for i in json.loads('''$MANIFEST''')["instances"]:

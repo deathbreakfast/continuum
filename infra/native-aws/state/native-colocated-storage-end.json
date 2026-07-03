@@ -1,0 +1,16 @@
+{
+  "topology": "native-colocated",
+  "phase": "end",
+  "collected_at": "2026-07-02T16:04:28.277737+00:00",
+  "nodes": [
+    {
+      "host": "54.201.45.158",
+      "container": "continuum-scylla0",
+      "nodetool_status": "Datacenter: datacenter1\n=======================\nStatus=Up/Down\n|/ State=Normal/Leaving/Joining/Moving\n-- Address    Load    Tokens Owns Host ID                              Rack \nUN 172.17.0.2 4.37 MB 256    ?    1a92ca90-c24b-4bc4-8419-2112836bab12 rack1\n\nNote: Non-system keyspaces don't have the same replication settings, effective ownership information is meaningless",
+      "tablestats_tail": "\t\tLocal write count: 2560\n\t\tLocal write latency: 0.003 ms\n\t\tPending flushes: 0\n\t\tPercent repaired: 0.0\n\t\tBloom filter false positives: 0\n\t\tBloom filter false ratio: 0.00000\n\t\tBloom filter space used: 332\n\t\tBloom filter off heap memory used: 332\n\t\tIndex summary off heap memory used: 2370\n\t\tCompression metadata off heap memory used: 0\n\t\tCompacted partition minimum bytes: 61\n\t\tCompacted partition maximum bytes: 72\n\t\tCompacted partition mean bytes: 72\n\t\tAverage live cells per slice (last five minutes): 0.0\n\t\tMaximum live cells per slice (last five minutes): 0\n\t\tAverage tombstones per slice (last five minutes): 0.0\n\t\tMaximum tombstones per slice (last five minutes): 0\n\t\tDropped Mutations: 0\n\n----------------",
+      "docker_stats": "CONTAINER ID   NAME                CPU %     MEM USAGE / LIMIT    MEM %     NET I/O           BLOCK I/O         PIDS\n3b673cd6bc74   continuum-scylla0   103.72%   623.5MiB / 3.75GiB   16.24%    78.1MB / 35.2MB   10.8MB / 1.38GB   14",
+      "loadavg": "0.36 0.15 0.13 3/187 29459",
+      "mpstat_tail": "16:04:25     CPU    %usr   %nice    %sys %iowait    %irq   %soft  %steal  %guest  %gnice   %idle\n16:04:26     all   50.75    0.00   10.95    0.00    0.00    1.00    0.00    0.00    0.00   37.31\n16:04:27     all   48.31    0.00    6.28    0.00    0.00    1.45    0.00    0.00    0.00   43.96\n16:04:28     all   44.22    0.00    6.03    0.00    0.00    2.51    0.50    0.00    0.00   46.73\nAverage:     all   47.78    0.00    7.74    0.00    0.00    1.65    0.16    0.00    0.00   42.67"
+    }
+  ]
+}

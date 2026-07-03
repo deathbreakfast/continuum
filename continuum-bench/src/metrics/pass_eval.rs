@@ -1,7 +1,7 @@
 //! Pass/fail evaluators aligned with EXPERIMENTS.md criteria.
 
 use super::latency::LatencySamples;
-use crate::harness::ExperimentId;
+use crate::harness::{ExperimentId, Storage};
 
 /// Evaluate pass criteria for an experiment given collected metrics.
 pub fn evaluate_pass(id: ExperimentId, metrics: &serde_json::Value) -> bool {
@@ -248,6 +248,34 @@ pub fn results_summary(id: ExperimentId, metrics: &serde_json::Value, pass: bool
             )
         }
     }
+}
+
+/// Append adapter round-trip debug counters to BM-M* notes when enabled.
+pub fn append_debug_notes(storage: Storage, metrics: &serde_json::Value) -> Option<String> {
+    let enabled = std::env::var("CONTINUUM_APPEND_DEBUG_OPS")
+        .ok()
+        .is_some_and(|v| v == "1" || v.eq_ignore_ascii_case("true"));
+    if !enabled || storage != Storage::Scylla {
+        return None;
+    }
+    let (round_trips, ops) = continuum_backend_scylla::append_debug_snapshot();
+    let ok = metrics
+        .get("ops_ok")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(0);
+    let per_append = if ok > 0 {
+        ops as f64 / ok as f64
+    } else {
+        0.0
+    };
+    let rt_per_append = if ok > 0 {
+        round_trips as f64 / ok as f64
+    } else {
+        0.0
+    };
+    Some(format!(
+        "round_trips={round_trips} ops={ops} per_append={per_append:.2} rt_per_append={rt_per_append:.2}"
+    ))
 }
 
 /// Helper to merge latency stats into JSON object.

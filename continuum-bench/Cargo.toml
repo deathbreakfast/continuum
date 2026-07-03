@@ -20,6 +20,7 @@ async-trait = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
 continuum = { path = "../continuum", features = ["mem", "surreal-local", "sqlite", "postgres", "scylla", "tikv-raw", "telemetry-console"] }
+continuum-backend-scylla = { path = "../continuum-backend-scylla" }
 scylla = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

@@ -29,4 +29,4 @@ done
 
 unset CONTINUUM_BENCH_CLIENT_COUNT
 
-echo "CONCURRENCY_CAMPAIGN_DONE"
+echo "CONCURRENCY_CAMPAIGN_DONE" | tee ~/continuum-bench/campaign-concurrency.done

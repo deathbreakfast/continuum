@@ -33,6 +33,13 @@ fn partition_count(default: usize) -> usize {
         .unwrap_or(default)
 }
 
+fn partition_offset() -> usize {
+    std::env::var("CONTINUUM_BENCH_PARTITION_OFFSET")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0)
+}
+
 fn worker_stream(ctx: &ExperimentContext, topic: &str, worker: usize) -> LogStreamId {
     let mut stream = bench_stream(ctx.storage, topic);
     stream.key = Some(format!("worker_{worker}"));
@@ -47,7 +54,9 @@ fn hot_stream(ctx: &ExperimentContext, topic: &str) -> LogStreamId {
 /// Round-robin partition key for concurrent spread-key workload.
 fn partition_stream(ctx: &ExperimentContext, topic: &str, worker: usize, k: usize) -> LogStreamId {
     let mut stream = bench_stream(ctx.storage, topic);
-    stream.key = Some(format!("partition_{}", worker % k));
+    let offset = partition_offset();
+    let idx = offset + (worker % k);
+    stream.key = Some(format!("partition_{idx}"));
     stream
 }
 
@@ -258,6 +267,7 @@ pub async fn run_bm_m4(ctx: &ExperimentContext) -> Result<Value> {
         "clients_modeled": clients,
         "partition_count": k,
         "partitions_modeled": k,
+        "partition_offset": partition_offset(),
         "duration_secs": elapsed,
         "ops_ok": ok,
         "ops_err": err,

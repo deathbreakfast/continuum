@@ -10,7 +10,7 @@
   "hardware_detail": {
     "cpu_model": "Intel(R) Xeon(R) Platinum 8259CL CPU @ 2.50GHz",
     "cpu_cores": 2,
-    "ram_gib": 3.7495574951171875,
+    "ram_gib": 3.7495498657226562,
     "os": "linux (Linux 6.1.175-219.359.amzn2023.x86_64)",
     "root_mount": {
       "device": "/dev/nvme0n1p1",
@@ -26,37 +26,38 @@
       "wsl_distro_path": null
     }
   },
-  "engine_path": "scylla://172.31.39.81:9042,172.31.37.233:9042/continuum",
-  "started_at": "2026-07-02T02:45:56.805275982Z",
-  "elapsed_secs": 30.503736935,
+  "engine_path": "scylla://172.31.42.12:9042,172.31.38.44:9042/continuum",
+  "started_at": "2026-07-02T17:17:14.239460990Z",
+  "elapsed_secs": 30.517924445,
   "metrics": {
-    "achieved_ops_per_sec": 3443.958976113824,
+    "achieved_ops_per_sec": 2224.6961323874,
     "client_count": 256,
     "clients_modeled": 256,
-    "duration_secs": 30.046234789,
+    "duration_secs": 30.051295108,
     "error_rate": 0.0,
     "ops_err": 0,
-    "ops_ok": 103478,
-    "p50_ms": 72.601679,
-    "p95_ms": 91.717384,
-    "p99_ms": 144.212229,
+    "ops_ok": 66855,
+    "p50_ms": 113.327589,
+    "p95_ms": 130.13434600000002,
+    "p99_ms": 186.511452,
     "partition_count": 256,
+    "partition_offset": 0,
     "partitions_modeled": 256
   },
   "resource_profile": {
-    "process_rss_bytes_start": 23773315072,
-    "process_rss_bytes_end": 27397193728,
-    "process_rss_bytes_peak": 27514634240,
-    "process_cpu_percent_mean": 26.885460000000002,
-    "process_cpu_percent_peak": 30.6878,
-    "system_mem_used_bytes_start": 611254272,
-    "system_mem_used_bytes_peak": 613617664,
-    "system_mem_used_bytes_end": 585297920,
+    "process_rss_bytes_start": 24163385344,
+    "process_rss_bytes_end": 28458352640,
+    "process_rss_bytes_peak": 28458352640,
+    "process_cpu_percent_mean": 18.316303333333334,
+    "process_cpu_percent_peak": 20.8333,
+    "system_mem_used_bytes_start": 667017216,
+    "system_mem_used_bytes_peak": 676376576,
+    "system_mem_used_bytes_end": 676376576,
     "sample_count": 30,
     "sample_interval_ms": 1000
   },
   "pass_criteria": "error rate <0.1%",
   "pass": true,
   "status": "completed",
-  "notes": "C=256 K=256 3444/s err=0.0000% PASS"
+  "notes": "C=256 K=256 2225/s err=0.0000% PASS"
 }

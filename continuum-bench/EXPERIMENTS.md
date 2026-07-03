@@ -580,3 +580,159 @@ CONTINUUM_NATIVE_AWS_INSTANCE_TYPE=c7i.4xlarge \
 
 See **Appendix G.2** in [`PERFORMANCE_STUDY.md`](PERFORMANCE_STUDY.md) for the Phase 5 scaling table template.
 
+## Tracks U–Y — Scylla bottleneck diagnosis (July 2026)
+
+Post–Track T diagnosis: identify whether the BM-M4 plateau is storage-saturated, adapter/coordination-bound, or bench/client-limited. **Scylla-only execution** this round; TiKV tracks use the same structure but are **deferred**.
+
+**Orchestrator** (WSL-resilient, sequential topologies, guaranteed teardown):
+
+```bash
+nohup infra/native-aws/scripts/run-scylla-diagnosis.sh \
+  > /tmp/scylla-diagnosis.log 2>&1 &
+tail -f /tmp/scylla-diagnosis.log
+# Poll detached campaign: infra/native-aws/scripts/campaign-status-topology.sh native-scylla-2n track-u
+```
+
+State file: `infra/native-aws/state/scylla-diagnosis.json`. S3 artifact cache: `setup-artifact-bucket.sh` + `artifact-fetch.sh` (key `al2023/<git-sha>-<lock-hash>/continuum-bench`). **All `Project=continuum-bench` instances terminated** via `teardown-all.sh` on completion or failure (override: `--no-teardown-on-fail`).
+
+**Run status (2026-07-02):** `SCYLLA_DIAGNOSIS_COMPLETE` — all orchestrator steps finished. Tables U.1–Y.1 filled below; gaps noted where report fetch/overwrite lost data.
+
+Fixed load from Track T peaks (no full adaptive re-sweep):
+
+| Topology | C=K | Tracks |
+| --- | --- | --- |
+| colocated (`native-colocated` scylla) | 256 | U, V, W, Y |
+| scylla-2n | 256 | U, V, W, X |
+| scylla-4n | 128 | U, W |
+
+### Track U — Storage-side saturation
+
+**Question:** Are Scylla nodes loaded, or is the bench failing to feed them?
+
+```bash
+infra/native-aws/scripts/run-scylla-track-u.sh native-scylla-2n 256
+infra/native-aws/scripts/collect-scylla-storage-metrics.sh native-scylla-2n end
+```
+
+Metrics JSON: `infra/native-aws/state/<topology>-storage-{mid,end}.json` — per-node `nodetool status`, `tablestats`, `docker stats`, loadavg.
+
+#### Table U.1 — Storage metrics @ BM-M4 peak load (July 2026)
+
+Metrics from `collect-scylla-storage-metrics.sh` **mid** sample (during detached BM-M4). Source: `infra/native-aws/state/<topology>-storage-mid.json`.
+
+| Topology | Node | CPU / load | UN tokens | Write rate | Verdict |
+| --- | --- | --- | --- | --- | --- |
+| colocated | scylla-0 | ~109% docker, load 1.46 | 256 UN | 1,536 local writes @ 0.003 ms | Hot CPU, μs latency → not IO-bound |
+| scylla-2n | scylla-0 | ~101% docker, load 0.39 | 256 UN | 77,543 local writes @ 0.005 ms | Busy @ peak; μs latency |
+| scylla-2n | scylla-1 | — | — | — | Not sampled (collector only persisted seed node) |
+| scylla-4n | scylla-0 | ~99% docker, load 0.50 | 256 UN | 1,280 local writes @ 0.004 ms | Hot CPU; μs latency; seed only |
+
+**Pass/fail:** all nodes low CPU + low write rate → **not storage-bound**; even load + moderate CPU → sharding OK, look upstream; one node hot → routing/replication issue.
+
+**Result:** Scylla nodes show CPU activity at peak but **microsecond local write latency** and **0% iowait** → **not storage-saturated**. Throughput plateau is upstream of Scylla (adapter/coordination or bench client).
+
+### Track V — Adapter round-trip budget
+
+**Question:** How many CQL round trips per append?
+
+Env: `CONTINUUM_APPEND_DEBUG_OPS=1`. Report `notes` include `round_trips=N ops=M per_append=… rt_per_append=…`.
+
+```bash
+infra/native-aws/scripts/run-scylla-track-v.sh native-colocated
+```
+
+#### Table V.1 — Round trips per append (July 2026)
+
+`CONTINUUM_APPEND_DEBUG_OPS=1`. Reports: `profiling/continuum-bench/reports/bm-m4-scylla-*-pk{C}-c{C}.json` (`notes` field).
+
+| Topology | C=K | ops/s | p99 ms | round_trips | ops/append | rt/append |
+| --- | --- | --- | --- | --- | --- | --- |
+| colocated | 64 | 2,605 | 52.5 | 237,124 | 3.03 | 3.03 |
+| colocated | 256 | 1,141 | 404.5 | 103,688 | 3.01 | 3.01 |
+| scylla-2n | 64 | 2,836 | 42.4 | 258,048 | 3.03 | 3.03 |
+| scylla-2n | 256 | 2,225 | 186.5 | — | — | — |
+
+Compare to theoretical minimum (~2 RT steady state, Appendix F.6).
+
+**Result:** **~3.0–3.03 RT/append** at C=64 on colocated and scylla-2n — above the ~2 RT floor → **adapter/coordination overhead** (LWT / multi-step append). C=256 rows run with debug enabled (lower ops/s, higher p99). scylla-2n @ C=256 report lacks debug `notes` (overwrite timing).
+
+### Track W — Raw engine comparison
+
+**Question:** Does `cassandra-stress` spread-key scale with N when Continuum does not?
+
+```bash
+infra/native-aws/scripts/run-scylla-track-w.sh native-scylla-2n
+# Results: infra/native-aws/state/<topology>-track-w/scylla-a.json
+```
+
+#### Table W.1 — Raw spread vs Continuum BM-M4 (July 2026)
+
+Track W: `cassandra-stress` spread-key peak (`infra/native-aws/state/<topology>-track-w/scylla-a.json`). Track U BM-M4 @ fixed C=K for Continuum column.
+
+| Topology | N | cassandra-stress ops/s | Continuum BM-M4 ops/s | Raw scales? |
+| --- | --- | --- | --- | --- |
+| colocated | 1 | 14,627 | ~3,318† | Yes (raw ≫ Continuum) |
+| scylla-2n | 2 | 29,524 | 2,225 | Yes (2× raw vs colocated; Continuum ↓) |
+| scylla-4n | 4 | **failed**‡ | 3,226 | — |
+
+† Colocated Track U report overwritten before fetch; Continuum value from Track T peak (July 2026).  
+‡ 4n stress run hit CQL connection errors from bench host; log incomplete, parse returned null.
+
+**Interpretation:** raw scales + Continuum flat → adapter/coordination; both flat → network/topology/bench; raw flat → Scylla config or instance too small.
+
+**Result:** **Raw stress scales with N; Continuum does not** (2n Continuum 2,225 ops/s vs raw 29.5k) → **adapter/coordination bound**, not Scylla write throughput.
+
+### Track X — Client parallelism (dual process)
+
+**Question:** Is a single bench process the limiter?
+
+Two `continuum-bench` processes on the bench host with disjoint partition ranges via `CONTINUUM_BENCH_PARTITION_OFFSET` + `CONTINUUM_BENCH_PARTITION_COUNT=K/2`.
+
+```bash
+infra/native-aws/scripts/run-scylla-track-x.sh native-scylla-2n 256
+```
+
+#### Table X.1 — Single vs dual process (July 2026)
+
+Track X on `native-scylla-2n` @ C=K=256: single process, then two processes @ C=128 with `CONTINUUM_BENCH_PARTITION_OFFSET` 0 / 128.
+
+| Topology | Processes | Aggregate ops/s | vs single |
+| --- | --- | --- | --- |
+| scylla-2n | 1 | 2,225 | 1.00× |
+| scylla-2n | 2 | **not captured** | — |
+
+Dual-process aggregate was written to `campaign-track-x.done` on the bench host; not present in fetched reports (single-process pk256 @ 2,225 ops/s is Track U timing — X did not produce a distinct local report before teardown).
+
+~2× → bench/client bound; flat → coordination/storage.
+
+**Result:** **Inconclusive** — re-run with report fetch fix or S3 sync before teardown.
+
+### Track Y — Coordination tuning (optional)
+
+**Question:** Can larger seq blocks reduce LWT frequency?
+
+Env: `CONTINUUM_SCYLLA_SEQ_BLOCK_SIZE` (default 64). Colocated A/B @ C=256, block sizes 64 vs 256.
+
+```bash
+infra/native-aws/scripts/run-scylla-track-y.sh native-colocated
+```
+
+#### Table Y.1 — Seq block size (July 2026)
+
+Colocated A/B @ C=256, `CONTINUUM_SCYLLA_SEQ_BLOCK_SIZE` 64 vs 256 (both write the same pk256 report filename).
+
+| Block size | ops/s | round_trips/append | p99 ms |
+| --- | --- | --- | --- |
+| 64 | **not captured** | — | — |
+| 256 | 1,141 | 3.01 | 404.5 |
+
+Surviving pk256 report is from the **last** run (block 256, with debug ops enabled). Block 64 row lost to filename overwrite.
+
+**Result:** **Inconclusive** for block-size effect — need distinct report paths per block size.
+
+### TiKV tracks U–Y (deferred)
+
+Same track definitions apply to `tikv-ha-2` / `tikv-scale-4` with TiKV-specific storage metrics (PD store status, TiKV `docker stats`). Not executed in this Scylla-focused run.
+
+See **Appendix H** in [`PERFORMANCE_STUDY.md`](PERFORMANCE_STUDY.md) for the consolidated bottleneck verdict table.
+

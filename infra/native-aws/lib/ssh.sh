@@ -3,7 +3,6 @@
 set -euo pipefail
 
 ssh_opts=(
-  -n
   -o StrictHostKeyChecking=no
   -o UserKnownHostsFile=/dev/null
   -o ConnectTimeout=15

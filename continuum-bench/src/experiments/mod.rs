@@ -21,7 +21,7 @@ use bm_multi_client::run_multi_client;
 use bm_partition::run_partition;
 
 use crate::harness::{capture_hardware, ExperimentId, RunDimensions};
-use crate::metrics::{evaluate_pass, results_summary, ResourceProfiler};
+use crate::metrics::{append_debug_notes, evaluate_pass, results_summary, ResourceProfiler};
 use crate::report::{ReportStatus, RunReport, write_report};
 
 fn skipped_report(
@@ -194,6 +194,12 @@ pub async fn run_experiment(id: ExperimentId, dims: RunDimensions) -> Result<Run
     };
     let pass = evaluate_pass(id, &metrics);
 
+    let mut notes = results_summary(id, &metrics, pass);
+    if let Some(extra) = append_debug_notes(dims.storage, &metrics) {
+        notes.push(' ');
+        notes.push_str(&extra);
+    }
+
     Ok(RunReport {
         experiment_id: id.slug().into(),
         dimensions: dims.into(),
@@ -207,7 +213,7 @@ pub async fn run_experiment(id: ExperimentId, dims: RunDimensions) -> Result<Run
         pass_criteria,
         pass,
         status: ReportStatus::Completed,
-        notes: results_summary(id, &metrics, pass),
+        notes,
     })
 }
 
@@ -215,7 +221,12 @@ pub async fn run_experiment(id: ExperimentId, dims: RunDimensions) -> Result<Run
 pub async fn run_and_report(id: ExperimentId, dims: RunDimensions) -> Result<RunReport> {
     let mut report = run_experiment(id, dims).await?;
     if report.status == ReportStatus::Completed {
-        report.notes = results_summary(id, &report.metrics, report.pass);
+        let mut notes = results_summary(id, &report.metrics, report.pass);
+        if let Some(extra) = append_debug_notes(dims.storage, &report.metrics) {
+            notes.push(' ');
+            notes.push_str(&extra);
+        }
+        report.notes = notes;
     }
     let _path = write_report(&report, dims)?;
     Ok(report)

@@ -914,3 +914,31 @@ From `resource_profile` on the dedicated **bench EC2** (`aws-t3-medium`: 2 vCPU,
 
 Manifests: `native-scylla-4n-c7i`, `native-tikv-scale-4-c7i`. Start only after manual verification of Phase B.
 
+## Appendix H — Bottleneck verdict (Tracks U–Y, Scylla)
+
+Consolidated diagnosis after Track T plateau (~3.3–3.5k ops/s BM-M4 spread-key on `aws-t3-medium`). Filled from `run-scylla-diagnosis.sh` (July 2, 2026; `aws-t3-medium`, all instances torn down).
+
+### Table H.1 — Bottleneck hypothesis matrix
+
+| Track | Signal | Storage-bound | Adapter/coordination | Bench/client |
+| --- | --- | --- | --- | --- |
+| U — node CPU/write rate | Hot CPU @ peak but μs write latency, 0% iowait | **No** | — | — |
+| V — rt/append vs ~2 RT min | ~3.0–3.03 RT/append (C=64) | — | **Yes** | — |
+| W — raw stress scales, Continuum flat | Raw 14.6k→29.5k; Continuum ~2.2–3.2k | **No** | **Yes** | Partial (4n stress infra) |
+| X — dual process ~2× throughput | Dual aggregate not captured | — | — | **Inconclusive** |
+| Y — larger seq block reduces RT | Block 64 row lost to overwrite | — | **Inconclusive** | — |
+
+### Table H.2 — Recommended next action
+
+| Verdict | Next step |
+| --- | --- |
+| **Primary: Adapter/coordination** | Reduce LWT/2PC round trips, batching, seq-block tuning; profile per-append CQL path |
+| Storage saturated | Larger Scylla nodes / tune compaction *(not indicated by Track U)* |
+| Bench/client bound | Phase 5 bench instance (`c7i.4xlarge`) or multi-process client *(Track X inconclusive; Track W bench needed Docker on distributed bench hosts)* |
+| Network/topology | VPC placement, driver pooling, contact-point tuning *(4n stress CQL timeouts suggest SG/placement follow-up)* |
+
+```bash
+nohup infra/native-aws/scripts/run-scylla-diagnosis.sh > /tmp/scylla-diagnosis.log 2>&1 &
+infra/native-aws/scripts/teardown-all.sh   # verify zero instances after run
+```
+

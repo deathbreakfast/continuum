@@ -1,0 +1,16 @@
+{
+  "topology": "native-scylla-2n",
+  "phase": "end",
+  "collected_at": "2026-07-02T16:26:48.648663+00:00",
+  "nodes": [
+    {
+      "host": "35.163.137.86",
+      "container": "continuum-scylla0",
+      "nodetool_status": "Datacenter: datacenter1\n=======================\nStatus=Up/Down\n|/ State=Normal/Leaving/Joining/Moving\n-- Address      Load      Tokens Owns Host ID                              Rack \nUN 172.31.42.12 214.63 KB 256    ?    affad9de-d097-4e9e-b5d5-15d0fbdd5c00 rack1\n\nNote: Non-system keyspaces don't have the same replication settings, effective ownership information is meaningless",
+      "tablestats_tail": "\t\tLocal write count: 114684\n\t\tLocal write latency: 0.005 ms\n\t\tPending flushes: 0\n\t\tPercent repaired: 0.0\n\t\tBloom filter false positives: 0\n\t\tBloom filter false ratio: 0.00000\n\t\tBloom filter space used: 332\n\t\tBloom filter off heap memory used: 332\n\t\tIndex summary off heap memory used: 3702\n\t\tCompression metadata off heap memory used: 0\n\t\tCompacted partition minimum bytes: 11865\n\t\tCompacted partition maximum bytes: 14237\n\t\tCompacted partition mean bytes: 14237\n\t\tAverage live cells per slice (last five minutes): 0.0\n\t\tMaximum live cells per slice (last five minutes): 0\n\t\tAverage tombstones per slice (last five minutes): 0.0\n\t\tMaximum tombstones per slice (last five minutes): 0\n\t\tDropped Mutations: 0\n\n----------------",
+      "docker_stats": "CONTAINER ID   NAME                CPU %     MEM USAGE / LIMIT    MEM %     NET I/O   BLOCK I/O         PIDS\n607d8c1aec96   continuum-scylla0   0.53%     575.9MiB / 3.75GiB   15.00%    0B / 0B   11.9MB / 1.29GB   14",
+      "loadavg": "0.34 0.31 0.23 1/165 31958",
+      "mpstat_tail": "16:26:46     CPU    %usr   %nice    %sys %iowait    %irq   %soft  %steal  %guest  %gnice   %idle\n16:26:47     all    0.00    0.00    0.00    0.50    0.00    0.00    0.00    0.00    0.00   99.50\n16:26:48     all    0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00  100.00\n16:26:49     all    0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00    0.00  100.00\nAverage:     all    0.00    0.00    0.00    0.17    0.00    0.00    0.00    0.00    0.00   99.83"
+    }
+  ]
+}

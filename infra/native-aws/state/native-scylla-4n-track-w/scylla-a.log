@@ -1,0 +1,420 @@
+******************** Stress Settings ********************
+Command:
+  Type: write
+  Count: 500,000
+  No Warmup: false
+  Consistency Level: ONE
+  Serial Consistency Level: SERIAL
+  Target Uncertainty: not applicable
+  Key Size (bytes): 10
+  Counter Increment Distibution: add=fixed(1)
+Rate:
+  Auto: true
+  Min Threads: 16
+  Max Threads: 512
+Population:
+  Sequence: 1..500000
+  Order: ARBITRARY
+  Wrap: true
+Insert:
+  Revisits: Uniform:  min=1,max=1000000
+  Visits: Fixed:  key=1
+  Row Population Ratio: Ratio: divisor=1.000000;delegate=Fixed:  key=1
+  Batch Type: not batching
+Columns:
+  Max Columns Per Key: 5
+  Column Names: [C0, C1, C2, C3, C4]
+  Comparator: AsciiType
+  Timestamp: null
+  Variable Column Count: false
+  Slice: false
+  Size Distribution: Fixed:  key=256
+  Count Distribution: Fixed:  key=5
+Errors:
+  Ignore: false
+  Fail fast setting: false
+  Tries: 10
+Log:
+  No Summary: false
+  No Settings: false
+  File: null
+  Interval Millis: 1000
+  Level: NORMAL
+Mode:
+  API: JAVA_DRIVER_NATIVE
+  Connection Style: CQL_PREPARED
+  CQL Version: CQL3
+  Protocol Version: DEFAULT
+  Username: null
+  Password: null
+  Auth Provide Class: null
+  Max Pending Per Connection: null
+  Connections Per Host: 8
+  Request Timeout: 12000 ms
+  Compression: NONE
+Node:
+  Nodes: [172.31.32.152, 172.31.35.101, 172.31.33.206, 172.31.38.126]
+  Is White List: false
+  Datacenter: null
+  Rack: null
+  Load Balance: auto
+  Remote DC Hosts: disabled
+Schema:
+  Keyspace: keyspace1
+  Replication Strategy: org.apache.cassandra.locator.NetworkTopologyStrategy
+  Replication Strategy Options: {replication_factor=1}
+  Storage Options: {}
+  Table Compression: null
+  Table Compaction Strategy: null
+  Table Compaction Strategy Options: {}
+Transport:
+  factory=org.apache.cassandra.thrift.TFramedTransportFactory; truststore=null; truststore-password=null; keystore=null; keystore-password=null; ssl-protocol=TLS; ssl-alg=SunX509; store-type=JKS; ssl-ciphers=TLS_AES_256_GCM_SHA384,TLS_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256; hostname-verification=false; 
+Port:
+  Native Port: 9042
+  Thrift Port: 9160
+  JMX Port: 7199
+Send To Daemon:
+  *not set*
+Graph:
+  File: null
+  Revision: unknown
+  Title: null
+  Operation: WRITE
+TokenRange:
+  Wrap: false
+  Split Factor: 1
+
+INFO  [main] 2026-07-02 18:31:03,957 Cluster.java:272 - ScyllaDB Java Driver 3.11.5.15
+INFO  [main] 2026-07-02 18:31:04,032 Native.java:113 - Could not load JNR C Library, native system calls through this library will not be available (set this logger level to DEBUG to see the full stack trace).
+INFO  [main] 2026-07-02 18:31:04,034 Clock.java:60 - Using java.lang.System clock to generate timestamps.
+INFO  [main] 2026-07-02 18:31:04,096 Cluster.java:187 - ===== Using optimized driver!!! =====
+INFO  [main] 2026-07-02 18:31:04,214 NettyUtil.java:84 - Detected shaded Netty classes in the classpath; native epoll transport will not work properly, defaulting to NIO.
+WARN  [cluster1-nio-worker-0] 2026-07-02 18:31:04,468 Connection.java:288 - Error creating netty channel to /172.31.33.206:9042
+com.datastax.shaded.netty.channel.AbstractChannel$AnnotatedConnectException: Connection refused: /172.31.33.206:9042
+Caused by: java.net.ConnectException: Connection refused
+	at java.base/sun.nio.ch.Net.pollConnect(Native Method)
+	at java.base/sun.nio.ch.Net.pollConnectNow(Unknown Source)
+	at java.base/sun.nio.ch.SocketChannelImpl.finishConnect(Unknown Source)
+	at com.datastax.shaded.netty.channel.socket.nio.NioSocketChannel.doFinishConnect(NioSocketChannel.java:336)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.finishConnect(AbstractNioChannel.java:339)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:784)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:732)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:658)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:562)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+WARN  [cluster1-nio-worker-1] 2026-07-02 18:31:04,477 Connection.java:288 - Error creating netty channel to /172.31.35.101:9042
+com.datastax.shaded.netty.channel.AbstractChannel$AnnotatedConnectException: Connection refused: /172.31.35.101:9042
+Caused by: java.net.ConnectException: Connection refused
+	at java.base/sun.nio.ch.Net.pollConnect(Native Method)
+	at java.base/sun.nio.ch.Net.pollConnectNow(Unknown Source)
+	at java.base/sun.nio.ch.SocketChannelImpl.finishConnect(Unknown Source)
+	at com.datastax.shaded.netty.channel.socket.nio.NioSocketChannel.doFinishConnect(NioSocketChannel.java:336)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.finishConnect(AbstractNioChannel.java:339)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:784)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:732)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:658)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:562)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+WARN  [cluster1-nio-worker-2] 2026-07-02 18:31:04,483 Connection.java:288 - Error creating netty channel to /172.31.38.126:9042
+com.datastax.shaded.netty.channel.AbstractChannel$AnnotatedConnectException: Connection refused: /172.31.38.126:9042
+Caused by: java.net.ConnectException: Connection refused
+	at java.base/sun.nio.ch.Net.pollConnect(Native Method)
+	at java.base/sun.nio.ch.Net.pollConnectNow(Unknown Source)
+	at java.base/sun.nio.ch.SocketChannelImpl.finishConnect(Unknown Source)
+	at com.datastax.shaded.netty.channel.socket.nio.NioSocketChannel.doFinishConnect(NioSocketChannel.java:336)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.finishConnect(AbstractNioChannel.java:339)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:784)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:732)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:658)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:562)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+INFO  [main] 2026-07-02 18:31:05,047 DCAwareRoundRobinPolicy.java:110 - Using data-center name 'datacenter1' for DCAwareRoundRobinPolicy (if this is incorrect, please provide the correct datacenter name with DCAwareRoundRobinPolicy constructor)
+INFO  [main] 2026-07-02 18:31:05,050 Cluster.java:1770 - New Cassandra host /172.31.32.152:9042 added
+Connected to cluster: , max pending requests per connection null, max connections per host 8
+Datatacenter: datacenter1; Host: /172.31.32.152; Rack: rack1
+INFO  [main] 2026-07-02 18:31:05,084 HostConnectionPool.java:201 - Using advanced port-based shard awareness with /172.31.32.152:9042
+WARN  [cluster1-nio-worker-2] 2026-07-02 18:31:10,098 Connection.java:288 - Error creating netty channel to /172.31.32.152:9042
+com.datastax.shaded.netty.channel.ConnectTimeoutException: connection timed out after 5000 ms: /172.31.32.152:19042
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe$1.run(AbstractNioChannel.java:263)
+	at com.datastax.shaded.netty.util.concurrent.PromiseTask.runTask(PromiseTask.java:98)
+	at com.datastax.shaded.netty.util.concurrent.ScheduledFutureTask.run(ScheduledFutureTask.java:160)
+	at com.datastax.shaded.netty.util.concurrent.AbstractEventExecutor.runTask(AbstractEventExecutor.java:173)
+	at com.datastax.shaded.netty.util.concurrent.AbstractEventExecutor.safeExecute(AbstractEventExecutor.java:166)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor.runAllTasks(SingleThreadEventExecutor.java:472)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:569)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+WARN  [cluster1-nio-worker-0] 2026-07-02 18:31:10,098 Connection.java:288 - Error creating netty channel to /172.31.32.152:9042
+com.datastax.shaded.netty.channel.ConnectTimeoutException: connection timed out after 5000 ms: /172.31.32.152:19042
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe$1.run(AbstractNioChannel.java:263)
+	at com.datastax.shaded.netty.util.concurrent.PromiseTask.runTask(PromiseTask.java:98)
+	at com.datastax.shaded.netty.util.concurrent.ScheduledFutureTask.run(ScheduledFutureTask.java:160)
+	at com.datastax.shaded.netty.util.concurrent.AbstractEventExecutor.runTask(AbstractEventExecutor.java:173)
+	at com.datastax.shaded.netty.util.concurrent.AbstractEventExecutor.safeExecute(AbstractEventExecutor.java:166)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor.runAllTasks(SingleThreadEventExecutor.java:472)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:569)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+WARN  [cluster1-nio-worker-1] 2026-07-02 18:31:10,101 Connection.java:288 - Error creating netty channel to /172.31.32.152:9042
+com.datastax.shaded.netty.channel.ConnectTimeoutException: connection timed out after 5000 ms: /172.31.32.152:19042
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe$1.run(AbstractNioChannel.java:263)
+	at com.datastax.shaded.netty.util.concurrent.PromiseTask.runTask(PromiseTask.java:98)
+	at com.datastax.shaded.netty.util.concurrent.ScheduledFutureTask.run(ScheduledFutureTask.java:160)
+	at com.datastax.shaded.netty.util.concurrent.AbstractEventExecutor.runTask(AbstractEventExecutor.java:173)
+	at com.datastax.shaded.netty.util.concurrent.AbstractEventExecutor.safeExecute(AbstractEventExecutor.java:166)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor.runAllTasks(SingleThreadEventExecutor.java:472)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:569)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+WARN  [cluster1-nio-worker-3] 2026-07-02 18:31:10,102 Connection.java:288 - Error creating netty channel to /172.31.32.152:9042
+com.datastax.shaded.netty.channel.ConnectTimeoutException: connection timed out after 5000 ms: /172.31.32.152:19042
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe$1.run(AbstractNioChannel.java:263)
+	at com.datastax.shaded.netty.util.concurrent.PromiseTask.runTask(PromiseTask.java:98)
+	at com.datastax.shaded.netty.util.concurrent.ScheduledFutureTask.run(ScheduledFutureTask.java:160)
+	at com.datastax.shaded.netty.util.concurrent.AbstractEventExecutor.runTask(AbstractEventExecutor.java:173)
+	at com.datastax.shaded.netty.util.concurrent.AbstractEventExecutor.safeExecute(AbstractEventExecutor.java:166)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor.runAllTasks(SingleThreadEventExecutor.java:472)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:569)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+WARN  [cluster1-nio-worker-1] 2026-07-02 18:31:10,103 HostConnectionPool.java:478 - Error creating connection to /172.31.32.152:9042
+com.datastax.driver.core.exceptions.TransportException: [/172.31.32.152:9042] Cannot connect
+	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:324)
+	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:251)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListener0(DefaultPromise.java:603)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListeners0(DefaultPromise.java:596)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListenersNow(DefaultPromise.java:572)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListeners(DefaultPromise.java:505)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.setValue0(DefaultPromise.java:649)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.setFailure0(DefaultPromise.java:642)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.tryFailure(DefaultPromise.java:131)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe$1.run(AbstractNioChannel.java:264)
+	at com.datastax.shaded.netty.util.concurrent.PromiseTask.runTask(PromiseTask.java:98)
+	at com.datastax.shaded.netty.util.concurrent.ScheduledFutureTask.run(ScheduledFutureTask.java:160)
+	at com.datastax.shaded.netty.util.concurrent.AbstractEventExecutor.runTask(AbstractEventExecutor.java:173)
+	at com.datastax.shaded.netty.util.concurrent.AbstractEventExecutor.safeExecute(AbstractEventExecutor.java:166)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor.runAllTasks(SingleThreadEventExecutor.java:472)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:569)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+Caused by: com.datastax.shaded.netty.channel.ConnectTimeoutException: connection timed out after 5000 ms: /172.31.32.152:19042
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe$1.run(AbstractNioChannel.java:263)
+	... 10 common frames omitted
+WARN  [cluster1-nio-worker-2] 2026-07-02 18:31:10,103 HostConnectionPool.java:478 - Error creating connection to /172.31.32.152:9042
+com.datastax.driver.core.exceptions.TransportException: [/172.31.32.152:9042] Cannot connect
+	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:324)
+	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:251)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListener0(DefaultPromise.java:603)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListeners0(DefaultPromise.java:596)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListenersNow(DefaultPromise.java:572)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListeners(DefaultPromise.java:505)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.setValue0(DefaultPromise.java:649)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.setFailure0(DefaultPromise.java:642)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.tryFailure(DefaultPromise.java:131)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe$1.run(AbstractNioChannel.java:264)
+	at com.datastax.shaded.netty.util.concurrent.PromiseTask.runTask(PromiseTask.java:98)
+	at com.datastax.shaded.netty.util.concurrent.ScheduledFutureTask.run(ScheduledFutureTask.java:160)
+	at com.datastax.shaded.netty.util.concurrent.AbstractEventExecutor.runTask(AbstractEventExecutor.java:173)
+	at com.datastax.shaded.netty.util.concurrent.AbstractEventExecutor.safeExecute(AbstractEventExecutor.java:166)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor.runAllTasks(SingleThreadEventExecutor.java:472)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:569)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+Caused by: com.datastax.shaded.netty.channel.ConnectTimeoutException: connection timed out after 5000 ms: /172.31.32.152:19042
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe$1.run(AbstractNioChannel.java:263)
+	... 10 common frames omitted
+WARN  [cluster1-nio-worker-2] 2026-07-02 18:31:10,104 Connection.java:288 - Error creating netty channel to /172.31.32.152:9042
+com.datastax.shaded.netty.channel.ConnectTimeoutException: connection timed out after 5000 ms: /172.31.32.152:19042
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe$1.run(AbstractNioChannel.java:263)
+	at com.datastax.shaded.netty.util.concurrent.PromiseTask.runTask(PromiseTask.java:98)
+	at com.datastax.shaded.netty.util.concurrent.ScheduledFutureTask.run(ScheduledFutureTask.java:160)
+	at com.datastax.shaded.netty.util.concurrent.AbstractEventExecutor.runTask(AbstractEventExecutor.java:173)
+	at com.datastax.shaded.netty.util.concurrent.AbstractEventExecutor.safeExecute(AbstractEventExecutor.java:166)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor.runAllTasks(SingleThreadEventExecutor.java:472)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:569)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+WARN  [cluster1-nio-worker-0] 2026-07-02 18:31:10,102 HostConnectionPool.java:478 - Error creating connection to /172.31.32.152:9042
+com.datastax.driver.core.exceptions.TransportException: [/172.31.32.152:9042] Cannot connect
+	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:324)
+	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:251)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListener0(DefaultPromise.java:603)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListeners0(DefaultPromise.java:596)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListenersNow(DefaultPromise.java:572)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListeners(DefaultPromise.java:505)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.setValue0(DefaultPromise.java:649)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.setFailure0(DefaultPromise.java:642)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.tryFailure(DefaultPromise.java:131)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe$1.run(AbstractNioChannel.java:264)
+	at com.datastax.shaded.netty.util.concurrent.PromiseTask.runTask(PromiseTask.java:98)
+	at com.datastax.shaded.netty.util.concurrent.ScheduledFutureTask.run(ScheduledFutureTask.java:160)
+	at com.datastax.shaded.netty.util.concurrent.AbstractEventExecutor.runTask(AbstractEventExecutor.java:173)
+	at com.datastax.shaded.netty.util.concurrent.AbstractEventExecutor.safeExecute(AbstractEventExecutor.java:166)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor.runAllTasks(SingleThreadEventExecutor.java:472)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:569)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+Caused by: com.datastax.shaded.netty.channel.ConnectTimeoutException: connection timed out after 5000 ms: /172.31.32.152:19042
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe$1.run(AbstractNioChannel.java:263)
+	... 10 common frames omitted
+WARN  [cluster1-nio-worker-3] 2026-07-02 18:31:10,103 HostConnectionPool.java:478 - Error creating connection to /172.31.32.152:9042
+com.datastax.driver.core.exceptions.TransportException: [/172.31.32.152:9042] Cannot connect
+	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:324)
+	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:251)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListener0(DefaultPromise.java:603)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListeners0(DefaultPromise.java:596)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListenersNow(DefaultPromise.java:572)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListeners(DefaultPromise.java:505)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.setValue0(DefaultPromise.java:649)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.setFailure0(DefaultPromise.java:642)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.tryFailure(DefaultPromise.java:131)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe$1.run(AbstractNioChannel.java:264)
+	at com.datastax.shaded.netty.util.concurrent.PromiseTask.runTask(PromiseTask.java:98)
+	at com.datastax.shaded.netty.util.concurrent.ScheduledFutureTask.run(ScheduledFutureTask.java:160)
+	at com.datastax.shaded.netty.util.concurrent.AbstractEventExecutor.runTask(AbstractEventExecutor.java:173)
+	at com.datastax.shaded.netty.util.concurrent.AbstractEventExecutor.safeExecute(AbstractEventExecutor.java:166)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor.runAllTasks(SingleThreadEventExecutor.java:472)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:569)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+Caused by: com.datastax.shaded.netty.channel.ConnectTimeoutException: connection timed out after 5000 ms: /172.31.32.152:19042
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe$1.run(AbstractNioChannel.java:263)
+	... 10 common frames omitted
+WARN  [cluster1-nio-worker-3] 2026-07-02 18:31:10,105 Connection.java:288 - Error creating netty channel to /172.31.32.152:9042
+com.datastax.shaded.netty.channel.ConnectTimeoutException: connection timed out after 5000 ms: /172.31.32.152:19042
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe$1.run(AbstractNioChannel.java:263)
+	at com.datastax.shaded.netty.util.concurrent.PromiseTask.runTask(PromiseTask.java:98)
+	at com.datastax.shaded.netty.util.concurrent.ScheduledFutureTask.run(ScheduledFutureTask.java:160)
+	at com.datastax.shaded.netty.util.concurrent.AbstractEventExecutor.runTask(AbstractEventExecutor.java:173)
+	at com.datastax.shaded.netty.util.concurrent.AbstractEventExecutor.safeExecute(AbstractEventExecutor.java:166)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor.runAllTasks(SingleThreadEventExecutor.java:472)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:569)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+WARN  [cluster1-nio-worker-2] 2026-07-02 18:31:10,105 HostConnectionPool.java:478 - Error creating connection to /172.31.32.152:9042
+com.datastax.driver.core.exceptions.TransportException: [/172.31.32.152:9042] Cannot connect
+	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:324)
+	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:251)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListener0(DefaultPromise.java:603)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListeners0(DefaultPromise.java:596)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListenersNow(DefaultPromise.java:572)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListeners(DefaultPromise.java:505)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.setValue0(DefaultPromise.java:649)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.setFailure0(DefaultPromise.java:642)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.tryFailure(DefaultPromise.java:131)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe$1.run(AbstractNioChannel.java:264)
+	at com.datastax.shaded.netty.util.concurrent.PromiseTask.runTask(PromiseTask.java:98)
+	at com.datastax.shaded.netty.util.concurrent.ScheduledFutureTask.run(ScheduledFutureTask.java:160)
+	at com.datastax.shaded.netty.util.concurrent.AbstractEventExecutor.runTask(AbstractEventExecutor.java:173)
+	at com.datastax.shaded.netty.util.concurrent.AbstractEventExecutor.safeExecute(AbstractEventExecutor.java:166)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor.runAllTasks(SingleThreadEventExecutor.java:472)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:569)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+Caused by: com.datastax.shaded.netty.channel.ConnectTimeoutException: connection timed out after 5000 ms: /172.31.32.152:19042
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe$1.run(AbstractNioChannel.java:263)
+	... 10 common frames omitted
+WARN  [cluster1-nio-worker-0] 2026-07-02 18:31:10,105 Connection.java:288 - Error creating netty channel to /172.31.32.152:9042
+com.datastax.shaded.netty.channel.ConnectTimeoutException: connection timed out after 5000 ms: /172.31.32.152:19042
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe$1.run(AbstractNioChannel.java:263)
+	at com.datastax.shaded.netty.util.concurrent.PromiseTask.runTask(PromiseTask.java:98)
+	at com.datastax.shaded.netty.util.concurrent.ScheduledFutureTask.run(ScheduledFutureTask.java:160)
+	at com.datastax.shaded.netty.util.concurrent.AbstractEventExecutor.runTask(AbstractEventExecutor.java:173)
+	at com.datastax.shaded.netty.util.concurrent.AbstractEventExecutor.safeExecute(AbstractEventExecutor.java:166)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor.runAllTasks(SingleThreadEventExecutor.java:472)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:569)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+WARN  [cluster1-nio-worker-0] 2026-07-02 18:31:10,107 HostConnectionPool.java:478 - Error creating connection to /172.31.32.152:9042
+com.datastax.driver.core.exceptions.TransportException: [/172.31.32.152:9042] Cannot connect
+	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:324)
+	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:251)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListener0(DefaultPromise.java:603)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListeners0(DefaultPromise.java:596)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListenersNow(DefaultPromise.java:572)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListeners(DefaultPromise.java:505)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.setValue0(DefaultPromise.java:649)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.setFailure0(DefaultPromise.java:642)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.tryFailure(DefaultPromise.java:131)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe$1.run(AbstractNioChannel.java:264)
+	at com.datastax.shaded.netty.util.concurrent.PromiseTask.runTask(PromiseTask.java:98)
+	at com.datastax.shaded.netty.util.concurrent.ScheduledFutureTask.run(ScheduledFutureTask.java:160)
+	at com.datastax.shaded.netty.util.concurrent.AbstractEventExecutor.runTask(AbstractEventExecutor.java:173)
+	at com.datastax.shaded.netty.util.concurrent.AbstractEventExecutor.safeExecute(AbstractEventExecutor.java:166)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor.runAllTasks(SingleThreadEventExecutor.java:472)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:569)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+Caused by: com.datastax.shaded.netty.channel.ConnectTimeoutException: connection timed out after 5000 ms: /172.31.32.152:19042
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe$1.run(AbstractNioChannel.java:263)
+	... 10 common frames omitted
+WARN  [cluster1-nio-worker-3] 2026-07-02 18:31:10,107 HostConnectionPool.java:478 - Error creating connection to /172.31.32.152:9042
+com.datastax.driver.core.exceptions.TransportException: [/172.31.32.152:9042] Cannot connect
+	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:324)
+	at com.datastax.driver.core.Connection$1.operationComplete(Connection.java:251)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListener0(DefaultPromise.java:603)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListeners0(DefaultPromise.java:596)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListenersNow(DefaultPromise.java:572)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.notifyListeners(DefaultPromise.java:505)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.setValue0(DefaultPromise.java:649)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.setFailure0(DefaultPromise.java:642)
+	at com.datastax.shaded.netty.util.concurrent.DefaultPromise.tryFailure(DefaultPromise.java:131)
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe$1.run(AbstractNioChannel.java:264)
+	at com.datastax.shaded.netty.util.concurrent.PromiseTask.runTask(PromiseTask.java:98)
+	at com.datastax.shaded.netty.util.concurrent.ScheduledFutureTask.run(ScheduledFutureTask.java:160)
+	at com.datastax.shaded.netty.util.concurrent.AbstractEventExecutor.runTask(AbstractEventExecutor.java:173)
+	at com.datastax.shaded.netty.util.concurrent.AbstractEventExecutor.safeExecute(AbstractEventExecutor.java:166)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor.runAllTasks(SingleThreadEventExecutor.java:472)
+	at com.datastax.shaded.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:569)
+	at com.datastax.shaded.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at com.datastax.shaded.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at com.datastax.shaded.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Unknown Source)
+Caused by: com.datastax.shaded.netty.channel.ConnectTimeoutException: connection timed out after 5000 ms: /172.31.32.152:19042
+	at com.datastax.shaded.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe$1.run(AbstractNioChannel.java:263)
+	... 10 common frames omitted
+WARN  [cluster1-nio-worker-1] 2026-07-02 18:31:10,137 RequestHandler.java:260 - Query '[0 bound values] CREATE KEYSPACE IF NOT EXISTS "keyspace1" WITH replication = {'class': 'org.apache.cassandra.locator.NetworkTopologyStrategy', 'replication_factor' : '1'} AND durable_writes = true;' generated server side warning(s): Tables in this keyspace will be replicated using Tablets and will not support CDC, LWT and counters features. To use CDC, LWT or counters, drop this keyspace and re-create it without tablets by adding AND TABLETS = {'enabled': false} to the CREATE KEYSPACE statement.
+WARN  [cluster1-nio-worker-1] 2026-07-02 18:31:10,138 RequestHandler.java:260 - Query '[0 bound values] CREATE KEYSPACE IF NOT EXISTS "keyspace1" WITH replication = {'class': 'org.apache.cassandra.locator.NetworkTopologyStrategy', 'replication_factor' : '1'} AND durable_writes = true;' generated server side warning(s): Using Replication Factor replication_factor=1 lower than the minimum_replication_factor_warn_threshold=3 is not recommended.
+Created keyspaces. Sleeping 4s for propagation.
+Sleeping 2s...
+Warming up WRITE with 200000 iterations...
+Failed to connect over JMX; not collecting these stats
+Thread count was not specified
+
+Running with 16 threadCount
+Running WRITE with 16 threads for 500000 iteration

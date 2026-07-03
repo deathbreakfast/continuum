@@ -41,4 +41,4 @@ done
 
 unset CONTINUUM_BENCH_PARTITION_COUNT CONTINUUM_BENCH_CLIENT_COUNT
 
-echo "PARTITION_CAMPAIGN_DONE"
+echo "PARTITION_CAMPAIGN_DONE" | tee ~/continuum-bench/campaign-partition.done

@@ -29,7 +29,9 @@ else:
 ")"
 
 ssh_wait_ready "$HOST"
-rsync_repo "$HOST" "$REPO_ROOT"
+if [[ "${CONTINUUM_NATIVE_SKIP_REPO_SYNC:-0}" != "1" ]]; then
+  rsync_repo "$HOST" "$REPO_ROOT"
+fi
 
 ssh_cmd "$HOST" "bash -s" <<EOF
 set -euo pipefail

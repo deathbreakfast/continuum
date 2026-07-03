@@ -4,7 +4,8 @@
     "storage": "scylla",
     "topology": "isolated-lab",
     "telemetry": "off",
-    "hardware": "aws-t3-medium"
+    "hardware": "aws-t3-medium",
+    "scylla_topology": "scylla-1"
   },
   "hardware_detail": {
     "cpu_model": "Intel(R) Xeon(R) Platinum 8259CL CPU @ 2.50GHz",
@@ -26,36 +27,37 @@
     }
   },
   "engine_path": "scylla://127.0.0.1:9042/continuum",
-  "started_at": "2026-07-02T00:16:17.038346047Z",
-  "elapsed_secs": 30.607789907,
+  "started_at": "2026-07-02T16:04:40.343479722Z",
+  "elapsed_secs": 30.602267271,
   "metrics": {
-    "achieved_ops_per_sec": 2803.2630058166606,
+    "achieved_ops_per_sec": 2604.5078196513805,
     "client_count": 64,
     "clients_modeled": 64,
-    "duration_secs": 30.008243902,
+    "duration_secs": 30.021027163,
     "error_rate": 0.0,
     "ops_err": 0,
-    "ops_ok": 84121,
-    "p50_ms": 21.604233999999998,
-    "p95_ms": 29.494744999999998,
-    "p99_ms": 50.542907,
+    "ops_ok": 78190,
+    "p50_ms": 22.959538000000002,
+    "p95_ms": 36.272175,
+    "p99_ms": 52.54085,
     "partition_count": 64,
+    "partition_offset": 0,
     "partitions_modeled": 64
   },
   "resource_profile": {
-    "process_rss_bytes_start": 23718789120,
-    "process_rss_bytes_end": 26583498752,
-    "process_rss_bytes_peak": 26583498752,
-    "process_cpu_percent_mean": 20.95930333333333,
-    "process_cpu_percent_peak": 29.1667,
-    "system_mem_used_bytes_start": 1353617408,
-    "system_mem_used_bytes_peak": 1354645504,
-    "system_mem_used_bytes_end": 1354637312,
+    "process_rss_bytes_start": 23957864448,
+    "process_rss_bytes_end": 26784825344,
+    "process_rss_bytes_peak": 26805796864,
+    "process_cpu_percent_mean": 20.40386,
+    "process_cpu_percent_peak": 25.0,
+    "system_mem_used_bytes_start": 1085173760,
+    "system_mem_used_bytes_peak": 1303142400,
+    "system_mem_used_bytes_end": 1303142400,
     "sample_count": 30,
     "sample_interval_ms": 1000
   },
   "pass_criteria": "error rate <0.1%",
   "pass": true,
   "status": "completed",
-  "notes": "C=64 K=64 2803/s err=0.0000% PASS"
+  "notes": "C=64 K=64 2605/s err=0.0000% PASS round_trips=237124 ops=237124 per_append=3.03 rt_per_append=3.03"
 }

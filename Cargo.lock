@@ -980,6 +980,7 @@ dependencies = [
  "chrono",
  "clap",
  "continuum",
+ "continuum-backend-scylla",
  "scylla",
  "serde",
  "serde_json",
