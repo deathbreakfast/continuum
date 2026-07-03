@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Start Scylla container on host (one node per EC2).
+# Start Scylla container on host network (one node per EC2).
 set -euo pipefail
 
 SCYLLA_IP="${SCYLLA_IP:?}"
@@ -12,16 +12,19 @@ IMAGE="${SCYLLA_IMAGE:?}"
 sudo mkdir -p "$DATA_DIR"
 sudo docker rm -f "$CONTAINER" 2>/dev/null || true
 
-EXTRA=()
+SEEDS="$SEED_IP"
 if [[ "$SCYLLA_INDEX" != "0" ]]; then
-  EXTRA=(--seeds="$SEED_IP")
+  SEEDS="$SEED_IP"
 fi
 
-sudo docker run -d --name "$CONTAINER" --restart unless-stopped \
-  -p 9042:9042 \
+sudo docker run -d --name "$CONTAINER" --restart unless-stopped --network host \
   -v "${DATA_DIR}:/var/lib/scylla" \
   "$IMAGE" \
-  "${EXTRA[@]}" \
-  --smp 1 --memory 750M --overprovisioned 1 --api-address 0.0.0.0
+  --smp 1 --memory 750M --overprovisioned 1 \
+  --listen-address "$SCYLLA_IP" \
+  --rpc-address "$SCYLLA_IP" \
+  --broadcast-address "$SCYLLA_IP" \
+  --broadcast-rpc-address "$SCYLLA_IP" \
+  --seeds "$SEEDS"
 
-echo "Scylla ${SCYLLA_INDEX} on ${SCYLLA_IP}:9042 seeds=${SEED_IP}"
+echo "Scylla ${SCYLLA_INDEX} on ${SCYLLA_IP}:9042 seeds=${SEEDS}"

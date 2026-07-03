@@ -26,8 +26,20 @@ pub fn render_markdown(p: &FleetProjection) -> String {
     if let Some(r) = p.aggregate_ops_per_sec {
         lines.push(format!("- measured aggregate: {r:.0} ops/s"));
     }
+    if let Some(r) = p.cluster_peak_ops_per_sec {
+        lines.push(format!("- cluster peak (BM-M4): {r:.0} ops/s"));
+    }
+    if let Some(n) = p.storage_node_count {
+        lines.push(format!("- storage nodes: {n}"));
+    }
+    if let Some(n) = p.clusters_for_1e9 {
+        lines.push(format!("- clusters for 1B/s: {n}"));
+    }
+    if let Some(n) = p.storage_nodes_for_1e9 {
+        lines.push(format!("- storage nodes for 1B/s: {n}"));
+    }
     if let Some(n) = p.partitions_for_1e9 {
-        lines.push(format!("- partitions for 1B/s: {n}"));
+        lines.push(format!("- partitions for 1B/s (hot stream): {n}"));
     }
     if let Some(n) = p.nodes_required {
         lines.push(format!("- nodes required (1 partition/node): {n}"));

@@ -1,0 +1,41 @@
+{
+  "hardware": "aws-t3-medium",
+  "storage": "tikv-raw",
+  "baseline_topology": "tikv-minimal",
+  "baseline_peak_ops_per_sec": 1201.0027200389095,
+  "points": [
+    {
+      "topology": "tikv-minimal",
+      "storage_nodes": 1,
+      "peak_ops_per_sec": 1201.0027200389095,
+      "peak_client_count": 1024,
+      "peak_p99_ms": 1606.516335,
+      "vs_baseline": 1.0,
+      "ops_per_storage_node": 1201.0027200389095,
+      "report_file": "bm-m4-tikv-raw-tikv-minimal-isolated-lab-off-aws-t3-medium-pk1024-c1024.json"
+    },
+    {
+      "topology": "tikv-ha-2",
+      "storage_nodes": 2,
+      "peak_ops_per_sec": 1296.0376984245545,
+      "peak_client_count": 64,
+      "peak_p99_ms": 186.66671,
+      "vs_baseline": 1.0791296945460425,
+      "ops_per_storage_node": 648.0188492122772,
+      "report_file": "bm-m4-tikv-raw-tikv-ha-2-isolated-lab-off-aws-t3-medium-pk64-c64.json"
+    },
+    {
+      "topology": "tikv-scale-4",
+      "storage_nodes": 4,
+      "peak_ops_per_sec": 1596.025092713301,
+      "peak_client_count": 64,
+      "peak_p99_ms": 68.849534,
+      "vs_baseline": 1.3289104729601227,
+      "ops_per_storage_node": 399.0062731783253,
+      "report_file": "bm-m4-tikv-raw-tikv-scale-4-isolated-lab-off-aws-t3-medium-pk64-c64.json"
+    }
+  ],
+  "clusters_for_1e9": 626557,
+  "storage_nodes_for_1e9": 2506228,
+  "disclaimer": "Scaling curve from peak BM-M4 per topology; N=1 baseline may be colocated."
+}

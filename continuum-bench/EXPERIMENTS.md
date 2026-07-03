@@ -69,14 +69,16 @@ Each run JSON records CPU, RAM, root mount, host drive, and `engine_path` in `ha
 | `CONTINUUM_BENCH_PARTITION_COUNT` | BM-P* partition sweep (default 10) |
 | `CONTINUUM_BENCH_CLIENT_COUNT` | BM-M* client sweep (default 8 / 64) |
 | `CONTINUUM_BENCH_LOAD_PARTITION_COUNT` | BM-L* partitioned load (default 1 = hot stream) |
-| `CONTINUUM_BENCH_SCYLLA_TOPOLOGY` | `scylla-1`, `scylla-3n` (report dimension) |
-| `CONTINUUM_BENCH_TIKV_TOPOLOGY` | `tikv-minimal`, `tikv-ha-3`, `tikv-scale-5` |
+| `CONTINUUM_BENCH_SCYLLA_TOPOLOGY` | `scylla-1`, `scylla-2n`, `scylla-3n`, `scylla-4n` (report dimension) |
+| `CONTINUUM_BENCH_TIKV_TOPOLOGY` | `tikv-minimal`, `tikv-ha-2`, `tikv-ha-3`, `tikv-scale-4`, `tikv-scale-5` |
 
 **Matrix subsets:** `native-lab` (BM-C0–C4, BM-L0–L3), **`native-lab-partitioned`** (BM-L0–L3 with load partition env), `native-scale` (BM-P1/P2/M1/M2/M4), `native-concurrency` (BM-M3), `native-projection-inputs` (BM-L0–L3 + BM-M2), **`native-topology`** (projection + scale for Phase B).
 
 **Canonical hardware (July 2026 campaign):** **`aws-t3-medium` only** for native + partitioning + scale-out. Reuse June 2026 sqlite/surreal baselines on the same profile. `dev-wsl` / `aws-t4g-*` / `aws-t3-small` are out of scope for this study.
 
-**AWS infra:** [`infra/native-aws/`](../infra/native-aws/) — Phase A colocated (2× t3.medium), Phase B topologies (`native-scylla-3n`, `native-tikv-ha-3`, `native-tikv-scale-5`, all t3.medium).
+**AWS infra:** [`infra/native-aws/`](../infra/native-aws/) — Phase A colocated (2× t3.medium), Phase B topologies (`native-scylla-2n`, `native-scylla-4n`, `native-tikv-ha-2`, `native-tikv-scale-4`; optional `native-scylla-3n`, `native-tikv-ha-3`, `native-tikv-scale-5`).
+
+**Container images** (pinned in [`infra/native-aws/config/defaults.env`](../infra/native-aws/config/defaults.env)): `scylladb/scylla:6.2`, `pingcap/pd:v8.5.0`, `pingcap/tikv:v8.5.0`.
 
 ```bash
 # Phase A
@@ -89,12 +91,21 @@ infra/native-aws/scripts/run-campaign.sh native-lab
 infra/native-aws/scripts/run-campaign.sh partition-campaign
 infra/native-aws/scripts/fetch-reports.sh
 
-# Phase B (one topology at a time)
-infra/native-aws/scripts/provision-topology.sh native-scylla-3n
-infra/native-aws/scripts/bootstrap-topology.sh native-scylla-3n
-infra/native-aws/scripts/deploy-bench.sh native-scylla-3n target/al2023/continuum-bench bench
-infra/native-aws/scripts/run-topology-campaign.sh native-scylla-3n native-topology
-infra/native-aws/scripts/teardown.sh native-scylla-3n
+# Phase B — Track T distributed scaling (one topology at a time)
+infra/native-aws/scripts/provision-topology.sh native-scylla-2n
+infra/native-aws/scripts/bootstrap-topology.sh native-scylla-2n
+infra/native-aws/scripts/preflight-topology.sh native-scylla-2n
+infra/native-aws/scripts/deploy-bench.sh native-scylla-2n target/al2023/continuum-bench bench
+infra/native-aws/scripts/run-topology-campaign.sh native-scylla-2n distributed-scale aws-t3-medium
+infra/native-aws/scripts/fetch-reports.sh native-scylla-2n
+infra/native-aws/scripts/teardown.sh native-scylla-2n
+
+# All four topologies sequentially
+infra/native-aws/scripts/run-distributed-scale-all.sh
+
+# Scaling curve projection (peak BM-M4 per topology)
+cargo run -p continuum-bench -- project-scaling-curve --hardware aws-t3-medium --storage scylla
+cargo run -p continuum-bench -- project-scaling-curve --hardware aws-t3-medium --storage tikv-raw
 ```
 
 **Sharding (three layers):** logical partition (`LogStreamId.key` → `storage_key()`), optional multi-cell routing (`KeyHashEvaluator` in `continuum-core`), physical shard placement inside Scylla/TiKV clusters (driver/PD — not Continuum). One 8-node Scylla cluster = one `ScyllaLogBackend`; spread load with partition keys, not per-node backends.
@@ -498,4 +509,74 @@ Adapter-only changes in [`continuum-backend-scylla`](../continuum-backend-scylla
 All runs: 0% error rate, PASS. Reports: `profiling/continuum-bench/reports/bm-m4-*-pk*-c*.json`.
 
 **Interpretation:** The gap vs raw spread-key tools is adapter round-trips and per-append consensus, not generic Continuum overhead (sqlite ~1900/s on the same trait). Phase 1 removed redundant reads and merged TiKV transactions; Phase 2 client-side seq blocks amortize the remaining Scylla LWT / TiKV meta updates. Scylla continues to gain throughput through C=256; TiKV saturates near ~1.1k/s regardless of task count up to 1024. Hot-stream TiKV M3 still contends under 64 concurrent writers — partition keys (Track P) remain required for aggregate scale.
+
+
+## Track T — Topology scaling (Phase B, 1 → 2 → 4 storage nodes)
+
+Dedicated bench EC2 + N storage nodes on AWS (`infra/native-aws/topologies/`). N=1 baseline remains Phase A colocated (`scylla-1` / `tikv-minimal`); N≥2 uses private-IP driver contact points from `export-env-topology.sh`.
+
+| Storage nodes | Topology slug | AWS manifest |
+| --- | --- | --- |
+| 1 | scylla-1 / tikv-minimal | `native-colocated` (Phase A) |
+| 2 | scylla-2n / tikv-ha-2 | `native-scylla-2n` / `native-tikv-ha-2` |
+| 4 | scylla-4n / tikv-scale-4 | `native-scylla-4n` / `native-tikv-scale-4` |
+
+**Primary metric:** peak **BM-M4** `achieved_ops_per_sec` from adaptive C=K sweep (`run-distributed-scale-campaign.sh`):
+
+- Scylla ladder: C=K ∈ {128, 256, 512, 1024, …} — escalate while gain ≥10%, err &lt;1%, bench CPU &lt;85%
+- TiKV ladder: C=K ∈ {64, 128, 256, 512, 1024, …} — same stop rules
+- Fixed-load reference: Scylla C=K=128, TiKV C=K=64 at every N
+- Control: BM-L3 hot stream (expect flat vs N)
+
+**Supporting:** BM-L3 partitioned (K=64 load), BM-P1 (K=128).
+
+### Track T results (`aws-t3-medium`)
+
+| Storage nodes | Topology | Peak BM-M4 ops/s | C=K @ peak | vs N=1 | ops/s per node | Hot BM-L3 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | scylla-1 (colocated) | 3,318 | 256 | 1.00× | 3,318 | ~64/s hot |
+| 2 | scylla-2n | 3,444 | 256 | 1.04× | 1,722 | ~155/s hot |
+| 4 | scylla-4n | 3,519 | 128 | 1.06× | 880 | ~169/s hot |
+| 1 | tikv-minimal (colocated) | 1,201 | 1024 | 1.00× | 1,201 | ~45/s hot |
+| 2 | tikv-ha-2 | 1,608 | 128 | 1.34× | 804 | ~90/s hot |
+| 4 | tikv-scale-4 | 1,620 | 64 | 1.35× | 405 | ~100/s hot |
+
+**Scylla interpretation (July 2026):** Sub-linear scaling (+4% @ 2n, +6% @ 4n vs colocated N=1). Per-node efficiency falls sharply (1,722 and 880 ops/s/node) — spread-key append remains **bench- and coordination-bound** on `t3.medium`, not storage-saturated. Hot-stream BM-L3 rose with node count (~155/s, ~169/s vs ~64/s colocated); treat as layout/control artifact, not hot-partition relief.
+
+**TiKV interpretation (July 2026):** Modest cluster scaling (+34–35% vs colocated N=1 at 1,201/s) from 2→4 nodes with peak essentially flat (1,608/s @ 2n C=128 vs 1,620/s @ 4n C=64). Per-node efficiency drops (804 → 405 ops/s/node) — **PD/meta coordination and bench RTT** dominate before TiKV exhausts. Hot-stream ~90–100/s (vs ~45/s colocated).
+
+### Track T bench resource profile @ peak BM-M4
+
+From `resource_profile` on the **bench EC2** (`aws-t3-medium`: 2 vCPU, ~3.75 GiB RAM). CPU % is summed across cores (200% ≈ both cores saturated). **System mem peak** is the reliable RAM signal on these runs; `process_rss_bytes_*` is inflated by a known sysinfo quirk on AL2023 — do not use RSS for sizing.
+
+| Topology | Peak ops/s | C=K @ peak | Bench CPU peak | Bench CPU mean | Sys mem peak | Bench-bound? |
+| --- | --- | --- | --- | --- | --- | --- |
+| scylla-1 (colocated) | 3,318 | 256 | 26% | 21% | 1.26 GiB | No |
+| scylla-2n | 3,444 | 256 | 31% | 27% | 0.57 GiB | No |
+| scylla-4n | 3,519 | 128 | 30% | 25% | 0.36 GiB | No |
+| tikv-minimal (colocated) | 1,201 | 1024 | 86% | 79% | 2.97 GiB | Borderline |
+| tikv-ha-2 | 1,608 | 128 | 161%† | 123%† | 0.40 GiB† | Yes |
+| tikv-scale-4 | 1,620 | 64 | 180% | 154% | 0.40 GiB | Yes |
+
+† `tikv-ha-2` peak throughput is at C=128; CPU/mem row is from the fetched C=64 report (161% / 0.40 GiB) — same bench-bound regime.
+
+**Read:** Scylla distributed runs left **~70% CPU headroom** on the 2-vCPU bench — not CPU- or RAM-capped; the plateau is coordination/network. TiKV distributed runs **saturated 1.6–1.8 cores** while system RAM stayed ~0.4 GiB — **bench CPU-bound**, not memory-bound. Phase 5 (larger bench) is primarily a TiKV lever; Scylla needs coordination/network tuning or larger storage nodes before a bigger bench helps.
+
+**Methodology footnote:** N=1 is colocated (bench + storage same EC2); N≥2 is dedicated bench over VPC private IP. Compare scaling **trends**, not absolute parity.
+
+```bash
+cargo run -p continuum-bench -- project-scaling-curve --hardware aws-t3-medium --storage scylla
+cargo run -p continuum-bench -- project-fleet --hardware aws-t3-medium --storage scylla --scylla-topology scylla-4n
+```
+
+### Phase 5 — larger instance class (gated on manual verification)
+
+Re-run Track T on **`aws-c7i-4xlarge`** (16 vCPU) or **`aws-i4i-xlarge`** (NVMe) using manifests `native-scylla-4n-c7i.yaml` / `native-tikv-scale-4-c7i.yaml`. Per-role `instance_type:` in topology YAML is supported by `provision-topology.sh`. **Do not start until Phase B results are manually verified.**
+
+```bash
+CONTINUUM_NATIVE_AWS_INSTANCE_TYPE=c7i.4xlarge \
+  infra/native-aws/scripts/run-topology-campaign.sh native-scylla-4n-c7i distributed-scale aws-c7i-4xlarge
+```
+
+See **Appendix G.2** in [`PERFORMANCE_STUDY.md`](PERFORMANCE_STUDY.md) for the Phase 5 scaling table template.
 

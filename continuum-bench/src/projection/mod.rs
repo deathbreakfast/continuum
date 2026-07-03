@@ -6,6 +6,7 @@
 mod inputs;
 mod model;
 mod render;
+mod scaling;
 
 use std::path::{Path, PathBuf};
 
@@ -40,6 +41,27 @@ use anyhow::Result;
     inputs::write_projection(&out_path, &projection)?;
     println!("wrote {}", out_path.display());
     println!("{}", render::render_markdown(&projection));
+    Ok(())
+}
+
+/// Print storage-node scaling curve from peak BM-M4 reports across topologies.
+pub fn project_scaling_curve(
+    hardware: &str,
+    storage: &str,
+    reports_dir: &Path,
+    out: Option<PathBuf>,
+) -> Result<()> {
+    let curve = scaling::load_scaling_curve(reports_dir, hardware, storage)?;
+    let out_path = out.unwrap_or_else(|| {
+        reports_dir.join(format!("scaling-curve-{hardware}-{storage}.json"))
+    });
+    if let Some(parent) = out_path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let json = serde_json::to_string_pretty(&curve)?;
+    std::fs::write(&out_path, json)?;
+    println!("wrote {}", out_path.display());
+    println!("{}", scaling::render_scaling_markdown(&curve));
     Ok(())
 }
 

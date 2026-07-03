@@ -39,6 +39,8 @@ pub struct ReportDimensions {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tikv_topology: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub scylla_topology: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub surreal_instances: Option<u8>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub surreal_deployment: Option<String>,
@@ -54,6 +56,7 @@ impl From<RunDimensions> for ReportDimensions {
             telemetry: d.telemetry.slug().into(),
             hardware: d.hardware.slug().into(),
             tikv_topology: d.tikv_topology.map(|t| t.slug().into()),
+            scylla_topology: d.scylla_topology.map(|t| t.slug().into()),
             surreal_instances: if d.surreal_instances > 1 {
                 Some(d.surreal_instances)
             } else {

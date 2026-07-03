@@ -1,0 +1,11 @@
+# Phase 5: 1 bench (c7i-4xlarge) + 4 Scylla (c7i-4xlarge) — gated on manual verification
+name: native-scylla-4n-c7i
+bench_topology: scylla-4n
+roles:
+  - role: bench
+    count: 1
+    instance_type: c7i.4xlarge
+  - role: scylla
+    count: 4
+    instance_type: c7i.4xlarge
+    scylla_indexed: true

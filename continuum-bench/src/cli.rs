@@ -82,4 +82,15 @@ pub enum Command {
         #[arg(long)]
         out: Option<PathBuf>,
     },
+    /// Build storage-node scaling curve from peak BM-M4 reports across topologies.
+    ProjectScalingCurve {
+        #[arg(long, default_value = "aws-t3-medium")]
+        hardware: Hardware,
+        #[arg(long, default_value = "scylla")]
+        storage: Storage,
+        #[arg(long, default_value = "profiling/continuum-bench/reports")]
+        reports_dir: PathBuf,
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
 }

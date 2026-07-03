@@ -9,11 +9,11 @@ export CONTINUUM_NATIVE_AWS_ROOT="$ROOT"
 source "$ROOT/lib/manifest.sh"
 
 TOPO="${1:?topology name}"
-MANIFEST="$(manifest_read "$TOPO")"
+MANIFEST_PATH="$(manifest_path "$TOPO")"
 
 python3 - <<PY
-import json, sys
-m = json.loads(sys.stdin.read())
+import json
+m = json.load(open("$MANIFEST_PATH"))
 topo = m.get("bench_topology", m["topology"])
 if topo.startswith("scylla"):
     points = ",".join(f"{i['private_ip']}:9042" for i in m["instances"] if i["role"] == "scylla")
@@ -26,6 +26,5 @@ elif topo.startswith("tikv"):
     print(f"export CONTINUUM_BENCH_TIKV_PD_ENDPOINT=http://{pd}:2379")
 else:
     raise SystemExit(f"unknown bench_topology: {topo}")
-print("export CONTINUUM_BENCH_REPORTS_DIR=${HOME}/continuum-bench/reports")
+print("export CONTINUUM_BENCH_REPORTS_DIR=\${HOME}/continuum-bench/reports")
 PY
-<<< "$MANIFEST"

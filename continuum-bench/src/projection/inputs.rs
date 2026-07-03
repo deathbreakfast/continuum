@@ -6,6 +6,7 @@ use anyhow::{bail, Context, Result};
 use serde_json::Value;
 
 use super::model::FleetProjectionInputs;
+use crate::harness::{ScyllaTopology, TikvTopology};
 
 /// Load BM-L* achieved rates for fleet projection.
 pub fn load_from_dir(
@@ -36,11 +37,22 @@ pub fn load_from_dir(
         merge_report(&mut inputs, &v);
     }
 
-    if inputs.per_shard_ceiling.is_none() && inputs.aggregate_ops_per_sec.is_none() {
+    if inputs.per_shard_ceiling.is_none()
+        && inputs.aggregate_ops_per_sec.is_none()
+        && inputs.cluster_peak_ops_per_sec.is_none()
+    {
         bail!(
-            "missing BM-L* or BM-M2 achieved_ops_per_sec for {hardware}/{storage} in {}",
+            "missing BM-L* or BM-M2/M4 achieved_ops_per_sec for {hardware}/{storage} in {}",
             reports_dir.display()
         );
+    }
+
+    if inputs.storage_node_count.is_none() {
+        if let Some(topo) = scylla_topology {
+            inputs.storage_node_count = ScyllaTopology::parse(topo).map(ScyllaTopology::storage_node_count);
+        } else if let Some(topo) = tikv_topology {
+            inputs.storage_node_count = TikvTopology::parse(topo).map(TikvTopology::storage_node_count);
+        }
     }
     Ok(inputs)
 }
@@ -94,6 +106,12 @@ fn merge_report(inputs: &mut FleetProjectionInputs, v: &Value) {
             inputs.per_shard_ceiling = rate;
         }
         "bm-m2" | "bm-m4" => {
+            let rate_val = rate.unwrap_or(0.0);
+            if id == "bm-m4" {
+                if inputs.cluster_peak_ops_per_sec.is_none_or(|best| rate_val > best) {
+                    inputs.cluster_peak_ops_per_sec = rate;
+                }
+            }
             inputs.aggregate_ops_per_sec = rate.or(inputs.aggregate_ops_per_sec);
             inputs.partitions_modeled = v
                 .pointer("/metrics/partitions_modeled")

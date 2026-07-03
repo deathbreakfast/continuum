@@ -16,8 +16,12 @@ use super::hardware::Hardware;
 pub enum TikvTopology {
     #[value(name = "tikv-minimal")]
     Minimal,
+    #[value(name = "tikv-ha-2")]
+    Ha2,
     #[value(name = "tikv-ha-3")]
     Ha3,
+    #[value(name = "tikv-scale-4")]
+    Scale4,
     #[value(name = "tikv-scale-5")]
     Scale5,
     #[value(name = "custom")]
@@ -29,22 +33,51 @@ impl TikvTopology {
     pub fn slug(self) -> &'static str {
         match self {
             TikvTopology::Minimal => "tikv-minimal",
+            TikvTopology::Ha2 => "tikv-ha-2",
             TikvTopology::Ha3 => "tikv-ha-3",
+            TikvTopology::Scale4 => "tikv-scale-4",
             TikvTopology::Scale5 => "tikv-scale-5",
             TikvTopology::Custom => "custom",
         }
     }
 
+    /// TiKV store count for this preset (excluding PD and bench).
+    pub fn storage_node_count(self) -> u8 {
+        match self {
+            TikvTopology::Minimal => 1,
+            TikvTopology::Ha2 => 2,
+            TikvTopology::Ha3 => 3,
+            TikvTopology::Scale4 => 4,
+            TikvTopology::Scale5 => 5,
+            TikvTopology::Custom => 0,
+        }
+    }
+
     /// All lab presets swept by the `tikv-lab-colocated` matrix slice.
     pub fn lab_presets() -> &'static [TikvTopology] {
-        &[TikvTopology::Minimal, TikvTopology::Ha3, TikvTopology::Scale5]
+        &[
+            TikvTopology::Minimal,
+            TikvTopology::Ha3,
+            TikvTopology::Scale5,
+        ]
+    }
+
+    /// Native campaign presets (1 → 2 → 4 node series).
+    pub fn native_presets() -> &'static [TikvTopology] {
+        &[
+            TikvTopology::Minimal,
+            TikvTopology::Ha2,
+            TikvTopology::Scale4,
+        ]
     }
 
     /// Parse a preset slug from env or CLI.
     pub fn parse(s: &str) -> Option<TikvTopology> {
         match s.to_ascii_lowercase().as_str() {
             "tikv-minimal" | "minimal" => Some(TikvTopology::Minimal),
+            "tikv-ha-2" | "ha2" => Some(TikvTopology::Ha2),
             "tikv-ha-3" | "ha3" => Some(TikvTopology::Ha3),
+            "tikv-scale-4" | "scale4" => Some(TikvTopology::Scale4),
             "tikv-scale-5" | "scale5" => Some(TikvTopology::Scale5),
             "custom" => Some(TikvTopology::Custom),
             _ => None,
@@ -124,6 +157,10 @@ mod tests {
     fn tikv_topology_parse_roundtrip() {
         for topo in TikvTopology::lab_presets() {
             assert_eq!(TikvTopology::parse(topo.slug()), Some(*topo));
+        }
+        for topo in TikvTopology::native_presets() {
+            assert_eq!(TikvTopology::parse(topo.slug()), Some(*topo));
+            assert!(topo.storage_node_count() > 0);
         }
     }
 }

@@ -10,9 +10,11 @@ source "$ROOT/config/defaults.env"
 # shellcheck disable=SC1091
 source "$ROOT/lib/manifest.sh"
 
-TOPO="${1:?usage: provision-topology.sh native-scylla-3n|native-tikv-ha-3|native-tikv-scale-5}"
+TOPO="${1:?usage: provision-topology.sh <topology-name>}"
 YAML="$ROOT/topologies/${TOPO}.yaml"
 [[ -f "$YAML" ]] || { echo "missing $YAML" >&2; exit 1; }
+
+bash "$ROOT/scripts/ensure-security-group.sh"
 
 if [[ ! -f "$CONTINUUM_NATIVE_AWS_KEY_PATH" ]]; then
   echo "SSH key not found: $CONTINUUM_NATIVE_AWS_KEY_PATH" >&2
@@ -48,7 +50,7 @@ ebs = os.environ["CONTINUUM_NATIVE_AWS_EBS_GB"]
 
 def parse_yaml(path):
     roles = []
-    cur, count = None, 1
+    cur, count, role_itype = None, 1, None
     bench_topology = topo
     for line in open(path):
         line = line.strip()
@@ -58,22 +60,26 @@ def parse_yaml(path):
             bench_topology = line.split(":", 1)[1].strip()
         elif line.startswith("- role:"):
             if cur:
-                roles.append((cur, count))
+                roles.append((cur, count, role_itype))
             cur = line.split(":", 1)[1].strip()
             count = 1
+            role_itype = None
         elif line.startswith("count:"):
             count = int(line.split(":", 1)[1].strip())
+        elif line.startswith("instance_type:"):
+            role_itype = line.split(":", 1)[1].strip()
     if cur:
-        roles.append((cur, count))
+        roles.append((cur, count, role_itype))
     return bench_topology, roles
 
-def launch(role, index):
+def launch(role, index, role_itype=None):
     name = f"{topo}-{role}-{index}"
+    instance_type = role_itype or itype
     out = subprocess.check_output([
         "aws", "ec2", "run-instances",
         "--region", region,
         "--image-id", ami,
-        "--instance-type", itype,
+        "--instance-type", instance_type,
         "--key-name", key,
         "--security-group-ids", sg,
         "--block-device-mappings", json.dumps([{
@@ -110,16 +116,20 @@ def wait_ips(instance_id):
 
 bench_topology, roles = parse_yaml(yaml_path)
 instances = []
-for role, n in roles:
+instance_types = set()
+for role, n, role_itype in roles:
     for idx in range(n):
-        iid = launch(role, idx)
+        iid = launch(role, idx, role_itype)
         pub, priv = wait_ips(iid)
+        used_itype = role_itype or itype
+        instance_types.add(used_itype)
         instances.append({
             "role": role,
             "index": idx,
             "instance_id": iid,
             "public_ip": pub,
             "private_ip": priv,
+            "instance_type": used_itype,
         })
 
 print(json.dumps({
@@ -127,6 +137,7 @@ print(json.dumps({
     "bench_topology": bench_topology,
     "region": region,
     "instance_type": itype,
+    "instance_types": sorted(instance_types),
     "instances": instances,
 }, indent=2))
 PY

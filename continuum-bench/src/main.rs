@@ -88,6 +88,24 @@ async fn main() -> Result<()> {
                 out,
             )?;
         }
+        Command::ProjectScalingCurve {
+            hardware,
+            storage,
+            reports_dir,
+            out,
+        } => {
+            let reports_path = if reports_dir.is_absolute() {
+                reports_dir
+            } else {
+                std::env::current_dir()?.join(reports_dir)
+            };
+            projection::project_scaling_curve(
+                hardware.slug(),
+                storage.slug(),
+                &reports_path,
+                out,
+            )?;
+        }
     }
     Ok(())
 }

@@ -1,0 +1,11 @@
+# 1 bench + 1 PD + 2 TiKV (all t3.medium by default)
+name: native-tikv-ha-2
+bench_topology: tikv-ha-2
+roles:
+  - role: bench
+    count: 1
+  - role: pd
+    count: 1
+  - role: tikv
+    count: 2
+    tikv_indexed: true

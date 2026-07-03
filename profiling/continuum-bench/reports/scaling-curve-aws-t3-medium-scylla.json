@@ -1,0 +1,41 @@
+{
+  "hardware": "aws-t3-medium",
+  "storage": "scylla",
+  "baseline_topology": "scylla-1",
+  "baseline_peak_ops_per_sec": 3317.7567199992227,
+  "points": [
+    {
+      "topology": "scylla-1",
+      "storage_nodes": 1,
+      "peak_ops_per_sec": 3317.7567199992227,
+      "peak_client_count": 256,
+      "peak_p99_ms": 150.434979,
+      "vs_baseline": 1.0,
+      "ops_per_storage_node": 3317.7567199992227,
+      "report_file": "bm-m4-scylla-scylla-1-isolated-lab-off-aws-t3-medium-pk256-c256.json"
+    },
+    {
+      "topology": "scylla-2n",
+      "storage_nodes": 2,
+      "peak_ops_per_sec": 3443.958976113824,
+      "peak_client_count": 256,
+      "peak_p99_ms": 144.212229,
+      "vs_baseline": 1.0380384298082685,
+      "ops_per_storage_node": 1721.979488056912,
+      "report_file": "bm-m4-scylla-scylla-2n-isolated-lab-off-aws-t3-medium-pk256-c256.json"
+    },
+    {
+      "topology": "scylla-4n",
+      "storage_nodes": 4,
+      "peak_ops_per_sec": 3519.083808318277,
+      "peak_client_count": 128,
+      "peak_p99_ms": 68.46672099999999,
+      "vs_baseline": 1.0606816910671804,
+      "ops_per_storage_node": 879.7709520795693,
+      "report_file": "bm-m4-scylla-scylla-4n-isolated-lab-off-aws-t3-medium-pk128-c128.json"
+    }
+  ],
+  "clusters_for_1e9": 284165,
+  "storage_nodes_for_1e9": 1136660,
+  "disclaimer": "Scaling curve from peak BM-M4 per topology; N=1 baseline may be colocated."
+}

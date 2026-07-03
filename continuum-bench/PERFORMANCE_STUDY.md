@@ -858,9 +858,59 @@ P = PASS, F = FAIL.
 3. **Scylla vs tikv-raw on colocated t3.medium:** Scylla slightly higher L3 ceiling (64 vs 45/s) and lower append latency (C0); tikv-raw BM-C3 checkpoint failed (investigate PD/TiKV colocation tuning).
 4. **Canonical baseline:** use **aws-t3-medium** native-lab results — not dev-wsl (~15/s scylla L3) — for fleet sizing comparisons.
 
-**Pending:** Track P partition sweeps (`partition-campaign`), Phase B multi-node topologies (`native-scylla-3n`, `native-tikv-ha-3`, `native-tikv-scale-5`).
+**Pending:** Phase 5 (larger instance class) — infra manifests ready (`native-scylla-4n-c7i`, `native-tikv-scale-4-c7i`); **gated on manual verification** before execution.
 
 ```bash
 cargo run -p continuum-bench -- project-fleet --hardware aws-t3-medium --storage scylla
 cargo run -p continuum-bench -- project-fleet --hardware aws-t3-medium --storage tikv-raw --tikv-topology tikv-minimal
+cargo run -p continuum-bench -- project-scaling-curve --hardware aws-t3-medium --storage scylla
+cargo run -p continuum-bench -- project-scaling-curve --hardware aws-t3-medium --storage tikv-raw
 ```
+
+## Appendix G — Distributed topology scaling (Track T, July 2026)
+
+Phase B: dedicated bench + N storage nodes on `aws-t3-medium`. Primary metric = **peak BM-M4** from adaptive C=K sweep. N=1 baseline = Phase A colocated (layout caveat).
+
+### Table G.1 — Storage-node scaling (`aws-t3-medium`)
+
+| Storage nodes | Topology | Peak BM-M4 ops/s | C=K @ peak | vs N=1 | ops/s per node | Hot BM-L3 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | scylla-1 (colocated) | 3,318 | 256 | 1.00× | 3,318 | ~64/s |
+| 2 | scylla-2n | 3,444 | 256 | 1.04× | 1,722 | ~155/s |
+| 4 | scylla-4n | 3,519 | 128 | 1.06× | 880 | ~169/s |
+| 1 | tikv-minimal (colocated) | 1,201 | 1024 | 1.00× | 1,201 | ~45/s |
+| 2 | tikv-ha-2 | 1,608 | 128 | 1.34× | 804 | ~90/s |
+| 4 | tikv-scale-4 | 1,620 | 64 | 1.35× | 405 | ~100/s |
+
+### Table G.1b — Bench resource profile @ peak BM-M4
+
+From `resource_profile` on the dedicated **bench EC2** (`aws-t3-medium`: 2 vCPU, ~3.75 GiB RAM). CPU % is summed across cores (200% ≈ both cores saturated). Use **system mem peak** for RAM — `process_rss_bytes_*` is unreliable on AL2023 (sysinfo quirk; see Appendix A data caveats).
+
+| Topology | Peak ops/s | C=K @ peak | Bench CPU peak | Bench CPU mean | Sys mem peak | Bench-bound? |
+| --- | --- | --- | --- | --- | --- | --- |
+| scylla-1 (colocated) | 3,318 | 256 | 26% | 21% | 1.26 GiB | No |
+| scylla-2n | 3,444 | 256 | 31% | 27% | 0.57 GiB | No |
+| scylla-4n | 3,519 | 128 | 30% | 25% | 0.36 GiB | No |
+| tikv-minimal (colocated) | 1,201 | 1024 | 86% | 79% | 2.97 GiB | Borderline |
+| tikv-ha-2 | 1,608 | 128 | 161%† | 123%† | 0.40 GiB† | Yes |
+| tikv-scale-4 | 1,620 | 64 | 180% | 154% | 0.40 GiB | Yes |
+
+† `tikv-ha-2` peak throughput at C=128; CPU/mem from fetched C=64 report (same bench-bound regime).
+
+**Efficiency:** `peak_ops / storage_node_count`. If sweep stops with bench CPU ≥85%, flag **bench-bound** → Phase 5 candidate (larger bench instance), not a storage ceiling.
+
+**Scylla finding:** Peak BM-M4 improves only ~4–6% from N=1 (3,318/s colocated) to N=2 (3,444/s) and N=4 (3,519/s) on dedicated `t3.medium` nodes — far from linear 2×/4×. Bench process CPU stayed ~27–31% at peak, suggesting **network/driver/coordination overhead** (VPC RTT, multi-endpoint CQL, LWT) dominates before storage exhausts. Hot-stream control **did not stay flat** (~155/s @ 2n, ~169/s @ 4n vs ~64/s colocated) — document as dedicated-bench layout effect.
+
+**TiKV finding:** Peak BM-M4 rises ~34% from N=1 colocated (1,201/s) to N=2 (1,608/s @ C=128) with **negligible further gain at N=4** (1,620/s @ C=64). Per-node efficiency halves (804 → 405 ops/s/node). Hot-stream ~90–100/s vs ~45/s colocated.
+
+### Table G.2 — Instance-class scaling (Phase 5, gated)
+
+| Instance class | Storage nodes | Topology | Peak BM-M4 ops/s | C=K @ peak | vs t3-medium same N | ops/s per node | $/M ops |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| aws-c7i-4xlarge | 1 | scylla-1 | TBD | TBD | TBD | TBD | TBD |
+| aws-c7i-4xlarge | 2 | scylla-2n | TBD | TBD | TBD | TBD | TBD |
+| aws-c7i-4xlarge | 4 | scylla-4n | TBD | TBD | TBD | TBD | TBD |
+| aws-c7i-4xlarge | 4 | tikv-scale-4 | TBD | TBD | TBD | TBD | TBD |
+
+Manifests: `native-scylla-4n-c7i`, `native-tikv-scale-4-c7i`. Start only after manual verification of Phase B.
+
