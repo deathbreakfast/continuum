@@ -1,6 +1,8 @@
-//! `SQLite` [`LogBackend`](continuum_core::backend::LogBackend) for the continuum transport log.
+//! `SQLite` [`LogBackend`] for the continuum transport log.
 //!
-//! Enable via the `sqlite` feature on the `continuum` facade crate.
+//! Enable via the `sqlite` feature on the [`continuum`](https://docs.rs/continuum) facade.
+//! See [Getting started](https://docs.rs/continuum/latest/continuum/index.html#getting-started)
+//! and the [documentation map](https://docs.rs/continuum/latest/continuum/index.html#documentation-map).
 
 use std::path::Path;
 
@@ -28,6 +30,18 @@ impl SqliteLogBackend {
     }
 
     /// Connect using a `SQLite` connection URL.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # async fn run() -> continuum_core::Result<()> {
+    /// use continuum_backend_sqlite::SqliteLogBackend;
+    ///
+    /// let backend = SqliteLogBackend::connect("sqlite://continuum.db?mode=rwc").await?;
+    /// let _ = backend;
+    /// # Ok(())
+    /// # }
+    /// ```
     ///
     /// # Errors
     ///

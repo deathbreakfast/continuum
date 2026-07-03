@@ -4,20 +4,29 @@ use std::collections::HashMap;
 
 use scylla::statement::Consistency;
 
-/// L1: per-append idempotency via `event_id IF NOT EXISTS` LWT.
+/// Per-append idempotency via `event_id IF NOT EXISTS` lightweight transactions (LWT).
+///
+/// Lightweight transactions (LWT) use compare-and-set semantics so a duplicate
+/// `event_id` returns the existing sequence without inserting a second row.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum IdempotencyMode {
+    /// Exactly-once append: LWT on `event_id` (default).
     #[default]
     Lwt,
+    /// At-least-once append: skip LWT for higher throughput; callers must tolerate duplicates.
     None,
 }
 
-/// Idempotency policy: global or per-topic overrides.
+/// Idempotency policy: one mode for all topics, or per-topic overrides.
 #[derive(Debug, Clone)]
 pub enum IdempotencyPolicy {
+    /// Apply the same [`IdempotencyMode`] to every topic.
     Global(IdempotencyMode),
+    /// Use `default` unless `overrides` names a topic-specific mode.
     PerTopic {
+        /// Mode for topics not listed in `overrides`.
         default: IdempotencyMode,
+        /// Topic name → mode overrides.
         overrides: HashMap<String, IdempotencyMode>,
     },
 }
@@ -41,7 +50,7 @@ impl Default for IdempotencyPolicy {
     }
 }
 
-/// Parse write consistency from a string (bench / config wiring).
+/// Parse write consistency from a string (`one`, `local_one`, `quorum`, `local_quorum`).
 #[must_use]
 pub fn consistency_from_str(s: &str) -> Option<Consistency> {
     match s.trim().to_ascii_lowercase().as_str() {
@@ -52,6 +61,8 @@ pub fn consistency_from_str(s: &str) -> Option<Consistency> {
     }
 }
 
+/// Cache key for in-process topic+stream index entries (`topic_prefix|stream_key`).
+#[must_use]
 pub fn stream_index_cache_key(topic_prefix: &str, stream_key: &str) -> String {
     format!("{topic_prefix}|{stream_key}")
 }

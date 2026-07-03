@@ -33,6 +33,17 @@ jobs:
       - name: Clippy (deny warnings)
         run: cargo clippy --workspace --all-targets -- -D warnings
 
+      - name: Documentation (deny warnings)
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --workspace --no-deps
+
+      - name: Doctests
+        run: |
+          cargo test --doc -p continuum-core
+          cargo test --doc -p continuum-backend-mem
+          cargo test --doc -p continuum-telemetry
+
   postgres:
     runs-on: ubuntu-latest
     services:

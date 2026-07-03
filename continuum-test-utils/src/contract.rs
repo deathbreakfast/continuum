@@ -1,4 +1,4 @@
-//! Shared [`LogBackend`](continuum_core::backend::LogBackend) contract assertions.
+//! Shared [`LogBackend`] contract assertions.
 
 use continuum_core::backend::LogBackend;
 use continuum_core::types::{AppendRecord, LogStreamId, Seq, SubscriptionId};

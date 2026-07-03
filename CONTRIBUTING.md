@@ -19,6 +19,10 @@ Run these before opening a pull request:
 cargo test --workspace
 cargo check -p continuum --no-default-features
 cargo clippy --workspace --all-targets -- -D warnings
+RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
+cargo test --doc -p continuum-core
+cargo test --doc -p continuum-backend-mem
+cargo test --doc -p continuum-telemetry
 ```
 
 Optional: `cargo outdated --root-deps-only --workspace`

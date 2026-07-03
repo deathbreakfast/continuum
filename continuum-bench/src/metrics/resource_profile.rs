@@ -52,7 +52,7 @@ fn cpu_percent_to_micro(cpu: f64) -> u64 {
     (cpu * 10_000.0).round() as u64
 }
 
-/// Background sampler; call [`finish`] to stop and build the profile.
+/// Background sampler; call [`ResourceProfiler::finish`] to stop and build the profile.
 pub struct ResourceProfiler {
     stop_tx: watch::Sender<bool>,
     task: JoinHandle<(u64, u64, u64, u64)>,

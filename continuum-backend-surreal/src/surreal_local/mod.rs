@@ -1,9 +1,8 @@
 //! Append, read, checkpoint, and truncate against Surreal tables.
 //!
 //! Uses `continuum_event`, `continuum_stream`, and `continuum_checkpoint` tables
-//! (bootstrapped by [`schema::ensure_schema`]). The host injects an embedded or remote
-//! Surreal handle — see [`SurrealLocalLogBackend::new`] and
-//! [`SurrealLocalLogBackend::new_embedded_local`].
+//! (bootstrapped on connect). The host injects an embedded or remote Surreal handle —
+//! see [`SurrealLocalLogBackend::new`] and [`SurrealLocalLogBackend::new_embedded_local`].
 
 mod config;
 mod db_conn;

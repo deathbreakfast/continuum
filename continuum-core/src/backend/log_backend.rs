@@ -25,8 +25,11 @@ use crate::types::{AppendRecord, EventRecord, LogStreamId, Seq, SubscriptionId};
 ///
 /// # Examples
 ///
-/// ```
-/// # use continuum_core::{AppendRecord, LogBackend, LogBackendKind, LogDestination, LogStreamId, Seq};
+/// ```rust
+/// # use continuum_core::{
+/// #     AppendRecord, LogBackend, LogBackendKind, LogDestination, LogStreamId, Seq,
+/// #     SubscriptionId,
+/// # };
 /// # use continuum_backend_mem::InMemoryLogBackend;
 /// # use uuid::Uuid;
 /// # #[tokio::main]
@@ -39,12 +42,25 @@ use crate::types::{AppendRecord, EventRecord, LogStreamId, Seq, SubscriptionId};
 /// );
 /// let record = AppendRecord::new(Uuid::new_v4(), vec![1, 2, 3]);
 /// let seqs = backend.append(stream.clone(), &[record]).await?;
-/// let events = backend.read_from(stream, Seq::ZERO, 10).await?;
+/// let events = backend.read_from(stream.clone(), Seq::ZERO, 10).await?;
 /// assert_eq!(events.len(), 1);
 /// assert_eq!(events[0].seq, seqs[0]);
+///
+/// let sub = SubscriptionId("worker-1".into());
+/// backend.commit_checkpoint(&sub, stream.clone(), seqs[0]).await?;
+/// assert_eq!(backend.load_checkpoint(&sub, stream.clone()).await?, Some(seqs[0]));
+///
+/// let topic_events = backend
+///     .read_from_topic(stream.clone(), None, Seq::ZERO, 10)
+///     .await?;
+/// assert_eq!(topic_events.len(), 1);
+///
+/// let removed = backend.truncate_before(stream, seqs[0].next()).await?;
+/// assert_eq!(removed, 1);
 /// # Ok(())
 /// # }
 /// ```
+// Future (not in v0.1, not rendered): batched tailers, compaction, shared fanout.
 #[async_trait]
 pub trait LogBackend: Send + Sync + Debug {
     /// Append a batch to one stream. Returns assigned sequences in input order.

@@ -1,5 +1,7 @@
 //! Continuum core: the [`LogBackend`] port, DTOs, routing, and validation.
 //!
+//! **Requires nightly Rust** (workspace `rust-toolchain.toml`). Stable is not supported in v0.1.
+//!
 //! # Overview
 //!
 //! This crate defines an append-only, sequenced event log **storage port** and the types

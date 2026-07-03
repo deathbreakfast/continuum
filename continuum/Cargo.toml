@@ -8,6 +8,9 @@ repository = "https://github.com/unified-field-dev/continuum"
 description = "Append-only event/log substrate port and backends (facade)"
 readme = "README.md"
 
+[package.metadata.docs.rs]
+all-features = true
+
 [lints]
 workspace = true
 
@@ -32,6 +35,20 @@ continuum-backend-scylla = { path = "../continuum-backend-scylla", optional = tr
 continuum-backend-tikv-raw = { path = "../continuum-backend-tikv-raw", optional = true }
 
 [dev-dependencies]
+continuum-backend-mem = { path = "../continuum-backend-mem" }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 tempfile = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
+
+[[example]]
+name = "quickstart"
+required-features = ["mem"]
+
+[[example]]
+name = "router"
+required-features = ["mem"]
+
+[[example]]
+name = "checkpoint_truncate"
+required-features = ["mem"]
+

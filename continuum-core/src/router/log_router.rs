@@ -16,6 +16,19 @@ use crate::types::LogDestination;
 static GLOBAL_ROUTER: OnceLock<Arc<LogRouter>> = OnceLock::new();
 
 /// Maps logical destinations to concrete [`LogBackend`] implementations.
+///
+/// # Examples
+///
+/// ```rust
+/// # use std::sync::Arc;
+/// # use continuum_core::{LogBackendKind, LogDestination, LogRouter};
+/// # use continuum_backend_mem::InMemoryLogBackend;
+/// let dest = LogDestination::new("default", LogBackendKind::Memory);
+/// let backend = Arc::new(InMemoryLogBackend::new());
+/// let router = LogRouter::with_default(&dest, backend);
+/// let resolved = router.resolve_backend(&dest).expect("registered");
+/// let _ = resolved;
+/// ```
 #[derive(Debug)]
 pub struct LogRouter {
     backends: RwLock<HashMap<String, Arc<dyn LogBackend>>>,

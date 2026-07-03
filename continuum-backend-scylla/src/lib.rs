@@ -1,4 +1,8 @@
-//! ScyllaDB [`LogBackend`](continuum_core::backend::LogBackend) for the continuum transport log.
+//! ScyllaDB [`LogBackend`] for the continuum transport log.
+//!
+//! Enable via the `scylla` feature on the [`continuum`](https://docs.rs/continuum) facade.
+//! See [Getting started](https://docs.rs/continuum/latest/continuum/index.html#getting-started)
+//! and the [documentation map](https://docs.rs/continuum/latest/continuum/index.html#documentation-map).
 
 mod append_ops;
 mod config;
@@ -57,15 +61,21 @@ pub struct ScyllaLogConfig {
     pub username: Option<String>,
     /// Optional password.
     pub password: Option<String>,
-    /// L1: idempotency policy (default exactly-once via LWT).
+    /// Idempotency policy (default: exactly-once via lightweight transactions).
+    ///
+    /// See [`IdempotencyPolicy`] and [`IdempotencyMode`]. Disabling LWT trades
+    /// exactly-once for higher throughput (at-least-once delivery).
     pub idempotency: IdempotencyPolicy,
-    /// L2: skip repeat `stream_index` writes after first sighting per topic+stream (default on).
+    /// When `true` (default), skip repeat `stream_index` writes after the first
+    /// sighting of each topic+stream pair in this process.
     pub topic_index_cache: bool,
-    /// L4: optional write consistency override on event/index inserts.
+    /// Optional write consistency override on event and index inserts.
+    ///
+    /// When `None`, the driver default applies.
     pub write_consistency: Option<Consistency>,
     /// Keyspace replication factor for schema bootstrap.
     pub replication_factor: u32,
-    /// Seq numbers reserved per stream per LWT block.
+    /// Sequence numbers reserved per stream per lightweight-transaction block.
     pub seq_block_size: i64,
 }
 

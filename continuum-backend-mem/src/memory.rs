@@ -30,10 +30,26 @@ struct Inner {
 ///
 /// # Examples
 ///
-/// ```
+/// ```rust
 /// use continuum_backend_mem::InMemoryLogBackend;
+/// use continuum_core::{AppendRecord, LogBackend, LogBackendKind, LogDestination, LogStreamId, Seq};
+/// use uuid::Uuid;
 ///
+/// # #[tokio::main]
+/// # async fn main() -> continuum_core::Result<()> {
 /// let backend = InMemoryLogBackend::new();
+/// let stream = LogStreamId::new(
+///     LogDestination::new("default", LogBackendKind::Memory),
+///     "events",
+///     None,
+/// );
+/// let seqs = backend
+///     .append(stream.clone(), &[AppendRecord::new(Uuid::new_v4(), vec![1])])
+///     .await?;
+/// assert_eq!(seqs.len(), 1);
+/// assert_eq!(backend.read_from(stream, Seq::ZERO, 10).await?.len(), 1);
+/// # Ok(())
+/// # }
 /// ```
 #[derive(Debug, Default)]
 pub struct InMemoryLogBackend {
@@ -42,6 +58,15 @@ pub struct InMemoryLogBackend {
 
 impl InMemoryLogBackend {
     /// New empty backend.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use continuum_backend_mem::InMemoryLogBackend;
+    ///
+    /// let backend = InMemoryLogBackend::new();
+    /// let _ = backend;
+    /// ```
     #[must_use]
     pub fn new() -> Self {
         Self::default()

@@ -11,6 +11,32 @@ use crate::types::LogDestination;
 use super::{LogEvaluator, LogResolverContext};
 
 /// Routes topics to a destination by `hash(key) % N` for multi-cluster / cell layouts.
+///
+/// Use when a single topic is sharded across several storage cells: the same
+/// partition key always resolves to the same [`LogDestination`], while different
+/// keys spread across the registered destinations. A missing key (`None`) always
+/// maps to the first destination.
+///
+/// # Examples
+///
+/// ```rust
+/// # use continuum_core::{
+/// #     KeyHashEvaluator, LogBackendKind, LogDestination, LogEvaluator, LogResolverContext,
+/// # };
+/// # #[tokio::main]
+/// # async fn main() -> continuum_core::Result<()> {
+/// let destinations = vec![
+///     LogDestination::new("cell-0", LogBackendKind::Memory),
+///     LogDestination::new("cell-1", LogBackendKind::Memory),
+/// ];
+/// let eval = KeyHashEvaluator::new(destinations);
+/// let ctx = LogResolverContext::default();
+/// let a = eval.resolve_for_topic(&ctx, "events", Some("user-42")).await?;
+/// let b = eval.resolve_for_topic(&ctx, "events", Some("user-42")).await?;
+/// assert_eq!(a, b);
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Debug, Clone)]
 pub struct KeyHashEvaluator {
     destinations: Vec<LogDestination>,

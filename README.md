@@ -11,7 +11,17 @@
 
 **Requires:** nightly Rust ([`rust-toolchain.toml`](rust-toolchain.toml)) — stable is not supported yet.
 
-**Performance (see [study](continuum-bench/PERFORMANCE_STUDY.md)):** in-process `mem` ~100k ops/s; durable sqlite ~2k ops/s on burstable cloud instances.
+**Performance (see [study](continuum-bench/PERFORMANCE_STUDY.md)):** in-process `mem` \~100k ops/s; durable `sqlite` \~2k ops/s on burstable cloud instances.
+
+Native `scylla` distributed append (spread-key, `aws-t3-medium` 2 vCPU, compute-only):
+
+| Scylla nodes | Identity on (exactly-once) | Identity off (at-least-once) | $/M ops (id on / off) |
+|--------------|----------------------------|------------------------------|-----------------------|
+| 1 | \~3,100 ops/s | \~24,300 ops/s | $0.0037 / $0.0005 |
+| 2 | \~3,600 ops/s | \~30,700 ops/s | $0.0064 / $0.0008 |
+| 4 | \~4,000 ops/s | \~29,600 ops/s | $0.0116 / $0.0016 |
+
+*Identity* = idempotent dedupe on `event_id`; disabling it trades exactly-once for \~5–8× throughput. Node scaling is sub-linear (coordination-bound) — prefer 1–2 nodes and add partitions/clusters to scale out. Full backend, cost, and topology guidance: [`PERFORMANCE_STUDY.md` §0](continuum-bench/PERFORMANCE_STUDY.md#0-decision-guide-read-this-first).
 
 ## Why Continuum
 
@@ -34,6 +44,8 @@ flowchart TD
   Port --> SurrealBackend["surreal-local backend"]
   Port --> PostgresBackend["postgres backend"]
   Port --> SqliteBackend["sqlite backend"]
+  Port --> ScyllaBackend["scylla backend"]
+  Port --> TikvBackend["tikv-raw backend"]
   HostApp -->|"encrypt / decrypt payloads"| HostApp
 ```
 
@@ -77,6 +89,8 @@ async fn main() -> Result<(), continuum::LogError> {
 
 Enable features explicitly — the facade ships with **no default features** (`default = []`). See [Cargo features](#cargo-features) below.
 
+Runnable examples: `cargo run -p continuum --example quickstart --features mem` (also `router`, `checkpoint_truncate`); Surreal: `cargo run -p continuum-backend-surreal --example surreal_embedded`.
+
 API details: [`continuum/README.md`](continuum/README.md) and `cargo doc -p continuum --open`.
 
 ## Cargo features
@@ -86,10 +100,12 @@ API details: [`continuum/README.md`](continuum/README.md) and `cargo doc -p cont
 | `mem` | In-memory | Ready — tests and local dev |
 | `surreal-local` | SurrealDB (injected handle) | Ready — production path |
 | `postgres` / `sqlite` | SQL engines | Ready — PostgreSQL and SQLite transport log |
+| `scylla` | ScyllaDB | Ready — native wide-column transport log |
+| `tikv-raw` | TiKV (raw client) | Ready — native TiKV transport log |
 | `telemetry-console` | Console instrumentation | Optional |
 | *(none)* | Port + DTOs + router only | `default-features = false` |
 
-Production wiring: **Surreal-local** injects a handle from your host; **PostgreSQL** and **SQLite** backends open their own connection pools. See [backend wiring](continuum/README.md#backend-wiring) in the crate README.
+Production wiring: **Surreal-local** injects a handle from your host; **PostgreSQL**, **SQLite**, **Scylla**, and **TiKV-raw** open their own connections. See [backend wiring](continuum/README.md#backend-wiring) and [configuration](continuum/README.md#configuration) in the crate README.
 
 ## When to use it
 
@@ -124,6 +140,7 @@ Scale-oriented design notes (batched tailers, compaction, shared fanout) are doc
 cargo test --workspace
 cargo check -p continuum --no-default-features
 cargo clippy --workspace --all-targets -- -D warnings
+RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
 cargo outdated --root-deps-only --workspace
 ```
 
@@ -134,9 +151,10 @@ CI runs on every push and pull request to `main` (see [`.github/workflows/ci.yml
 | Doc | Audience |
 |-----|----------|
 | `cargo doc -p continuum --open` | Architecture, API reference, examples |
-| [`continuum/README.md`](continuum/README.md) | Feature flags and backend wiring |
+| [`continuum/README.md`](continuum/README.md) | Feature flags, backend wiring, configuration |
 | [`continuum-bench/PERFORMANCE_STUDY.md`](continuum-bench/PERFORMANCE_STUDY.md) | Performance study and scale analysis |
-| [`continuum-bench/EXPERIMENTS.md`](continuum-bench/EXPERIMENTS.md) | Benchmark registry and run commands |
+| [`continuum-bench/EXPERIMENTS.md`](continuum-bench/EXPERIMENTS.md) | Benchmark registry, run commands, and env vars |
+| [`infra/`](infra/) | Local and AWS compose / provisioning stacks |
 
 ## Contributing
 

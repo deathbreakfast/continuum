@@ -110,23 +110,7 @@ cargo run -p continuum-bench -- project-scaling-curve --hardware aws-t3-medium -
 
 **Sharding (three layers):** logical partition (`LogStreamId.key` → `storage_key()`), optional multi-cell routing (`KeyHashEvaluator` in `continuum-core`), physical shard placement inside Scylla/TiKV clusters (driver/PD — not Continuum). One 8-node Scylla cluster = one `ScyllaLogBackend`; spread load with partition keys, not per-node backends.
 
-**dev-wsl native-lab (July 2026, partial):** native adapters exceed the **>10× surreal-tikv** gate (~40/s single-stream). Sample results:
-
-| ID | sqlite | scylla | tikv-raw |
-|----|--------|--------|----------|
-| BM-C0 p50/p95 | 34/80 ms | 75/100 ms | 41/58 ms |
-| BM-C1 batch 1→1000 | 26→51/s | 13→374/s | 21→138/s |
-| BM-L3 achieved | — | 15/s | 19/s |
-
-**dev-wsl native-scale (July 2026):**
-
-| ID | scylla | tikv-raw |
-|----|--------|----------|
-| BM-P1 (K=10) | 13/s | 24/s |
-| BM-M1 (C=8) | 26/s | 68/s |
-| BM-M2 (C=64) | 25/s (55% err FAIL) | 184/s PASS |
-
-Fleet projections: `projection-dev-wsl-scylla-any.json`, `projection-dev-wsl-tikv-raw-any.json`.
+**dev-wsl native (July 2026):** lab sanity only — superseded by the canonical `aws-t3-medium` numbers below. (dev-wsl scylla L3 \~15/s vs \~64/s colocated AWS; not used for sizing.)
 
 ### `aws-t3-medium` native-lab Phase A (July 2026)
 
@@ -148,10 +132,10 @@ Fleet projections: `projection-dev-wsl-scylla-any.json`, `projection-dev-wsl-tik
 
 **Interpretation:**
 
-- **Batch path (BM-C1 @1000):** native scylla/tikv-raw reach **~90% of sqlite** batch throughput on the same instance class — the native adapters remove SQL/Surreal query overhead.
-- **Hot stream (BM-L3, `key=None`):** single-partition ceiling **~64/s scylla**, **~45/s tikv-raw** vs sqlite **~1900/s** — multi-node clusters do not help until callers set partition keys (`CONTINUUM_BENCH_LOAD_PARTITION_COUNT` / Track P).
-- **vs dev-wsl native-lab:** Scylla L3 **64/s** here vs **~15/s** on dev-wsl — colocated AWS + AL2023 binary is the canonical native baseline.
-- **vs surreal-tikv (Appendix E):** tikv-raw L3 **~45/s** ≈ surreal-tikv **~43/s**, but C1 batch **1577/s** vs surreal-tikv **~40/s** single-stream.
+- **Batch path (BM-C1 @1000):** native scylla/tikv-raw reach **\~90% of sqlite** batch throughput on the same instance class — the native adapters remove SQL/Surreal query overhead.
+- **Hot stream (BM-L3, `key=None`):** single-partition ceiling **\~64/s scylla**, **\~45/s tikv-raw** vs sqlite **\~1900/s** — multi-node clusters do not help until callers set partition keys (`CONTINUUM_BENCH_LOAD_PARTITION_COUNT` / Track P).
+- **vs dev-wsl native-lab:** Scylla L3 **64/s** here vs **\~15/s** on dev-wsl — colocated AWS + AL2023 binary is the canonical native baseline.
+- **vs surreal-tikv (Appendix E):** tikv-raw L3 **\~45/s** ≈ surreal-tikv **\~43/s**, but C1 batch **1577/s** vs surreal-tikv **\~40/s** single-stream.
 
 **Fleet projections** (BM-L3 ceiling, compute only):
 
@@ -182,7 +166,7 @@ Research-question coverage and interpretation: [`PERFORMANCE_STUDY.md`](PERFORMA
 
 ### `aws-t3-medium` (2026-06-26) — full matrix + SQL subset
 
-**Instance:** `t3.medium`, us-west-2, Amazon Linux 2023, 2 vCPU, ~3.7 GiB RAM, gp3 EBS. **59** reports; **37/48** isolated-lab/off PASS (postgres 10 invalid).
+**Instance:** `t3.medium`, us-west-2, Amazon Linux 2023, 2 vCPU, \~3.7 GiB RAM, gp3 EBS. **59** reports; **37/48** isolated-lab/off PASS (postgres 10 invalid).
 
 | ID | mem | sqlite | postgres | surreal-mem | surreal-rocksdb |
 |----|-----|--------|----------|-------------|-----------------|
@@ -202,7 +186,7 @@ Research-question coverage and interpretation: [`PERFORMANCE_STUDY.md`](PERFORMA
 
 ### `aws-t3-small` (2026-06-26) — partial full matrix + SQL subset
 
-**Instance:** `t3.small`, 2 vCPU, ~1.9 GiB RAM. Full 39-run matrix **not viable** (stalled BM-C1 `surreal-rocksdb`). **47** reports; lite `mem`/`surreal-mem` + **20** SQL subset runs synced.
+**Instance:** `t3.small`, 2 vCPU, \~1.9 GiB RAM. Full 39-run matrix **not viable** (stalled BM-C1 `surreal-rocksdb`). **47** reports; lite `mem`/`surreal-mem` + **20** SQL subset runs synced.
 
 | ID | mem | sqlite | postgres | surreal-mem | surreal-rocksdb |
 |----|-----|--------|----------|-------------|-----------------|
@@ -219,7 +203,7 @@ Research-question coverage and interpretation: [`PERFORMANCE_STUDY.md`](PERFORMA
 
 ### `aws-t4g-medium` (2026-06-27) — full matrix + SQL subset
 
-**Instance:** `t4g.medium`, us-west-2, ARM, 2 vCPU, ~3.7 GiB RAM, gp3 EBS. **59** reports; **45/48** isolated-lab/off PASS.
+**Instance:** `t4g.medium`, us-west-2, ARM, 2 vCPU, \~3.7 GiB RAM, gp3 EBS. **59** reports; **45/48** isolated-lab/off PASS.
 
 | ID | mem | sqlite | postgres | surreal-mem | surreal-rocksdb |
 |----|-----|--------|----------|-------------|-----------------|
@@ -263,15 +247,15 @@ Existing **BM-C\*** and **BM-L\*** experiment IDs apply to `surreal-tikv`. **Pha
 
 | Preset | RAM hint | Colocated on t3/t4g.medium (4 GiB) | Result |
 |--------|----------|-------------------------------------|--------|
-| `tikv-minimal` | ~8 GiB | MAYBE (4 GiB swap recommended) | **Pass** — ~37–43 ops/s ceiling |
-| `tikv-ha-3` | ~16 GiB | **NO** | Not tested — requires multi-EC2 |
-| `tikv-scale-5` | ~16+ GiB | **NO** | Not tested — requires multi-EC2 |
-| `surreal-2n` | ~16 GiB | **NO** | Not tested — requires multi-EC2 |
-| `surreal-4n` | ~20+ GiB | **NO** | Not tested — requires multi-EC2 |
+| `tikv-minimal` | \~8 GiB | MAYBE (4 GiB swap recommended) | **Pass** — \~37–43 ops/s ceiling |
+| `tikv-ha-3` | \~16 GiB | **NO** | Not tested — requires multi-EC2 |
+| `tikv-scale-5` | \~16+ GiB | **NO** | Not tested — requires multi-EC2 |
+| `surreal-2n` | \~16 GiB | **NO** | Not tested — requires multi-EC2 |
+| `surreal-4n` | \~20+ GiB | **NO** | Not tested — requires multi-EC2 |
 
 ### Results — `tikv-minimal` colocated (2026-06-30)
 
-#### `aws-t4g-medium` (ARM, 2 vCPU, ~3.7 GiB + 4 GiB swap)
+#### `aws-t4g-medium` (ARM, 2 vCPU, \~3.7 GiB + 4 GiB swap)
 
 | ID | Result | Notes |
 |----|--------|-------|
@@ -280,9 +264,9 @@ Existing **BM-C\*** and **BM-L\*** experiment IDs apply to `surreal-tikv`. **Pha
 | BM-C2 | PASS | p95@100k=5.6ms |
 | BM-C3 | PASS | p95 checkpoint=15.3ms |
 | BM-C4 | PASS | post/pre=0.96× |
-| BM-L0–L3 | PASS | ceiling **~37.7 ops/s** (L3), p99 ~34.5ms |
+| BM-L0–L3 | PASS | ceiling **\~37.7 ops/s** (L3), p99 \~34.5ms |
 
-#### `aws-t3-medium` (x86, 2 vCPU, ~3.7 GiB + 4 GiB swap)
+#### `aws-t3-medium` (x86, 2 vCPU, \~3.7 GiB + 4 GiB swap)
 
 | ID | Result | Notes |
 |----|--------|-------|
@@ -291,16 +275,16 @@ Existing **BM-C\*** and **BM-L\*** experiment IDs apply to `surreal-tikv`. **Pha
 | BM-C2 | PASS | p95@100k=7.9ms |
 | BM-C3 | **FAIL** | p95 checkpoint=15.3ms (decile slope criterion) |
 | BM-C4 | PASS | post/pre=1.03× |
-| BM-L0–L3 | PASS | ceiling **~43.5 ops/s** (L3), p99 ~34.6ms |
+| BM-L0–L3 | PASS | ceiling **\~43.5 ops/s** (L3), p99 \~34.6ms |
 
-**Compare Appendix D (same hardware):** sqlite ~1,928/s L2; surreal-rocksdb ~340–440/s L2; postgres ~246/s L2 (t4g). surreal-tikv colocated minimal is **~50–100× slower** than sqlite on burstable cloud.
+**Compare Appendix D (same hardware):** sqlite \~1,928/s L2; surreal-rocksdb \~340–440/s L2; postgres \~246/s L2 (t4g). surreal-tikv colocated minimal is **\~50–100× slower** than sqlite on burstable cloud.
 
 ### Fleet projection (`tikv-minimal`, compute-only us-west-2 on-demand)
 
 | Hardware | Per-node ceiling (L3) | $/M ops | Nodes for 1B/s | Compute $/hr @ 1B/s |
 |----------|----------------------|---------|----------------|---------------------|
-| `aws-t4g-medium` | 37.7 ops/s | $0.248 | 26,558,591 | ~$892k/hr |
-| `aws-t3-medium` | 43.5 ops/s | $0.266 | 22,992,285 | ~$956k/hr |
+| `aws-t4g-medium` | 37.7 ops/s | $0.248 | 26,558,591 | \~$892k/hr |
+| `aws-t3-medium` | 43.5 ops/s | $0.266 | 22,992,285 | \~$956k/hr |
 
 Projection JSON: `profiling/continuum-bench/reports/projection-aws-*-surreal-tikv-tikv-minimal.json`
 
@@ -347,7 +331,7 @@ Topology/count sweeps (`tikv-ha-3`, `tikv-scale-5`, `surreal-2n`) require separa
 
 **Reports (surreal-tikv):** `{id}-surreal-tikv-{tikv_topology}-{telemetry}-{hardware}.json`
 
-**Compare against Appendix D baselines** on same hardware: sqlite ~1.9k/s L2; surreal-rocksdb ~340–440/s L2; postgres ~246/s L2 (t4g.medium).
+**Compare against Appendix D baselines** on same hardware: sqlite \~1.9k/s L2; surreal-rocksdb \~340–440/s L2; postgres \~246/s L2 (t4g.medium).
 
 ---
 
@@ -424,7 +408,7 @@ Multi-client append to a **single hot stream** (`key=None`). Sweeps `CONTINUUM_B
 | 64 | tikv-raw/tikv-minimal | 3.91/s p99=50008.8ms err=12.1076% FAIL |
 | 128 | tikv-raw/tikv-minimal | 7.62/s p99=8885.1ms err=64.2061% FAIL |
 
-**Interpretation:** Hot-stream throughput stays near single-client ceiling (~64/s scylla, ~45/s tikv-raw) regardless of client count — the backend serializes on one partition.
+**Interpretation:** Hot-stream throughput stays near single-client ceiling (\~64/s scylla, \~45/s tikv-raw) regardless of client count — the backend serializes on one partition.
 
 
 ## Track P — Partitioning (BM-P*, BM-L* partitioned, BM-M4)
@@ -470,7 +454,7 @@ Spread writes across partition keys to use multiple shards.
 | 512 | 512 | tikv-raw/tikv-minimal | 1134/s p99=747.6ms err=0.0000% PASS |
 | 1024 | 1024 | tikv-raw/tikv-minimal | 1201/s p99=1606.5ms err=0.0000% PASS |
 
-**Interpretation:** Post-opt spread-key throughput scales with C=K on Scylla (115/s → **3,318/s** at C=256, 0% errors). Pre-opt C=128 failed at 8.6% errors (~115/s); adapter changes fixed that entirely. TiKV plateaus around **~1.1k ops/s** from C=128 through C=1024 (873 → 1,201/s) while p50 latency grows linearly — more in-process tasks add queueing, not aggregate throughput. Compare raw Test A spread-key ceilings: Scylla **14,872/s** @ 316 threads; TiKV **7,290/s** @ 1024 threads. Continuum BM-M4 reaches **~22%** (Scylla C=256) and **~16%** (TiKV C=1024) of those raw peaks on one t3.medium host with a single driver client.
+**Interpretation:** Post-opt spread-key throughput scales with C=K on Scylla (115/s → **3,318/s** at C=256, 0% errors). Pre-opt C=128 failed at 8.6% errors (\~115/s); adapter changes fixed that entirely. TiKV plateaus around **\~1.1k ops/s** from C=128 through C=1024 (873 → 1,201/s) while p50 latency grows linearly — more in-process tasks add queueing, not aggregate throughput. Compare raw Test A spread-key ceilings: Scylla **14,872/s** @ 316 threads; TiKV **7,290/s** @ 1024 threads. Continuum BM-M4 reaches **\~22%** (Scylla C=256) and **\~16%** (TiKV C=1024) of those raw peaks on one t3.medium host with a single driver client.
 
 
 ## Append optimization (July 2026, Phase 1 + 2)
@@ -508,7 +492,7 @@ Adapter-only changes in [`continuum-backend-scylla`](../continuum-backend-scylla
 
 All runs: 0% error rate, PASS. Reports: `profiling/continuum-bench/reports/bm-m4-*-pk*-c*.json`.
 
-**Interpretation:** The gap vs raw spread-key tools is adapter round-trips and per-append consensus, not generic Continuum overhead (sqlite ~1900/s on the same trait). Phase 1 removed redundant reads and merged TiKV transactions; Phase 2 client-side seq blocks amortize the remaining Scylla LWT / TiKV meta updates. Scylla continues to gain throughput through C=256; TiKV saturates near ~1.1k/s regardless of task count up to 1024. Hot-stream TiKV M3 still contends under 64 concurrent writers — partition keys (Track P) remain required for aggregate scale.
+**Interpretation:** The gap vs raw spread-key tools is adapter round-trips and per-append consensus, not generic Continuum overhead (sqlite \~1900/s on the same trait). Phase 1 removed redundant reads and merged TiKV transactions; Phase 2 client-side seq blocks amortize the remaining Scylla LWT / TiKV meta updates. Scylla continues to gain throughput through C=256; TiKV saturates near \~1.1k/s regardless of task count up to 1024. Hot-stream TiKV M3 still contends under 64 concurrent writers — partition keys (Track P) remain required for aggregate scale.
 
 
 ## Track T — Topology scaling (Phase B, 1 → 2 → 4 storage nodes)
@@ -534,20 +518,20 @@ Dedicated bench EC2 + N storage nodes on AWS (`infra/native-aws/topologies/`). N
 
 | Storage nodes | Topology | Peak BM-M4 ops/s | C=K @ peak | vs N=1 | ops/s per node | Hot BM-L3 |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | scylla-1 (colocated) | 3,318 | 256 | 1.00× | 3,318 | ~64/s hot |
-| 2 | scylla-2n | 3,444 | 256 | 1.04× | 1,722 | ~155/s hot |
-| 4 | scylla-4n | 3,519 | 128 | 1.06× | 880 | ~169/s hot |
-| 1 | tikv-minimal (colocated) | 1,201 | 1024 | 1.00× | 1,201 | ~45/s hot |
-| 2 | tikv-ha-2 | 1,608 | 128 | 1.34× | 804 | ~90/s hot |
-| 4 | tikv-scale-4 | 1,620 | 64 | 1.35× | 405 | ~100/s hot |
+| 1 | scylla-1 (colocated) | 3,318 | 256 | 1.00× | 3,318 | \~64/s hot |
+| 2 | scylla-2n | 3,444 | 256 | 1.04× | 1,722 | \~155/s hot |
+| 4 | scylla-4n | 3,519 | 128 | 1.06× | 880 | \~169/s hot |
+| 1 | tikv-minimal (colocated) | 1,201 | 1024 | 1.00× | 1,201 | \~45/s hot |
+| 2 | tikv-ha-2 | 1,608 | 128 | 1.34× | 804 | \~90/s hot |
+| 4 | tikv-scale-4 | 1,620 | 64 | 1.35× | 405 | \~100/s hot |
 
-**Scylla interpretation (July 2026):** Sub-linear scaling (+4% @ 2n, +6% @ 4n vs colocated N=1). Per-node efficiency falls sharply (1,722 and 880 ops/s/node) — spread-key append remains **bench- and coordination-bound** on `t3.medium`, not storage-saturated. Hot-stream BM-L3 rose with node count (~155/s, ~169/s vs ~64/s colocated); treat as layout/control artifact, not hot-partition relief.
+**Scylla interpretation (July 2026):** Sub-linear scaling (+4% @ 2n, +6% @ 4n vs colocated N=1). Per-node efficiency falls sharply (1,722 and 880 ops/s/node) — spread-key append remains **bench- and coordination-bound** on `t3.medium`, not storage-saturated. Hot-stream BM-L3 rose with node count (\~155/s, \~169/s vs \~64/s colocated); treat as layout/control artifact, not hot-partition relief.
 
-**TiKV interpretation (July 2026):** Modest cluster scaling (+34–35% vs colocated N=1 at 1,201/s) from 2→4 nodes with peak essentially flat (1,608/s @ 2n C=128 vs 1,620/s @ 4n C=64). Per-node efficiency drops (804 → 405 ops/s/node) — **PD/meta coordination and bench RTT** dominate before TiKV exhausts. Hot-stream ~90–100/s (vs ~45/s colocated).
+**TiKV interpretation (July 2026):** Modest cluster scaling (+34–35% vs colocated N=1 at 1,201/s) from 2→4 nodes with peak essentially flat (1,608/s @ 2n C=128 vs 1,620/s @ 4n C=64). Per-node efficiency drops (804 → 405 ops/s/node) — **PD/meta coordination and bench RTT** dominate before TiKV exhausts. Hot-stream \~90–100/s (vs \~45/s colocated).
 
 ### Track T bench resource profile @ peak BM-M4
 
-From `resource_profile` on the **bench EC2** (`aws-t3-medium`: 2 vCPU, ~3.75 GiB RAM). CPU % is summed across cores (200% ≈ both cores saturated). **System mem peak** is the reliable RAM signal on these runs; `process_rss_bytes_*` is inflated by a known sysinfo quirk on AL2023 — do not use RSS for sizing.
+From `resource_profile` on the **bench EC2** (`aws-t3-medium`: 2 vCPU, \~3.75 GiB RAM). CPU % is summed across cores (200% ≈ both cores saturated). **System mem peak** is the reliable RAM signal on these runs; `process_rss_bytes_*` is inflated by a known sysinfo quirk on AL2023 — do not use RSS for sizing.
 
 | Topology | Peak ops/s | C=K @ peak | Bench CPU peak | Bench CPU mean | Sys mem peak | Bench-bound? |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -560,7 +544,7 @@ From `resource_profile` on the **bench EC2** (`aws-t3-medium`: 2 vCPU, ~3.75 GiB
 
 † `tikv-ha-2` peak throughput is at C=128; CPU/mem row is from the fetched C=64 report (161% / 0.40 GiB) — same bench-bound regime.
 
-**Read:** Scylla distributed runs left **~70% CPU headroom** on the 2-vCPU bench — not CPU- or RAM-capped; the plateau is coordination/network. TiKV distributed runs **saturated 1.6–1.8 cores** while system RAM stayed ~0.4 GiB — **bench CPU-bound**, not memory-bound. Phase 5 (larger bench) is primarily a TiKV lever; Scylla needs coordination/network tuning or larger storage nodes before a bigger bench helps.
+**Read:** Scylla distributed runs left **\~70% CPU headroom** on the 2-vCPU bench — not CPU- or RAM-capped; the plateau is coordination/network. TiKV distributed runs **saturated 1.6–1.8 cores** while system RAM stayed \~0.4 GiB — **bench CPU-bound**, not memory-bound. Phase 5 (larger bench) is primarily a TiKV lever; Scylla needs coordination/network tuning or larger storage nodes before a bigger bench helps.
 
 **Methodology footnote:** N=1 is colocated (bench + storage same EC2); N≥2 is dedicated bench over VPC private IP. Compare scaling **trends**, not absolute parity.
 
@@ -579,6 +563,52 @@ CONTINUUM_NATIVE_AWS_INSTANCE_TYPE=c7i.4xlarge \
 ```
 
 See **Appendix G.2** in [`PERFORMANCE_STUDY.md`](PERFORMANCE_STUDY.md) for the Phase 5 scaling table template.
+
+## Scylla bottleneck diagnosis & optimization (July 2026) — conclusions
+
+Track T showed BM-M4 spread-key throughput plateauing at \~3.3–3.5k ops/s (identity/LWT on) regardless of node count. Tracks U–Y diagnosed the cause; Tracks Z1–Z5 + AA tested fixes; the parallelism study (BM-M5) confirmed the limiter. Step-by-step A/B runs: [Appendix: Scylla diagnostic A/B runs](#appendix-scylla-diagnostic-ab-runs).
+
+**Verdict: adapter/coordination-bound (per-append LWT), not storage- or bench-bound.**
+
+| Track | Signal | Conclusion |
+|-------|--------|-----------|
+| U — node CPU / write rate | μs local write latency, 0% iowait at peak | Not storage-saturated |
+| V — round trips/append | \~3.0 RT vs \~2 RT floor | Adapter/coordination overhead |
+| W — raw vs Continuum | raw `cassandra-stress` scales N (14.6k→29.5k); Continuum flat | Adapter, not Scylla write path |
+| X — dual bench process | 0.94× single | Not client-bound |
+| Y / Z3 / Z5 — seq block, pipelining, pool | no effect | Ceiling is elsewhere |
+
+**Largest levers:**
+
+- **Z1 — identity (idempotency LWT):** `none` (at-least-once) yields \~4.5× (3.1k → 14.2k ops/s; rt/append 3.03 → 2.03). Highest-impact but trades exactly-once. Default stays `lwt`.
+- **Z2 / AA — topic-index cache (L2):** removes \~1 RT/append; with identity off, raises 2n from \~24k to \~31k ops/s (≥ raw `cassandra-stress`). **Now default on.**
+
+**Final lever config (defaults):**
+
+| Lever | Builder field | Default | Guarantee impact |
+|-------|---------------|---------|------------------|
+| Seq-block cache | *(core, always on)* | on | none |
+| L1 Idempotency | `idempotency` | **LWT (exactly-once)** | `None` → at-least-once |
+| L2 Topic-index cache | `topic_index_cache` | **on** | none (stale only if index rows deleted out-of-band) |
+| L4 Write consistency | `write_consistency` | None (unset) | inert at RF=1 |
+| Seq block size | `seq_block_size` | 64 | none |
+| L3 Pipelined writes / L5 Pool-per-shard | — | **removed** (no gain) | — |
+
+**Headline ceiling (BM-M4 spread-key, C=K=256, `aws-t3-medium`, default L2 on):**
+
+| Topology | Identity on (`lwt`) | Identity off (`none`) |
+|----------|---------------------|------------------------|
+| scylla-1 | 3,112 | 24,279 |
+| scylla-2n | 3,636 | 30,682 |
+| scylla-4n | 3,987 | 29,583 |
+
+Identity-off raises the ceiling \~5–8×; node scaling is sub-linear either way (coordination-bound). Identity-on throughput is L2-independent (LWT dominates). **TiKV** Tracks U–Y are **deferred** (Scylla-focused round). Consolidated verdict and lever catalog: [`PERFORMANCE_STUDY.md`](PERFORMANCE_STUDY.md) Appendix H.
+
+---
+
+# Appendix: Scylla diagnostic A/B runs
+
+Step-by-step A/B campaigns behind the conclusions above. Reference/drill-down only — the headline results and recommendations live in the sections above and in [`PERFORMANCE_STUDY.md`](PERFORMANCE_STUDY.md) §0.
 
 ## Tracks U–Y — Scylla bottleneck diagnosis (July 2026)
 
@@ -622,10 +652,10 @@ Metrics from `collect-scylla-storage-metrics.sh` **mid** sample (during detached
 
 | Topology | Node | CPU / load | UN tokens | Write rate | Verdict |
 | --- | --- | --- | --- | --- | --- |
-| colocated | scylla-0 | ~109% docker, load 1.46 | 256 UN | 1,536 local writes @ 0.003 ms | Hot CPU, μs latency → not IO-bound |
-| scylla-2n | scylla-0 | ~101% docker, load 0.39 | 256 UN | 77,543 local writes @ 0.005 ms | Busy @ peak; μs latency |
+| colocated | scylla-0 | \~109% docker, load 1.46 | 256 UN | 1,536 local writes @ 0.003 ms | Hot CPU, μs latency → not IO-bound |
+| scylla-2n | scylla-0 | \~101% docker, load 0.39 | 256 UN | 77,543 local writes @ 0.005 ms | Busy @ peak; μs latency |
 | scylla-2n | scylla-1 | — | — | — | Not sampled (collector only persisted seed node) |
-| scylla-4n | scylla-0 | ~99% docker, load 0.50 | 256 UN | 1,280 local writes @ 0.004 ms | Hot CPU; μs latency; seed only |
+| scylla-4n | scylla-0 | \~99% docker, load 0.50 | 256 UN | 1,280 local writes @ 0.004 ms | Hot CPU; μs latency; seed only |
 
 **Pass/fail:** all nodes low CPU + low write rate → **not storage-bound**; even load + moderate CPU → sharding OK, look upstream; one node hot → routing/replication issue.
 
@@ -652,9 +682,9 @@ infra/native-aws/scripts/run-scylla-track-v.sh native-colocated
 | scylla-2n | 64 | 2,836 | 42.4 | 258,048 | 3.03 | 3.03 |
 | scylla-2n | 256 | 2,225 | 186.5 | — | — | — |
 
-Compare to theoretical minimum (~2 RT steady state, Appendix F.6).
+Compare to theoretical minimum (\~2 RT steady state, Appendix F.6).
 
-**Result:** **~3.0–3.03 RT/append** at C=64 on colocated and scylla-2n — above the ~2 RT floor → **adapter/coordination overhead** (LWT / multi-step append). C=256 rows run with debug enabled (lower ops/s, higher p99). scylla-2n @ C=256 report lacks debug `notes` (overwrite timing).
+**Result:** **\~3.0–3.03 RT/append** at C=64 on colocated and scylla-2n — above the \~2 RT floor → **adapter/coordination overhead** (LWT / multi-step append). C=256 rows run with debug enabled (lower ops/s, higher p99). scylla-2n @ C=256 report lacks debug `notes` (overwrite timing).
 
 ### Track W — Raw engine comparison
 
@@ -671,7 +701,7 @@ Track W: `cassandra-stress` spread-key peak (`infra/native-aws/state/<topology>-
 
 | Topology | N | cassandra-stress ops/s | Continuum BM-M4 ops/s | Raw scales? |
 | --- | --- | --- | --- | --- |
-| colocated | 1 | 14,627 | ~3,318† | Yes (raw ≫ Continuum) |
+| colocated | 1 | 14,627 | \~3,318† | Yes (raw ≫ Continuum) |
 | scylla-2n | 2 | 29,524 | 2,225 | Yes (2× raw vs colocated; Continuum ↓) |
 | scylla-4n | 4 | **failed**‡ | 3,226 | — |
 
@@ -703,9 +733,9 @@ Track X re-run on `native-scylla-2n` @ C=K=256 via `run-scylla-levers.sh` (tagge
 
 Dual aggregate = sum of dual-a (1,673) + dual-b (1,672) @ C=128 each.
 
-~2× → bench/client bound; flat → coordination/storage.
+\~2× → bench/client bound; flat → coordination/storage.
 
-**Result:** **Not client-bound** — dual process does not ~2× throughput; adapter/coordination remains the limiter (consistent with Tracks V/W).
+**Result:** **Not client-bound** — dual process does not \~2× throughput; adapter/coordination remains the limiter (consistent with Tracks V/W).
 
 ### Track Y — Coordination tuning (optional)
 
@@ -763,7 +793,7 @@ Reports use `CONTINUUM_BENCH_REPORT_TAG` (`z2-baseline`, `z2-treatment`, …) to
 | baseline (`lwt`) | 3,112 | 3.03 | 165.5 |
 | treatment (`none`) | 14,164 | 2.03 | 87.4 |
 
-**Result:** **LWT dominates cost** — removing idempotency LWT yields ~4.5× throughput and drops rt/append toward the ~2 RT floor. **Do not enable `none` in production** without an exactly-once policy decision.
+**Result:** **LWT dominates cost** — removing idempotency LWT yields \~4.5× throughput and drops rt/append toward the \~2 RT floor. **Do not enable `none` in production** without an exactly-once policy decision.
 
 ### Track Z2 — Topic-index cache (L2)
 
@@ -780,7 +810,7 @@ Reports use `CONTINUUM_BENCH_REPORT_TAG` (`z2-baseline`, `z2-treatment`, …) to
 | baseline (L2 off) | 3,500 | 3.04 | 173.9 |
 | treatment (L2 on) | 3,504 | 2.04 | 153.5 |
 
-**Result:** **RT hypothesis confirmed** under Z1 on — topic-index cache removes ~1 RT/append (3.04→2.04) but throughput stays ~3.5k ops/s (LWT-bound). Track AA later showed L2 **does** raise multi-node throughput when Z1 is off (~24k→33k on 2n); L2 is now **default on**.
+**Result:** **RT hypothesis confirmed** under Z1 on — topic-index cache removes \~1 RT/append (3.04→2.04) but throughput stays \~3.5k ops/s (LWT-bound). Track AA later showed L2 **does** raise multi-node throughput when Z1 is off (\~24k→33k on 2n); L2 is now **default on**.
 
 ### Track Z3 — Pipelined writes (L3)
 
@@ -855,7 +885,7 @@ continuum-bench/scripts/analyze-scylla-ceilings.py --reports-dir profiling/conti
 | scylla-4n | on | 3,987 | 194.8 |
 | scylla-4n | off | 20,118 | 57.4 |
 
-**Result:** Z1-off raises ceiling ~4.5–5× at every N; multi-node Z1-on peaks stay flat (~3.1–4.0k ops/s). Z1-off 4n (20.1k) is only ~8% above 2n (18.5k) — storage/coordination still sub-linear. **4n Z1-on regresses** vs 2n (3,987 vs 3,636) — extra coordination cost without LWT removal. **Note:** Ceiling runs used L2 off (pre–Track AA); with L2 default on, Z1-off multi-node peaks are ~31k ops/s (Table AA.3).
+**Result:** Z1-off raises ceiling \~4.5–5× at every N; multi-node Z1-on peaks stay flat (\~3.1–4.0k ops/s). Z1-off 4n (20.1k) is only \~8% above 2n (18.5k) — storage/coordination still sub-linear. **4n Z1-on regresses** vs 2n (3,987 vs 3,636) — extra coordination cost without LWT removal. **Note:** Ceiling runs used L2 off (pre–Track AA); with L2 default on, Z1-off multi-node peaks are \~31k ops/s (Table AA.3).
 
 #### Table Ceiling.2 — Monthly compute cost projection (`aws-t3-medium`, Z1-off peaks)
 
@@ -895,10 +925,10 @@ Prior ceiling (m4 z1off, L2 off): 2n 18,517; 4n 20,118. Raw cassandra-stress 2n:
 | Criterion | Outcome |
 | --- | --- |
 | T=64 spreads index load vs single topic (2n, L2 off) | **No** — t64 21.5k ≤ m4 24.4k |
-| L2 on vs off at Z1 off (2n m4) | **Yes** — L2 on +36% (33.1k vs 24.4k); removes ~1 RT/append |
+| L2 on vs off at Z1 off (2n m4) | **Yes** — L2 on +36% (33.1k vs 24.4k); removes \~1 RT/append |
 | 2n approaches raw with L2 on | **Yes** — 33.1k ≥ raw 29.5k on 2n |
 
-**Result:** Per-append `stream_index` INSERT (L2 off) is the multi-node bottleneck when Z1 is off — not fixed by topic fan-out alone. **L2 (topic-index cache) default-on** removes repeat index writes and raises 2n/4n Z1-off throughput ~33–34k ops/s (~1.8× prior ceiling). Topic sharding remains operational guidance for single-topic deployments until schema re-partition (Phase 3).
+**Result:** Per-append `stream_index` INSERT (L2 off) is the multi-node bottleneck when Z1 is off — not fixed by topic fan-out alone. **L2 (topic-index cache) default-on** removes repeat index writes and raises 2n/4n Z1-off throughput \~33–34k ops/s (\~1.8× prior ceiling). Topic sharding remains operational guidance for single-topic deployments until schema re-partition (Phase 3).
 
 **Fix applied:** `ScyllaLogConfig.topic_index_cache` default `true`; bench harness uses `env_flag_default(..., true)` so unset env keeps L2 on; campaigns set `CONTINUUM_SCYLLA_TOPIC_INDEX_CACHE=0` for L2-off baselines.
 
@@ -911,7 +941,7 @@ Re-run after fix via `run-scylla-index-scaling-phase2-master.sh` (env unset → 
 | scylla-2n | **30,682** | 1.03 | 1.66× (18,517) | 0.93× (33,137) | **1.04×** (29,524) |
 | scylla-4n | **29,583** | 1.03 | 1.47× (20,118) | 0.87× (33,811) | — |
 
-**Result:** Default L2 on is live and effective — 2n meets/exceeds raw cassandra-stress; both topologies drop to ~1 RT/append. 4n does not gain further over 2n (bench/driver bound at ~30k on t3.medium). Track W 4n raw baseline still failed (incomplete stress log).
+**Result:** Default L2 on is live and effective — 2n meets/exceeds raw cassandra-stress; both topologies drop to \~1 RT/append. 4n does not gain further over 2n (bench/driver bound at \~30k on t3.medium). Track W 4n raw baseline still failed (incomplete stress log).
 
 ---
 
@@ -934,7 +964,7 @@ infra/native-aws/scripts/run-scylla-parallelism.sh --skip-artifact
 | scylla-2n | 8 | 3,759 | 3,856 |
 | scylla-2n | 64 | 3,412 | 3,831 |
 
-**Result:** Topic count does not materially change throughput (~3.4–4.1k ops/s) — fan-out is not the bottleneck at T≤64.
+**Result:** Topic count does not materially change throughput (\~3.4–4.1k ops/s) — fan-out is not the bottleneck at T≤64.
 
 #### Table P5.2 — Per-topic idempotency (mixed LWT/none @ T=64)
 
@@ -943,7 +973,7 @@ infra/native-aws/scripts/run-scylla-parallelism.sh --skip-artifact
 | scylla-1 | Global LWT + 50% topics `none` | 11,036 | 102.2 |
 | scylla-2n | Global LWT + 50% topics `none` | 10,625 | 103.7 |
 
-**Result:** Partial LWT removal raises throughput ~3× vs all-LWT baseline — confirms LWT is per-topic cost, not global partition hot-spot alone.
+**Result:** Partial LWT removal raises throughput \~3× vs all-LWT baseline — confirms LWT is per-topic cost, not global partition hot-spot alone.
 
 #### Table P5.3 — Multi-publisher aggregate (N processes, sum ops/s)
 

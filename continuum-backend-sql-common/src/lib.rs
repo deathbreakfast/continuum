@@ -1,7 +1,7 @@
-//! Shared SQL [`LogBackend`](continuum_core::backend::LogBackend) for `PostgreSQL` and `SQLite`.
+//! Shared SQL [`LogBackend`] for `PostgreSQL` and `SQLite`.
 //!
 //! Uses `continuum_event`, `continuum_stream`, and `continuum_checkpoint` tables
-//! (bootstrapped by [`schema::ensure_schema`]).
+//! (bootstrapped on connect).
 
 mod error_map;
 mod schema;

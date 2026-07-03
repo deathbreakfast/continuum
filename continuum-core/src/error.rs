@@ -31,15 +31,15 @@ pub type Result<T> = std::result::Result<T, LogError>;
 impl LogError {
     /// True when the caller may retry (conflict or transient backend fault).
     ///
-    /// # Examples
-    ///
-    /// ```
-    /// use continuum_core::LogError;
-    ///
-    /// assert!(LogError::Conflict("cas".into()).is_retryable());
-    /// assert!(!LogError::Validation("bad topic".into()).is_retryable());
-    /// assert!(LogError::Unsupported("stub".into()).is_retryable() == false);
-    /// ```
+/// # Examples
+///
+/// ```rust
+/// use continuum_core::LogError;
+///
+/// assert!(LogError::Conflict("cas".into()).is_retryable());
+/// assert!(!LogError::Validation("bad topic".into()).is_retryable());
+/// assert!(LogError::Unsupported("stub".into()).is_retryable() == false);
+/// ```
     #[must_use]
     pub fn is_retryable(&self) -> bool {
         match self {

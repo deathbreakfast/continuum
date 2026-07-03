@@ -4,7 +4,9 @@
 //! Continuum does not open connections — wrap an existing `Arc<Surreal<…>>` with
 //! [`SurrealLocalLogBackend::new`] or [`SurrealLocalLogBackend::new_embedded_local`].
 //!
-//! Enable via the `surreal-local` feature on the `continuum` facade crate.
+//! Enable via the `surreal-local` feature on the [`continuum`](https://docs.rs/continuum) facade.
+//! See [Getting started](https://docs.rs/continuum/latest/continuum/index.html#getting-started)
+//! and the [documentation map](https://docs.rs/continuum/latest/continuum/index.html#documentation-map).
 //!
 //! See also: [`SurrealLogConfig`], [`continuum_core::LogBackend`].
 

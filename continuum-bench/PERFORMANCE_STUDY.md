@@ -2,7 +2,7 @@
 
 **Performance study** — standalone document. Full methodology and interpretation live here; [`EXPERIMENTS.md`](EXPERIMENTS.md) is the pre-registered experiment log and runner reference.
 
-> **Summary for adopters:** need ~2k durable ops/s on a modest cloud instance → **sqlite** (~$0.003/M ops on t3.small). need ~100k/s in-process ceiling → **mem** (non-durable). **surreal-rocksdb** works for many paths but fails long-run soak on burstable instances — see §5.5 and Appendix D.
+> **Summary for adopters:** need \~2k durable ops/s on a modest cloud instance → **sqlite** (\~$0.003/M ops on t3.small). need \~100k/s in-process ceiling → **mem** (non-durable). Need distributed fleet-scale append → **scylla** with partition keys (\~3–4k ops/s/cluster with idempotent identity, \~24–31k without). **surreal-rocksdb** works for many paths but fails long-run soak on burstable instances. **Start with the decision tables in [§0](#0-decision-guide-read-this-first)**; full methodology follows.
 
 ---
 
@@ -10,11 +10,104 @@
 
 Continuum is a Rust append-only transport log: a thin async storage port (`LogBackend`) with feature-gated backends, strictly increasing per-stream sequences, idempotent append, consumer checkpoints, and truncate-for-reclaim. This study evaluates whether the port and its storage adapters exhibit scaling behavior compatible with fleet-scale event transport—including replay and recovery paths on durable storage.
 
-We present a pre-registered synthetic benchmark suite (BM-C0–C6, BM-L0–L3) spanning append latency, batch throughput, tail read at depth, checkpoint churn, truncate reclaim, co-tenancy, long-run soak, and sustained load tiers. On lab hardware (WSL2, Intel i7-11700KF, NVMe), in-process `mem` establishes an algorithmic ceiling; `surreal-mem` and `surreal-rocksdb` expose engine and durable-path costs. Lab results (Appendix A) show batch amortization on all adapters, flat tail-read scaling on Surreal paths, and orders-of-magnitude gap between durable single-node throughput and aspirational fleet-scale targets.
+We present a pre-registered synthetic benchmark suite (BM-C0–C6, BM-L0–L3) spanning append latency, batch throughput, tail read at depth, checkpoint churn, truncate reclaim, co-tenancy, long-run soak, and sustained load tiers. **All headline results are measured on rentable AWS instances that anyone can reproduce** — burstable `t3.small`, `t3.medium`, and `t4g.medium` for the embedded/SQL adapters, and `t3.medium` clusters (1–4 nodes) for the native distributed adapters (`scylla`, `tikv-raw`).
 
-On AWS burstable instances (`t3.small`, `t3.medium`, `t4g.medium`), sqlite sustains ~1.9k ops/s with flat replay at 100k depth and stable checkpoints; postgres ~250/s on ARM (valid baseline); `mem` hits ~100k ops/s but fails the replay-at-depth ratio criterion. Best durable cost per operation: `t3.small` + sqlite (~$0.0031 per 1M ops, compute only). surreal-rocksdb fails 1 h soak on burstable cloud, matching lab.
+On AWS burstable instances, sqlite sustains \~1.9k ops/s with flat replay at 100k depth and stable checkpoints; postgres \~250/s on ARM (valid baseline); `mem` hits \~100k ops/s but fails the replay-at-depth ratio criterion. Best durable cost per operation among general-purpose adapters: `t3.small` + sqlite (\~$0.0031 per 1M ops, compute only). Native `scylla` reaches \~3–4k ops/s per cluster with idempotent identity (\~24–31k without), the cheapest durable path at scale. surreal-rocksdb fails 1 h soak on burstable cloud. A single-box WSL2 lab run (Appendix A) is retained only as early method validation — not as a hardware baseline.
 
 **Keywords:** append-only log, storage port, replay, recovery, checkpoint, benchmark, SurrealDB, RocksDB, transport persistence
+
+---
+
+## 0. Decision guide (read this first)
+
+Throughput and cost depend on three choices: **which adapter**, whether appends are **identity-deduplicated** (exactly-once vs at-least-once), and **how many storage nodes / partitions**. The tables below consolidate the study's canonical results so an engineer can size a deployment without reading the full paper; each links to its drill-down appendix.
+
+**Canonical basis:** native distributed rows are spread-key **BM-M4** aggregate ops/s on `aws-t3-medium` (2 vCPU) with default config (topic-index cache on), post-optimization (July 2026). Embedded/SQL rows are sustained **BM-L2/L3** on the same instance class. All `$/M ops` are compute-only, us-west-2 on-demand: `($/hr ÷ ops/s) × 1e6/3600`; clusters billed per node (t3.medium $0.0416/hr, t3.small $0.0208, t4g.medium $0.0336).
+
+### Table 0.1 — Backend selection guide
+
+| Adapter | Durable | Hot-stream ceiling (1 partition) | Spread-key scale ceiling (1 node) | Best $/M ops | Watch out for | Use when |
+|---------|---------|----------------------------------|-----------------------------------|--------------|---------------|----------|
+| `mem` | No | \~100k/s | n/a (in-process) | \~$0.0001 | lost on restart; replay-at-depth FAIL (BM-C2) | tests, non-durable cache, ceiling sizing |
+| `sqlite` | Yes | \~1.9k/s | — (single node) | \~$0.0031 | truncate read regression on ARM (BM-C4 t4g) | best $/op durable log, one machine, ≤\~1.9k/s |
+| `postgres` | Yes | \~250/s | — | \~$0.038 | low ceiling on burstable | reuse existing Postgres, low volume |
+| `surreal-rocksdb` | Yes | \~340–440/s | — | \~$0.029 | 1 h soak growth FAIL (BM-C6); OOM ≤2 GiB | embedded when SurrealDB already in stack; short-lived logs |
+| `scylla` | Yes | \~184/s (post-opt) | 3.1k id-on / 24k+ id-off | \~$0.0005 (id-off) | LWT-bound; needs partition keys to scale | distributed fleet append with partitioned keys |
+| `tikv-raw` | Yes | \~138/s (post-opt) | \~1.2k/node | \~$0.0096 | \~1.1k/s single-client plateau | distributed KV without SurrealDB |
+
+The distributed **`surreal-tikv`** path (\~40 ops/s, \~$0.25/M ops) is not recommended and is excluded from the decision tables — see [Appendix E](#appendix-e--distributed-surrealtikv-extra-data) for the data.
+
+Detail: embedded/SQL → §5.3, §5.5, Appendix D; native distributed → Appendix F (single node), Appendix G (topology).
+
+### Table 0.2 — Cost per 1M operations (compute-only, ascending)
+
+| Config | Instance / nodes | ops/s | $/M ops | Durable |
+|--------|------------------|-------|---------|---------|
+| `mem` L3 | t4g.medium | 99,998 | $0.00009 | No |
+| `scylla` spread, identity off | t3.medium ×1 | 24,279 | $0.00048 | Yes |
+| `scylla` spread, identity off | t3.medium ×2 | 30,682 | $0.00075 | Yes |
+| `sqlite` L2 | t3.small | 1,885 | $0.0031 | Yes |
+| `scylla` spread, identity on | t3.medium ×1 | 3,112 | $0.0037 | Yes |
+| `sqlite` L2 | t4g.medium | 1,928 | $0.0048 | Yes |
+| `tikv-raw` spread | t3.medium ×1 | 1,201 | $0.0096 | Yes |
+| `surreal-rocksdb` load tier | t3.medium | \~400 | $0.029 | Yes |
+| `postgres` L2 | t4g.medium | 246 | $0.038 | Yes |
+
+Detail: Appendix D (Table D-cost), Appendix F/G (native). The distributed `surreal-tikv` path (43.5 ops/s, $0.266/M ops) is excluded here — Appendix E holds it as extra data.
+
+### Table 0.3 — Feature / knob throughput cost
+
+| Feature / knob | Change | Throughput effect | Source |
+|----------------|--------|-------------------|--------|
+| Batching | batch 1 → 1000 | sqlite \~1.95k → \~4.1k/s (\~2×); mem \~213k → \~690k/s; native \~25× | BM-C1 |
+| Identity (idempotent dedupe) | LWT exactly-once → none at-least-once | Scylla \~3.1k → \~14.2k/s (\~4.5×); round trips/append 3.03 → 2.03 | Track Z1 |
+| Topic-index cache (L2, default **on**) | off → on | removes \~1 RT/append; 2n identity-off \~24k → \~31k/s (\~1.3×) | Track Z2 / AA |
+| Telemetry | off → console | negligible (BM-C0 surreal-rocksdb 8.3 → 8.4 ms p50) | BM-C0 / BM-L1 |
+| Write consistency (RF>1) | quorum → one | inert at RF=1; durability tradeoff at RF>1 | Track Z4 |
+| Seq block size / pipelining / pool-per-shard | tune | no material effect (pipelining + pool-per-shard removed) | Tracks Y / Z3 / Z5 |
+
+Detail: Appendix H (Scylla lever catalog + verdicts).
+
+### Table 0.4 — Topology deployment guide (native distributed, `aws-t3-medium`)
+
+| Storage | Nodes | Peak ops/s (id on) | Peak ops/s (id off) | ops/s per node (id on) | vs 1n | $/mo @1M/s (id on) | $/mo @1M/s (id off) |
+|---------|-------|--------------------|--------------------|------------------------|-------|--------------------|--------------------|
+| `scylla` | 1 | 3,112 | 24,279 | 3,112 | 1.00× | $9,779 | $1,275 |
+| `scylla` | 2 | 3,636 | 30,682 | 1,818 | 1.17× | $16,763 | $2,004 |
+| `scylla` | 4 | 3,987 | 29,583 | 997 | 1.28× | $30,489 | $4,130 |
+| `tikv-raw` | 1 | 1,201 | n/a† | 1,201 | 1.00× | $25,296 | — |
+| `tikv-raw` | 2 | 1,608 | n/a† | 804 | 1.34× | $37,778 | — |
+| `tikv-raw` | 4 | 1,620 | n/a† | 405 | 1.35× | $75,070 | — |
+
+† `tikv-raw` has no identity toggle — appends use a transactional write path; there is no LWT to disable.
+
+### Table 0.5 — Topic fan-out (Scylla BM-M5, T=64 topics, L2 on)
+
+Spreading writes across many **topics** is an alternative to spreading across partition keys (Table 0.4). Both behave the same way — identity is the gate, not the spreading method.
+
+| Topology | Identity on (ops/s) | Identity off (ops/s) |
+|----------|---------------------|----------------------|
+| `scylla` ×1 | 3,699 | 23,412 |
+| `scylla` ×2 | 3,831 | 31,257 |
+| `scylla` ×4 | not run (id-on) | 34,133 |
+
+- **With identity on**, fan-out across 8–64 topics stays flat at \~3.5–4.1k ops/s (same LWT ceiling as single-topic key-spread, BM-M4) — topics do **not** break the LWT bound.
+- **With identity off**, topic fan-out scales like key-spread: 23k (1n) → 31k (2n) → 34k (4n), matching/exceeding raw `cassandra-stress`.
+- **Takeaway:** to scale a single hot topic, either spread partition keys or fan out topics — but the \~5–9× jump only comes from turning identity off (at-least-once). Full matrix (T=1/8/64, L2 on/off): [`EXPERIMENTS.md`](EXPERIMENTS.md) Table P5.1 / AA.1, and Appendix H.4.
+
+**Topology recommendations:**
+
+- **Scylla scales sub-linearly** (coordination/bench-bound on `t3.medium`, not storage-saturated — Appendix H). At identity-on, per-node efficiency falls fast: 4 nodes cost \~3× more at 1M/s for only \~6% more peak → **prefer 1–2 nodes**. Identity-off shifts the sweet spot to **2 nodes** (best $/op) but requires at-least-once tolerance.
+- **TiKV** gains \~34% from 1→2 nodes, then flattens; 4 nodes nearly doubles cost for \~1% more peak → **prefer 1–2 nodes**.
+- To exceed \~30k/s (Scylla) or \~1.6k/s (TiKV) per cluster on this instance class, **add clusters/partitions (fleet-out)** rather than nodes-per-cluster, or move to a larger instance class (Phase 5, deferred — Appendix G.2).
+
+**Quick picks:**
+
+- Low-volume durable (≤\~1.9k ops/s), one machine, best $/op → **`sqlite`**.
+- Non-durable ceiling / caches / sizing → **`mem`**.
+- Distributed fleet append → **`scylla`** with partition keys (identity-on \~3–4k ops/s/cluster; identity-off \~24–31k).
+- Distributed KV without SurrealDB → **`tikv-raw`** (\~1.2k ops/s/node, plateaus).
+- Avoid the distributed **`surreal-tikv`** path (\~40 ops/s, \~$0.25/M ops) — kept as extra data in [Appendix E](#appendix-e--distributed-surrealtikv-extra-data) only.
 
 ---
 
@@ -26,7 +119,7 @@ Services that need durable publish, replay, and fanout without adopting a full m
 
 ### 1.2 Motivation
 
-Fleet-scale event transport implies **very high aggregate throughput**—on the order of **~1B events/s** summed across partitions and nodes—plus stable tail latency, bounded checkpoint cost, reclaim under churn, and the ability to **recover and replay** after machine or site failure when data lives on durable backends. This paper evaluates whether Continuum’s **port contract and adapter implementations** exhibit scaling characteristics that could support that volume class when horizontally partitioned.
+Fleet-scale event transport implies **very high aggregate throughput**—on the order of **\~1B events/s** summed across partitions and nodes—plus stable tail latency, bounded checkpoint cost, reclaim under churn, and the ability to **recover and replay** after machine or site failure when data lives on durable backends. This paper evaluates whether Continuum’s **port contract and adapter implementations** exhibit scaling characteristics that could support that volume class when horizontally partitioned.
 
 The same benchmark suite serves **smaller deployments** on cost-effective hardware: adopters need a direct answer—*given my expected ops/s and replay depth, can this modest machine handle the load?* The analysis is **product-agnostic**: no dependency on any particular consumer or upstream system.
 
@@ -41,16 +134,16 @@ The same benchmark suite serves **smaller deployments** on cost-effective hardwa
 
 ### 1.4 Scope
 
-- **In scope:** Continuum-only harness (`continuum-bench`); adapters `mem`, `surreal-mem`, `surreal-rocksdb`, `surreal-tikv` (TiKV-backed remote Surreal), `sqlite`, `postgres`, **`scylla`** (native CQL), **`tikv-raw`** (PD client, no Surreal).
+- **In scope:** Continuum-only harness (`continuum-bench`); adapters `mem`, `surreal-mem`, `surreal-rocksdb`, `sqlite`, `postgres`, **`scylla`** (native CQL), **`tikv-raw`** (PD client, no Surreal). The distributed `surreal-tikv` path is measured but kept as extra data only (Appendix E).
 - **Out of scope:** In-repo competitor harnesses; `stub` telemetry (not implemented); claiming current systems reach 1B/s aggregate; BM-R0 reopen-after-crash (future).
 
 ### 1.5 Contributions
 
-- Consolidated methodology for adapter comparison at a single hardware profile.
-- Lab baseline (39 runs, dev-wsl) with pass/fail against pre-registered criteria.
-- **Cloud partial baseline** (cost-effective tier, June 2026): throughput, replay/checkpoint/truncate paths, and $/op sizing on `aws-t3-*` and `aws-t4g-medium` (Appendix D).
+- **Cloud baseline on rentable AWS instances** (cost-effective tier): throughput, replay/checkpoint/truncate paths, and $/op sizing on `aws-t3-*` and `aws-t4g-medium` (Appendix D) — the primary, reproducible hardware reference.
+- **Native distributed baseline** on `aws-t3-medium` clusters (`scylla`, `tikv-raw`), 1–4 nodes, with identity and topology cost tables (§0, Appendix F/G).
+- Consolidated methodology for adapter comparison across a tiered hardware matrix.
 - Analytical framework linking workloads to fleet-scale requirements (§3, §5).
-- Roadmap for **tiered** hardware baselines (cost-effective sizing + scale envelope) and future high-throughput adapters (§7).
+- A single-box WSL2 lab run (Appendix A) as early method validation only.
 
 ---
 
@@ -82,25 +175,13 @@ Payloads are opaque ciphertext; encryption is above the port ([`README.md`](../R
 | `mem` | In-memory `HashMap` | Algorithmic ceiling (non-durable) |
 | `surreal-mem` | SurrealDB `mem://` | Engine overhead without disk |
 | `surreal-rocksdb` | SurrealDB `rocksdb://{tempdir}` | Durable embedded path |
-| `surreal-tikv` | Remote SurrealDB → TiKV (`CONTINUUM_BENCH_SURREAL_URL`) | Distributed durable path (campaign §7.2) |
+| `surreal-tikv` | Remote SurrealDB → TiKV (`CONTINUUM_BENCH_SURREAL_URL`) | *Extra data only* — poor throughput (\~40/s); see Appendix E |
 | **`scylla`** | Native ScyllaDB CQL (`continuum-backend-scylla`) | Purpose-built distributed adapter; LWT seq per partition |
 | **`tikv-raw`** | Native TiKV transactional KV (`continuum-backend-tikv-raw`) | Direct PD client; single txn per append batch |
 | postgres | Supported when `CONTINUUM_BENCH_POSTGRES_URL` set | Requires external Postgres |
 | sqlite | Supported | Embedded temp file in matrix |
 
-### 2.5 Distributed backend model (Surreal + TiKV)
-
-Production-scale Continuum deployments may use a three-tier stack:
-
-```
-Continuum (port)  →  SurrealDB (compute)  →  TiKV (storage)
-```
-
-- **Continuum** injects a remote `Surreal<Any>` client — same `SurrealLocalLogBackend` as embedded paths.
-- **SurrealDB** is stateless at the query layer; durability and replication are delegated to TiKV.
-- **TiKV** topology (PD count, TiKV node count) is a first-class benchmark dimension (`tikv_topology` in report JSON).
-
-Continuum never talks to TiKV directly in the Surreal path. TiKV affects port-level metrics only through Surreal latency and throughput. Lab provisioning: [`infra/surreal-tikv/README.md`](../infra/surreal-tikv/README.md).
+> The **distributed Surreal→TiKV** path (`surreal-tikv`) delivered poor throughput (\~40 ops/s) and is **not part of the main study** — it is retained as extra data in [Appendix E](#appendix-e--distributed-surrealtikv-extra-data) and [`EXPERIMENTS.md`](EXPERIMENTS.md). The native distributed adapters below (`scylla`, `tikv-raw`) are the recommended fleet-scale path.
 
 ### 2.6 Native distributed adapters (Scylla + raw TiKV)
 
@@ -120,7 +201,7 @@ Host (LogStreamId.key)  →  ScyllaLogBackend / TikvRawLogBackend  →  token ri
 
 Benchmarks: `native-lab` (parity vs sqlite), `native-scale` (BM-P1/P2/M1/M2 partition and client sweeps). Infra: [`infra/scylla/`](../infra/scylla/), [`infra/tikv-raw/`](../infra/tikv-raw/), [`infra/native-aws/`](../infra/native-aws/) (AWS t3.medium campaigns).
 
-**aws-t3-medium Phase A (July 2026):** colocated `scylla-1` and `tikv-minimal` on separate t3.medium hosts. Native C1 batch throughput **~1.6–1.8k/s** (≈ sqlite); hot-stream L3 **~64/s scylla**, **~45/s tikv-raw** without partition keys. See Appendix F and [`EXPERIMENTS.md`](EXPERIMENTS.md) native-lab section.
+**aws-t3-medium Phase A (July 2026):** colocated `scylla-1` and `tikv-minimal` on separate t3.medium hosts. Native C1 batch throughput **\~1.6–1.8k/s** (≈ sqlite); hot-stream L3 **\~64/s scylla**, **\~45/s tikv-raw** without partition keys. See Appendix F and [`EXPERIMENTS.md`](EXPERIMENTS.md) native-lab section.
 
 ```mermaid
 flowchart TB
@@ -165,7 +246,7 @@ Fleet projection: `partitions_for_1e9 = ceil(1e9 / per_partition_ceiling)` using
 
 ## 3. Target scale analysis (aspirational)
 
-Fleet-scale aggregate target: **~1B events/s** across the fleet. This section decomposes requirements on the **storage port**—not a performance claim.
+Fleet-scale aggregate target: **\~1B events/s** across the fleet. This section decomposes requirements on the **storage port**—not a performance claim.
 
 ### 3.1 Partitioning
 
@@ -202,7 +283,7 @@ BM-C1 measures events/s vs batch size {1, 10, 100, 1000}. Fleet-scale production
 
 ### 3.5 Hypothesis
 
-General-purpose embedded adapters (Surreal/RocksDB) establish **correctness and scaling shape** on lab hardware. Extreme aggregate rates likely require **distributed Surreal/TiKV** (measured via `surreal-tikv` dimension) and/or a **purpose-built adapter** (future work)—co-designed with partitioning, checkpoint coalescing, and read paging.
+General-purpose embedded adapters (Surreal/RocksDB) establish **correctness and scaling shape** on the baseline AWS instances. Extreme aggregate rates likely require **distributed Surreal/TiKV** (measured via `surreal-tikv` dimension) and/or a **purpose-built adapter** (native `scylla` / `tikv-raw`)—co-designed with partitioning, checkpoint coalescing, and read paging.
 
 ### 3.6 Multi-component scaling decomposition
 
@@ -237,20 +318,20 @@ Use `continuum-bench project-fleet` with BM-L* report JSONs to project partition
 
 ### 4.1 Experimental dimensions
 
-| Dimension | Values (lab) | Rationale |
-|-----------|--------------|-----------|
-| Storage | mem, surreal-mem, surreal-rocksdb | Adapter comparison |
-| Topology | isolated-lab; shared-handle (BM-C5) | Deployment shape |
+| Dimension | Values | Rationale |
+|-----------|--------|-----------|
+| Storage | mem, surreal-mem, surreal-rocksdb, sqlite, postgres, scylla, tikv-raw | Adapter comparison |
+| Topology | isolated-lab; shared-handle (BM-C5); native 1–4 node clusters | Deployment shape |
 | Telemetry | off; console (BM-C0, BM-L1) | Instrumentation overhead |
-| Hardware | dev-wsl | Reproducible lab baseline |
+| Hardware | **`aws-t3-medium`, `aws-t3-small`, `aws-t4g-medium` (primary, rentable)** | Reproducible standard-hardware baseline |
 
-**Future hardware profiles:** tiered matrix so the paper answers both **fleet-scale ceiling** and **cost-effective sizing** (see §7.2):
+**Hardware tiers** — the paper answers both **fleet-scale ceiling** and **cost-effective sizing** on hardware anyone can rent (see §7.2):
 
-| Tier | Example profiles | Question answered |
-|------|------------------|-------------------|
-| Lab | `dev-wsl` (done) | Method validation |
-| Cost-effective | `ci-small`, `aws-t3.medium`, `aws-t3.small`, `aws-t4g.small`, `bare-metal-small` | *Can this modest machine handle my expected load?* |
-| Scale | `aws-c7i.4xlarge`, `aws-i4i.xlarge`, `bare-metal-large` | *What is the upper envelope on high-end hardware?* |
+| Tier | Profiles | Question answered |
+|------|----------|-------------------|
+| **Cost-effective (primary)** | `aws-t3.medium`, `aws-t3.small`, `aws-t4g.medium` | *Can this modest rentable machine handle my expected load?* |
+| **Scale** | `aws-c7i.4xlarge`, `aws-i4i.xlarge` | *What is the upper envelope on high-end hardware?* |
+| Validation only | `dev-wsl` (single-box WSL2, Appendix A) | Method validation — not a hardware baseline |
 
 ### 4.2 Hardware profiling
 
@@ -272,9 +353,7 @@ Each run JSON records ([`harness/hardware.rs`](src/harness/hardware.rs)):
 | `system_mem_used_bytes_start` / `end` / `peak` | Host used RAM (isolates sizing on dedicated cloud instances) |
 | `sample_count`, `sample_interval_ms` | Sampling metadata |
 
-**Lab `dev-wsl`** does not record `resource_profile` — the dev box runs other workloads; Appendix A remains a **sanity / method-validation** baseline. Cloud appendices use resource peaks for sizing tables (e.g. “peak RSS 890 MiB on `aws-t3-medium` at BM-L1”).
-
-Lab profile (Appendix A.1): Intel i7-11700KF, 16 cores, 19 GiB RAM, root on `/dev/sdd` ext4, host NVMe **X16 SSD 2TB**.
+Cloud (AWS) profiles are the primary baseline — the appendices use their resource peaks for sizing tables (e.g. “peak RSS 890 MiB on `aws-t3-medium` at BM-L1”). The single-box **`dev-wsl`** lab run does not record `resource_profile` (the dev box runs other workloads), so Appendix A is retained only as an early **method-validation** baseline, not for sizing.
 
 ### 4.3 Workloads
 
@@ -294,7 +373,7 @@ Lab profile (Appendix A.1): Intel i7-11700KF, 16 cores, 19 GiB RAM, root on `/de
 ### 4.4 Execution protocol
 
 ```bash
-cargo run --release -p continuum-bench -- matrix --hardware dev-wsl
+cargo run --release -p continuum-bench -- matrix --hardware aws-t3-medium
 cargo run --release -p continuum-bench -- matrix --from bm-c4 --skip-existing
 cargo run -p continuum-bench -- run bm-c0 --storage mem --telemetry off
 ```
@@ -305,24 +384,16 @@ cargo run -p continuum-bench -- run bm-c0 --storage mem --telemetry off
 
 ### 4.5 Limitations
 
-- **Single-node lab** on WSL2—not cloud or bare metal.
+- **Burstable AWS instances** (`t3`/`t4g`) are the primary baseline, plus 1–4 node `t3.medium` clusters for native adapters — no bare-metal or high-end (`c7i`/`i4i`) numbers yet (§7.2, Appendix G.2 deferred). The single-box WSL2 lab run is method-validation only.
 - **No competitor in-repo baselines**; related work cites published external numbers only.
 - **Stub SQL backends** skipped.
 - **BM-C6 surreal-rocksdb:** growth ratio compares on-disk active growth vs idle RocksDB baseline; small baseline denominator can inflate ratio (lab run: 101×)—interpret with care.
 - **BM-C2 mem FAIL:** in-process structure may not meet “flat at 100k” criterion despite low absolute latency.
 - **Load tiers:** pass criteria is error rate; **achieved ops/s** may fall below target on slow adapters (recorded in metrics).
 
-### 4.6 Multi-component experimental dimensions (TiKV campaign)
+### 4.6 Multi-component dimensions (distributed Surreal→TiKV — extra data)
 
-**This campaign (Phases 0–3):** budget cloud only — colocated `tikv-minimal` on `aws-t4g-medium` / `aws-t3-medium`. **Phase 4** (topology/count sweeps via multi-EC2) is deferred until `infra/surreal-tikv-aws/` is merged.
-
-| Dimension | Values | Rationale |
-|-----------|--------|-----------|
-| `storage=surreal-tikv` | Distinct from embedded `surreal-rocksdb` | Unambiguous distributed path in reports |
-| `tikv_topology` | `tikv-minimal`, `tikv-ha-3`, `tikv-scale-5` | Isolate storage-layer scaling |
-| `surreal_instances` | 1, 2, 4 | Surreal compute scale-out (Phase 4) |
-| `surreal_deployment` | `colocated`, `remote`, `multi-node` | Host separation vs single-host lab |
-| `component_hardware` | runtime / surreal / tikv slugs | Per-tier sizing when components run on different instances |
+The dimensions for the distributed `surreal-tikv` campaign (`tikv_topology`, `surreal_instances`, `surreal_deployment`, `component_hardware`) are documented with the results in [Appendix E](#appendix-e--distributed-surrealtikv-extra-data). That path is not part of the recommended study; the native adapters use the standard dimensions in §4.1.
 
 Matrix slices: `tikv-lab-colocated`, `tikv-topology`, `surreal-scale`, `tikv-projection-inputs` — see [`EXPERIMENTS.md`](EXPERIMENTS.md). Use `--tikv-topology` on `matrix` to match live compose preset.
 
@@ -361,19 +432,18 @@ flowchart LR
   workloads --> adapters
 ```
 
-### 5.3 Lab headline patterns (dev-wsl)
+### 5.3 Method-validation patterns (dev-wsl lab, Appendix A)
 
-See Appendix A for full tables. Summary:
+The single-box WSL2 run validated the harness and pass/fail criteria before the AWS campaigns; it is **not** a hardware baseline — the headline numbers are the AWS results in §5.5. Qualitative patterns that carried over (full tables in Appendix A):
 
-- **Batch scaling (BM-C1):** All adapters benefit from batching; mem ~1.8M events/s at batch 1000; surreal-rocksdb ~3.4k/s at batch 1000 vs 115/s at batch 1.
-- **Tail read (BM-C2):** surreal-mem/rocksdb PASS flat-at-100k criterion; mem FAIL (p95 ratio vs 1k rows).
-- **Sustained load:** mem meets 100k ops/s target; surreal-mem ~850/s at L3; surreal-rocksdb ~25–110/s at L1–L3 on lab NVMe—**orders of magnitude below fleet-scale per-node targets**.
-- **Soak (BM-C6):** mem and surreal-mem PASS (<2× baseline); surreal-rocksdb FAIL on lab (disk growth vs idle baseline).
+- **Batch scaling (BM-C1):** all adapters benefit from batching.
+- **Tail read (BM-C2):** surreal-mem/rocksdb PASS flat-at-100k; mem FAIL (p95 ratio vs 1k rows).
+- **Soak (BM-C6):** mem and surreal-mem PASS (<2× baseline); surreal-rocksdb FAIL (disk growth vs idle baseline).
 - **Co-tenancy (BM-C5):** surreal-mem PASS; mem and surreal-rocksdb FAIL on growth-ratio criterion.
 
 ### 5.4 Link to fleet-scale target
 
-Lab durable paths do **not** approach 1B/s aggregate on one node—expected. The suite establishes **which operations dominate cost** (batch vs single append, disk vs memory engine) and **which pass criteria fail first** on general-purpose adapters—inputs for cloud baselines and custom adapter design (§7).
+Single-node durable paths do **not** approach 1B/s aggregate on one node—expected. The suite establishes **which operations dominate cost** (batch vs single append, disk vs memory engine) and **which pass criteria fail first** on general-purpose adapters—inputs for the AWS baselines and custom adapter design (§7).
 
 ### 5.5 Cloud headline patterns (cost-effective tier, June 2026)
 
@@ -381,52 +451,22 @@ See Appendix D for full tables. Summary by research question (§1.3).
 
 #### 5.5.1 Throughput and cost (RQ1, RQ4)
 
-- **SQLite ceiling ~1,870–1,930 ops/s** at L2/L3 on `t3.small`, `t3.medium`, and `t4g.medium`—instance size does not change throughput within this burstable tier (adapter/EBS bound).
-- **`mem`** meets 10k/s (L2) and ~100k/s (L3) on cloud; not durable.
-- **Batch scaling (BM-C1):** sqlite ~1.4–2k/s → ~3.8–4.1k/s at batch 1000; postgres (t4g) ~248/s → ~516/s.
-- **Cost per 1M ops** (us-west-2 on-demand Linux, compute only): best durable = **t3.small + sqlite L2 ~$0.0031**; t4g postgres ~$0.0379; mem L3 ~$0.00009 (not durable). Excludes EBS and co-located Postgres Docker overhead.
+- **SQLite ceiling \~1,870–1,930 ops/s** at L2/L3 on `t3.small`, `t3.medium`, and `t4g.medium`—instance size does not change throughput within this burstable tier (adapter/EBS bound).
+- **`mem`** meets 10k/s (L2) and \~100k/s (L3) on cloud; not durable.
+- **Batch scaling (BM-C1):** sqlite \~1.4–2k/s → \~3.8–4.1k/s at batch 1000; postgres (t4g) \~248/s → \~516/s.
+- **Cost per 1M ops** (compute only): best durable general-purpose = **t3.small + sqlite L2 \~$0.0031**; native scylla is cheaper per op at scale (see [Table 0.2](#table-02--cost-per-1m-operations-compute-only-ascending)). Excludes EBS and co-located Postgres Docker overhead.
 
 #### 5.5.2 Operational paths: replay, resume, reclaim, soak (RQ2–3, RQ5–6)
 
-- **Replay at depth (BM-C2, RQ2):** sqlite, postgres (t4g), surreal-mem, surreal-rocksdb **PASS** flat-at-100k on cloud EBS (sqlite p95@100k ~0.09 ms; postgres ~0.61 ms). **`mem` FAIL** on all cloud profiles (same as lab)—low absolute latency but fails ratio criterion.
-- **Checkpoint resume (BM-C3, RQ3):** all durable adapters **PASS** flat decile slope; postgres checkpoint p95 ~2 ms (t4g) vs sqlite ~0.3 ms.
+- **Replay at depth (BM-C2, RQ2):** sqlite, postgres (t4g), surreal-mem, surreal-rocksdb **PASS** flat-at-100k on cloud EBS (sqlite p95@100k \~0.09 ms; postgres \~0.61 ms). **`mem` FAIL** on all cloud profiles (same as lab)—low absolute latency but fails ratio criterion.
+- **Checkpoint resume (BM-C3, RQ3):** all durable adapters **PASS** flat decile slope; postgres checkpoint p95 \~2 ms (t4g) vs sqlite \~0.3 ms.
 - **Truncate reclaim (BM-C4, RQ3):** postgres **PASS** on t4g (0.93× post/pre; truncate deleted rows successfully—not OOM). surreal paths PASS. sqlite **FAIL on t4g ARM only** (8.49× read regression post-truncate); PASS on t3 x86. t3 postgres runs **invalid** (adapter init failure before truncate).
-- **Soak (BM-C6, RQ5):** surreal-rocksdb **FAIL** (~105–110× growth) on t3.medium/t4g.medium; mem/surreal-mem PASS. sqlite/postgres soak **not run** in SQL subset.
+- **Soak (BM-C6, RQ5):** surreal-rocksdb **FAIL** (\~105–110× growth) on t3.medium/t4g.medium; mem/surreal-mem PASS. sqlite/postgres soak **not run** in SQL subset.
 - **Crash reopen (RQ6):** proxied by BM-C2 + BM-C3 on live durable store; **BM-R0 not run**.
 
-### 5.6 Distributed budget patterns (surreal-tikv — June 2026)
+### 5.6 Distributed Surreal→TiKV (excluded — extra data)
 
-Colocated `tikv-minimal` on burstable 4 GiB instances (4 GiB swap). Source: 18 reports (`9` per `aws-t4g-medium` / `aws-t3-medium`).
-
-#### Throughput ceiling (RQ1)
-
-| Adapter | aws-t4g.medium L2–L3 | aws-t3.medium L2–L3 |
-|---------|---------------------|---------------------|
-| sqlite (Appendix D) | ~1,928 ops/s | ~1,909 ops/s |
-| surreal-rocksdb (Appendix D) | ~340–440 ops/s | ~340–440 ops/s |
-| **surreal-tikv minimal** | **~38 ops/s** | **~43 ops/s** |
-
-Distributed TiKV path on colocated budget is **orders of magnitude below** embedded sqlite and **~10× below** embedded surreal-rocksdb. Ceiling is flat across L0–L3 (adapter-saturated well below 100 ops/s target tier).
-
-#### Operational paths (RQ2–3)
-
-- **Batch (BM-C1):** batching helps (~3×) but absolute rates remain low (37→124/s t4g; 43→142/s t3).
-- **Replay (BM-C2):** PASS flat-at-100k on both profiles (p95@100k ~5.6ms t4g, ~7.9ms t3).
-- **Checkpoint (BM-C3):** PASS t4g; **FAIL t3** on decile slope (p95 ~15.3ms both — criterion sensitive).
-- **Truncate (BM-C4):** PASS both (post/pre ~1.0×).
-
-#### Cost (RQ4)
-
-| Profile | Ceiling (L3) | $/M ops (compute) | vs sqlite L2 (Appendix D) |
-|---------|--------------|-------------------|---------------------------|
-| t4g.medium | 37.7/s | $0.248 | ~80× more expensive per op |
-| t3.medium | 43.5/s | $0.266 | ~85× more expensive per op |
-
-Fleet projection to 1B/s requires **tens of millions** of colocated minimal nodes — not a viable scale path at measured ceilings; topology scaling (Phase 4) untested.
-
-#### Not answered on colocated budget
-
-TiKV count (1 vs 3 vs 5), Surreal instance count (2n/4n), cross-host latency, multi-AZ — require multi-EC2 infra (`infra/surreal-tikv-aws/`, Phase 4).
+The distributed `surreal-tikv` path was measured (colocated `tikv-minimal` on burstable 4 GiB instances) but delivered only **\~38–43 ops/s** — orders of magnitude below embedded sqlite and \~10× below embedded surreal-rocksdb, at \~$0.25/M ops. It is **not part of the recommended path**; the full budget-tier data lives in [Appendix E](#appendix-e--distributed-surrealtikv-extra-data). Use the native adapters (`scylla`, `tikv-raw`, §5.5.x / Appendix F/G) for distributed deployments.
 
 ---
 
@@ -446,42 +486,35 @@ Continuum is a **storage port**, not a message broker or system of record. Capab
 
 ## 7. Conclusions and future work
 
-### 7.1 Conclusions (lab phase)
+### 7.1 Conclusions (adapter behavior)
 
-1. **Adapter ranking (scaling shape):** mem > surreal-mem > surreal-rocksdb for raw throughput on lab hardware; durable path is disk-bound at sustained load.
+1. **Adapter ranking (scaling shape):** mem > surreal-mem > surreal-rocksdb for raw throughput; the durable path is disk-bound at sustained load (confirmed on AWS, §7.1.2).
 2. **Port overhead** is separable: mem vs surreal-mem isolates engine cost from port contract.
 3. **Batching is necessary** for any approach to high aggregate rates (BM-C1).
-4. **Gaps vs fleet-scale target:** single-node durable adapters are **orders of magnitude** below 1B/s aggregate; lab establishes baseline envelope and failure modes (checkpoint drift on rocksdb, soak growth, co-tenancy on some paths).
-5. **Pass/fail summary:** 33/39 lab runs PASS; failures concentrated in BM-C2 (mem), BM-C3/C5/C6 (surreal-rocksdb), BM-C5 (mem)—Appendix A.4.
+4. **Gaps vs fleet-scale target:** single-node durable adapters are **orders of magnitude** below 1B/s aggregate; partitioning plus the native adapters (§0, Appendix F/G) are the scale path.
+5. **Method validation:** the single-box dev-wsl lab run (33/39 PASS; failures in BM-C2 mem, BM-C3/C5/C6 surreal-rocksdb, BM-C5 mem — Appendix A.4) validated the criteria before the AWS campaigns; it is not a hardware baseline.
 
 ### 7.1.2 Conclusions (cloud phase, partial — June 2026)
 
 Cost-effective tier: `aws-t3-small`, `aws-t3-medium`, `aws-t4g-medium` (Appendix D). **t3 postgres invalid** (pre-fix adapter); conclusions below use t4g postgres + sqlite on all profiles.
 
-1. **RQ1 — Batch append:** batching essential on cloud; sqlite ~2× at batch 1000; postgres ~2× on t4g at much lower absolute rates.
+1. **RQ1 — Batch append:** batching essential on cloud; sqlite \~2× at batch 1000; postgres \~2× on t4g at much lower absolute rates.
 2. **RQ2 — Replay at depth:** durable adapters PASS BM-C2 on cloud EBS up to 100k rows; adopters with deep replay on burstable instances are within pre-registered bounds for sqlite/postgres/surreal.
 3. **RQ3 — Checkpoint + truncate:** checkpoint path flat on all durable adapters; truncate stable on postgres/surreal; sqlite truncate unstable on **t4g ARM only** (investigate before churn-heavy ARM + sqlite).
-4. **RQ4 — Sustained load + cost:** sqlite ~2k/s durable ceiling regardless of instance size within tier; **t3.small + sqlite** best $/op among durable options; postgres ~250/s class suitable for low-volume durable logs.
+4. **RQ4 — Sustained load + cost:** sqlite \~2k/s durable ceiling regardless of instance size within tier; **t3.small + sqlite** best $/op among durable options; postgres \~250/s class suitable for low-volume durable logs.
 5. **RQ5 — Long-run growth:** surreal-rocksdb unsuitable for 1 h embedded soak on burstable cloud; SQL long-run stability **not measured** (BM-C6 skipped in SQL subset).
 6. **RQ6 — Recovery proxy:** C2+C3 PASS on t4g sqlite/postgres supports port-level replay/resume on running store; explicit reopen-after-crash (BM-R0) still needed.
 7. **Instance viability:** t3.small not viable for full surreal-rocksdb matrix (memory hang on BM-C1); sqlite and lite mem/surreal-mem OK.
 
-### 7.1.3 Distributed conclusions (budget tier — June 2026)
+### 7.1.3 Distributed Surreal→TiKV (excluded — extra data)
 
-Colocated `tikv-minimal` on `aws-t4g-medium` / `aws-t3-medium` **is viable** with 4 GiB swap (PD + 1 TiKV + 1 Surreal + bench on one instance).
-
-1. **RQ1 — Ceiling:** ~38 ops/s (ARM) / ~43 ops/s (x86) sustained — far below embedded sqlite (~1.9k/s) and surreal-rocksdb (~400/s) on the same tier.
-2. **RQ2 — Replay:** PASS at 100k depth on both profiles.
-3. **RQ3 — Checkpoint/truncate:** truncate PASS; checkpoint PASS on t4g, FAIL decile slope on t3 (marginal).
-4. **RQ4 — Cost:** $0.25–0.27/M ops compute-only vs ~$0.003–0.005/M for sqlite — distributed minimal colocated is not cost-competitive at these ceilings.
-5. **RQ5 — Soak:** BM-C6 not run (deferred until path stable).
-6. **Topology scaling:** Cannot conclude TiKV/Surreal count effects without multi-EC2 (Phase 4 deferred).
+The distributed `surreal-tikv` path was measured but is **not a recommended path**: \~38–43 ops/s at \~$0.25/M ops (orders of magnitude below sqlite and native adapters). Details in [Appendix E](#appendix-e--distributed-surrealtikv-extra-data); the recommended distributed path is native `scylla` / `tikv-raw` (§7.1.2 / Appendix F/G).
 
 ### 7.2 Future work
 
 Benchmark coverage should span **two adoption questions**, not only fleet-scale ceilings:
 
-1. **Scale path** — what throughput/latency is achievable on high-end hardware (informing partition count toward ~1B/s aggregate)?
+1. **Scale path** — what throughput/latency is achievable on high-end hardware (informing partition count toward \~1B/s aggregate)?
 2. **Cost-effective path** — on a **small or budget instance**, can Continuum + a chosen adapter sustain *your* target load (e.g. 1k–10k ops/s, bounded replay depth) with acceptable p99 and recovery behavior?
 
 #### Hardware matrix (tiered)
@@ -493,7 +526,7 @@ Extend `Hardware` enum in [`dimensions.rs`](src/harness/dimensions.rs) and run t
 | Profile | Planned instance / disk | Typical use |
 |---------|-------------------------|-------------|
 | `ci-small` | Small CI / dev VM (2–4 vCPU, modest RAM) | Minimum viable baseline |
-| `aws-t3.medium` | General-purpose burstable (~2 vCPU, EBS) | Common low-cost cloud |
+| `aws-t3.medium` | General-purpose burstable (\~2 vCPU, EBS) | Common low-cost cloud |
 | `aws-t4g.small` | ARM burstable | Cost-optimized cloud |
 | `bare-metal-small` | Entry dedicated / small VPS NVMe | Self-hosted budget |
 
@@ -511,7 +544,7 @@ Large instances establish **headroom** for scale-out design; they are not prescr
 
 #### Other experiments
 
-3. **Distributed Surreal/TiKV campaign** — phased study via `infra/surreal-tikv/` compose presets and matrix slices (`tikv-lab-colocated` → `tikv-topology` → `surreal-scale`). Existing BM-C*/L* apply; results populate Appendix E. `project-fleet` builds 1B/s decomposition from BM-L* ceilings.
+3. **Distributed Surreal/TiKV** — deprioritized after the budget-tier campaign measured only \~40 ops/s (Appendix E, extra data). Multi-EC2 topology sweeps remain possible but are not a priority given the native adapters (`scylla`, `tikv-raw`) already provide the recommended distributed path.
 
 4. **Purpose-built high-throughput adapter** — design from §3 decomposition if distributed Surreal/TiKV ceilings are insufficient.
 
@@ -523,7 +556,9 @@ Large instances establish **headroom** for scale-out design; they are not prescr
 
 ---
 
-## Appendix A — Lab results (dev-wsl, June 2025)
+## Appendix A — Early lab results (dev-wsl, method validation only)
+
+> **Not a hardware baseline.** These are the earliest runs on a single-box WSL2 dev machine (June 2025), retained only to show the harness and pass/fail criteria worked before the AWS campaigns. For sizing and cost decisions use the AWS results (§0, Appendix D/F/G).
 
 Source: 39 JSON reports under [`profiling/continuum-bench/reports/`](../profiling/continuum-bench/reports/).
 
@@ -536,7 +571,7 @@ Source: 39 JSON reports under [`profiling/continuum-bench/reports/`](../profilin
 | Cores | 16 |
 | RAM | 19 GiB |
 | OS | Linux WSL2 (6.18.33.1-microsoft-standard-WSL2) |
-| Root mount | `/dev/sdd` → `/` ext4 ~1.9 TiB |
+| Root mount | `/dev/sdd` → `/` ext4 \~1.9 TiB |
 | Host drive | X16 SSD 2TB, NVMe (`J:\wsl\ubuntu`) |
 
 ### Table A.2 — Core experiments (telemetry off, isolated-lab unless noted)
@@ -607,16 +642,16 @@ Source: JSON reports under [`profiling/continuum-bench/reports/`](../profiling/c
 
 | Profile | Instance | Date | Reports | Isolated-lab/off PASS | Max sustained (durable) | Notes |
 |---------|----------|------|---------|----------------------|---------------------------|-------|
-| `aws-t3.medium` | 2 vCPU, 4 GiB, EBS x86 | 2026-06-26 | 59 | 37/48 | sqlite ~1909/s L2 | Full matrix; postgres invalid |
-| `aws-t3.small` | 2 vCPU, 2 GiB, EBS x86 | 2026-06-26 | 47 | 28/38 | sqlite ~1885/s L2 | Full matrix not viable; SQL subset complete |
-| `aws-t4g.medium` | 2 vCPU, 4 GiB, EBS ARM | 2026-06-27 | 59 | 45/48 | sqlite ~1928/s L2 | Full matrix; valid postgres baseline |
+| `aws-t3.medium` | 2 vCPU, 4 GiB, EBS x86 | 2026-06-26 | 59 | 37/48 | sqlite \~1909/s L2 | Full matrix; postgres invalid |
+| `aws-t3.small` | 2 vCPU, 2 GiB, EBS x86 | 2026-06-26 | 47 | 28/38 | sqlite \~1885/s L2 | Full matrix not viable; SQL subset complete |
+| `aws-t4g.medium` | 2 vCPU, 4 GiB, EBS ARM | 2026-06-27 | 59 | 45/48 | sqlite \~1928/s L2 | Full matrix; valid postgres baseline |
 | `ci-small` | TBD | — | — | — | — | — |
 | `aws-t4g.small` | ARM burstable | — | — | — | — | — |
 | `bare-metal-small` | TBD | — | — | — | — | — |
 
 ### D.1.1 `aws-t3.small` — partial full matrix + SQL subset
 
-**Instance:** `t3.small`, us-west-2, Amazon Linux 2023, 2 vCPU, ~1.9 GiB RAM, 20 GiB gp3 EBS.
+**Instance:** `t3.small`, us-west-2, Amazon Linux 2023, 2 vCPU, \~1.9 GiB RAM, 20 GiB gp3 EBS.
 
 **Outcome:** Full 39-run matrix **not completed** — stalled on **BM-C1 `surreal-rocksdb`** (memory pressure on 2 GiB). Lite `mem`/`surreal-mem` matrix and **20-run SQL subset** (`--subset sql`) completed and synced.
 
@@ -626,17 +661,17 @@ Early partial (8 reports at stall): BM-C0–C1 mem/surreal-mem/surreal-rocksdb o
 
 ### D.1.2 `aws-t3.medium` — full matrix + SQL subset
 
-**Instance:** `t3.medium`, us-west-2, x86, 2 vCPU, ~3.7 GiB RAM, gp3 EBS. Full **39-run** matrix completed (telemetry duplicates → 59 reports total).
+**Instance:** `t3.medium`, us-west-2, x86, 2 vCPU, \~3.7 GiB RAM, gp3 EBS. Full **39-run** matrix completed (telemetry duplicates → 59 reports total).
 
-**Headlines:** mem ~100k/s L3; sqlite ~1909/s L2 with flat replay (BM-C2 PASS 0.089 ms @100k); surreal-rocksdb BM-C6 FAIL (109.77× soak). Postgres all invalid on this profile.
+**Headlines:** mem \~100k/s L3; sqlite \~1909/s L2 with flat replay (BM-C2 PASS 0.089 ms @100k); surreal-rocksdb BM-C6 FAIL (109.77× soak). Postgres all invalid on this profile.
 
-**Native adapters (July 2026):** colocated scylla/tikv-raw Phase A — see **Appendix F**. Batch C1 ~1766/s scylla, ~1577/s tikv-raw; hot-stream L3 ~64/s and ~45/s without partition keys.
+**Native adapters (July 2026):** colocated scylla/tikv-raw Phase A — see **Appendix F**. Batch C1 \~1766/s scylla, \~1577/s tikv-raw; hot-stream L3 \~64/s and \~45/s without partition keys.
 
 ### D.1.3 `aws-t4g-medium` — full matrix + SQL subset
 
-**Instance:** `t4g.medium`, us-west-2, ARM, 2 vCPU, ~3.7 GiB RAM, gp3 EBS. Postgres via co-located Docker (`postgres:16-alpine`).
+**Instance:** `t4g.medium`, us-west-2, ARM, 2 vCPU, \~3.7 GiB RAM, gp3 EBS. Postgres via co-located Docker (`postgres:16-alpine`).
 
-**Headlines:** mem ~100k/s L3; sqlite ~1928/s L2; postgres ~246/s L2 with **PASS** replay (0.61 ms @100k), checkpoint (2.17 ms p95), truncate (0.93× post/pre, 24,999 rows removed). sqlite BM-C4 truncate **FAIL** (8.49×). surreal-rocksdb BM-C6 FAIL (105.65×).
+**Headlines:** mem \~100k/s L3; sqlite \~1928/s L2; postgres \~246/s L2 with **PASS** replay (0.61 ms @100k), checkpoint (2.17 ms p95), truncate (0.93× post/pre, 24,999 rows removed). sqlite BM-C4 truncate **FAIL** (8.49×). surreal-rocksdb BM-C6 FAIL (105.65×).
 
 ### Table D-C — Core experiments (telemetry off, isolated-lab unless noted)
 
@@ -676,7 +711,7 @@ Pass criterion: p95@100k ≤ 2× p95@1k.
 | surreal-mem | 0.993 | 0.332 | 0.318 | PASS |
 | surreal-rocksdb | 0.407 | 0.398 | 0.668 | PASS |
 
-sqlite/postgres on t3 x86: PASS @100k (~0.089–0.092 ms sqlite; postgres invalid).
+sqlite/postgres on t3 x86: PASS @100k (\~0.089–0.092 ms sqlite; postgres invalid).
 
 ### Table D-checkpoint — BM-C3 + BM-C4 (`aws-t4g-medium`)
 
@@ -699,7 +734,7 @@ Target vs achieved ops/s and p99. Error rate PASS (&lt;0.1%) on all listed runs.
 | **BM-L2** | 10,000 | 1885 / 0.79 ms | 1909 / 0.79 ms | 1928 / 0.75 ms | 246 / 5.63 ms |
 | **BM-L3** | 100,000 | 1880 / 0.78 ms | 1898 / 0.78 ms | 1874 / 0.91 ms | 242 / 5.83 ms |
 
-**mem** on t3.medium / t4g.medium: L2 10k / 0.014–0.016 ms; L3 ~99998/s / 0.007–0.009 ms.
+**mem** on t3.medium / t4g.medium: L2 10k / 0.014–0.016 ms; L3 \~99998/s / 0.007–0.009 ms.
 
 ### Table D-cost — $ per 1M operations (compute only)
 
@@ -707,14 +742,14 @@ us-west-2 Linux on-demand hourly: t3.small $0.0208, t3.medium $0.0416, t4g.mediu
 
 | Rank | Config | ops/s | $/1M ops |
 |------|--------|-------|----------|
-| 1 | t4g.medium mem L3 | 99,998 | ~$0.00009 |
-| 2 | t3.medium mem L3 | 99,999 | ~$0.00012 |
-| 3 | **t3.small sqlite L2** | 1,885 | **~$0.0031** |
-| 4 | t4g.medium sqlite L2 | 1,928 | ~$0.0048 |
-| 5 | t3.medium sqlite L2 | 1,909 | ~$0.0061 |
-| 6 | t4g.medium postgres L2 | 246 | ~$0.0379 |
+| 1 | t4g.medium mem L3 | 99,998 | \~$0.00009 |
+| 2 | t3.medium mem L3 | 99,999 | \~$0.00012 |
+| 3 | **t3.small sqlite L2** | 1,885 | **\~$0.0031** |
+| 4 | t4g.medium sqlite L2 | 1,928 | \~$0.0048 |
+| 5 | t3.medium sqlite L2 | 1,909 | \~$0.0061 |
+| 6 | t4g.medium postgres L2 | 246 | \~$0.0379 |
 
-Best **durable** cost-efficiency: smallest instance + sqlite at observed ceiling (~1.9k/s).
+Best **durable** cost-efficiency: smallest instance + sqlite at observed ceiling (\~1.9k/s).
 
 ### D.2 Scale tier *(upper envelope)*
 
@@ -726,7 +761,19 @@ Best **durable** cost-efficiency: smallest instance + sqlite at observed ceiling
 
 ---
 
-## Appendix E — Distributed Surreal/TiKV (budget cloud — June 2026)
+## Appendix E — Distributed Surreal/TiKV (extra data)
+
+> **Extra data, not a recommended path.** The distributed Surreal→TiKV backend sustained only \~38–43 ops/s at \~$0.25/M ops — orders of magnitude below sqlite and the native adapters. It is kept here (and in [`EXPERIMENTS.md`](EXPERIMENTS.md)) for completeness only; use native `scylla` / `tikv-raw` (Appendix F/G) for distributed deployments.
+
+**Backend model (three-tier stack):**
+
+```
+Continuum (port)  →  SurrealDB (compute)  →  TiKV (storage)
+```
+
+- **Continuum** injects a remote `Surreal<Any>` client — same `SurrealLocalLogBackend` as embedded paths.
+- **SurrealDB** is stateless at the query layer; durability and replication are delegated to TiKV.
+- **TiKV** topology (PD count, TiKV node count) is a report dimension (`tikv_topology`). Continuum never talks to TiKV directly in the Surreal path — TiKV affects port metrics only through Surreal latency. Lab provisioning: [`infra/surreal-tikv/README.md`](../infra/surreal-tikv/README.md).
 
 Source: `surreal-tikv` via [`infra/surreal-tikv/`](../infra/surreal-tikv/). Campaign: [`EXPERIMENTS.md`](EXPERIMENTS.md) Distributed Surreal/TiKV section.
 
@@ -749,7 +796,7 @@ Source: `surreal-tikv` via [`infra/surreal-tikv/`](../infra/surreal-tikv/). Camp
 | aws-t4g-medium | tikv-minimal | 37.7/s | 26,558,591 | 26,558,591 | $0.248 |
 | aws-t3-medium | tikv-minimal | 43.5/s | 22,992,285 | 22,992,285 | $0.266 |
 
-Compute $/hr at 1B/s (nodes × hourly rate): t4g ~$892k/hr; t3 ~$956k/hr. Excludes EBS/transfer.
+Compute $/hr at 1B/s (nodes × hourly rate): t4g \~$892k/hr; t3 \~$956k/hr. Excludes EBS/transfer.
 
 ```bash
 cargo run -p continuum-bench -- project-fleet \
@@ -788,9 +835,9 @@ cargo run -p continuum-bench -- project-fleet \
 | 512 | 512 | tikv-raw/tikv-minimal | 1,134/s | 747.6 | PASS |
 | 1024 | 1024 | tikv-raw/tikv-minimal | 1,201/s | 1,606.5 | PASS |
 
-Pre-opt note: Scylla C=K=128 failed at **8.6%** errors (~115/s) before adapter changes; post-opt re-run is **3,241/s** at 0% errors.
+Pre-opt note: Scylla C=K=128 failed at **8.6%** errors (\~115/s) before adapter changes; post-opt re-run is **3,241/s** at 0% errors.
 
-**F.1 Findings (updated):** The throughput gap vs raw DB tools is adapter round-trips and per-append consensus (Scylla LWT/Paxos, TiKV optimistic 2PC), not generic Continuum overhead — SQLite at ~1900/s on the same `LogBackend.append()` disproves high core overhead. Hot-stream ceiling (~64/s scylla, ~45/s tikv-raw) is partition-bound; spreading keys (Track P) raises aggregate throughput. Scylla BM-M4 scales through C=256 on one node; TiKV BM-M4 plateaus near **~1.1k/s** from C=128–1024 (single RawClient, 2 vCPU host).
+**F.1 Findings (updated):** The throughput gap vs raw DB tools is adapter round-trips and per-append consensus (Scylla LWT/Paxos, TiKV optimistic 2PC), not generic Continuum overhead — SQLite at \~1900/s on the same `LogBackend.append()` disproves high core overhead. Hot-stream ceiling (\~64/s scylla, \~45/s tikv-raw) is partition-bound; spreading keys (Track P) raises aggregate throughput. Scylla BM-M4 scales through C=256 on one node; TiKV BM-M4 plateaus near **\~1.1k/s** from C=128–1024 (single RawClient, 2 vCPU host).
 
 ### Table F.6 — Append optimization before/after (2026-07-01, aws-t3-medium)
 
@@ -801,9 +848,9 @@ Pre-opt note: Scylla C=K=128 failed at **8.6%** errors (~115/s) before adapter c
 | BM-M3 C=64 hot | 4 | **68** | 45 | 4 (conflicts) |
 | BM-M4 C=K=64 | 112 | **2,803** | 84 | **873** |
 
-Round-trip budget per append (steady state): **before** Scylla 7 RT / 3 Paxos; **after** ~2 RT / ~1 Paxos amortized over 64-seq blocks. **Before** TiKV 3 optimistic txns; **after** 2 txns (idempotency read + write) with meta block reserve every 64 seqs.
+Round-trip budget per append (steady state): **before** Scylla 7 RT / 3 Paxos; **after** \~2 RT / \~1 Paxos amortized over 64-seq blocks. **Before** TiKV 3 optimistic txns; **after** 2 txns (idempotency read + write) with meta block reserve every 64 seqs.
 
-**Post-opt F.1 addendum:** Native adapters now approach raw Test B single-key ceilings on hot streams (Scylla 68/s vs raw 903/s still gap — idempotency LWT remains). Spread-key BM-M4 vs raw Test A (spread-key INSERT): Scylla **~22%** at C=K=256 (3,318/s vs 14,872/s @ 316 threads); TiKV **~16%** at C=K=1024 (1,201/s vs 7,290/s @ 1024 threads). Both use one bench process and one driver client — not hundreds of TCP connections like `cassandra-stress` / `go-ycsb`.
+**Post-opt F.1 addendum:** Native adapters now approach raw Test B single-key ceilings on hot streams (Scylla 68/s vs raw 903/s still gap — idempotency LWT remains). Spread-key BM-M4 vs raw Test A (spread-key INSERT): Scylla **\~22%** at C=K=256 (3,318/s vs 14,872/s @ 316 threads); TiKV **\~16%** at C=K=1024 (1,201/s vs 7,290/s @ 1024 threads). Both use one bench process and one driver client — not hundreds of TCP connections like `cassandra-stress` / `go-ycsb`.
 
 ### Table F.7 — BM-M4 concurrency scaling curve (post-opt, 2026-07-02)
 
@@ -853,10 +900,10 @@ P = PASS, F = FAIL.
 
 ### F.1 Findings
 
-1. **Native adapters close the batch gap:** BM-C1 @1000 reaches **~90% of sqlite** — the primary win over surreal-tikv (~40/s single-stream) is eliminating multi-query Surreal/SQL paths.
-2. **Hot-stream gap remains:** BM-L3 without partition keys stays **~30× below sqlite** (~64/s vs ~1900/s). This is expected — one logical stream maps to one Scylla/TiKV partition regardless of cluster size.
+1. **Native adapters close the batch gap:** BM-C1 @1000 reaches **\~90% of sqlite** — the primary win over surreal-tikv (\~40/s single-stream) is eliminating multi-query Surreal/SQL paths.
+2. **Hot-stream gap remains:** BM-L3 without partition keys stays **\~30× below sqlite** (\~64/s vs \~1900/s). This is expected — one logical stream maps to one Scylla/TiKV partition regardless of cluster size.
 3. **Scylla vs tikv-raw on colocated t3.medium:** Scylla slightly higher L3 ceiling (64 vs 45/s) and lower append latency (C0); tikv-raw BM-C3 checkpoint failed (investigate PD/TiKV colocation tuning).
-4. **Canonical baseline:** use **aws-t3-medium** native-lab results — not dev-wsl (~15/s scylla L3) — for fleet sizing comparisons.
+4. **Canonical baseline:** use **aws-t3-medium** native-lab results — not dev-wsl (\~15/s scylla L3) — for fleet sizing comparisons.
 
 **Pending:** Phase 5 (larger instance class) — infra manifests ready (`native-scylla-4n-c7i`, `native-tikv-scale-4-c7i`); **gated on manual verification** before execution.
 
@@ -875,16 +922,16 @@ Phase B: dedicated bench + N storage nodes on `aws-t3-medium`. Primary metric = 
 
 | Storage nodes | Topology | Peak BM-M4 ops/s | C=K @ peak | vs N=1 | ops/s per node | Hot BM-L3 |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | scylla-1 (colocated) | 3,318 | 256 | 1.00× | 3,318 | ~64/s |
-| 2 | scylla-2n | 3,444 | 256 | 1.04× | 1,722 | ~155/s |
-| 4 | scylla-4n | 3,519 | 128 | 1.06× | 880 | ~169/s |
-| 1 | tikv-minimal (colocated) | 1,201 | 1024 | 1.00× | 1,201 | ~45/s |
-| 2 | tikv-ha-2 | 1,608 | 128 | 1.34× | 804 | ~90/s |
-| 4 | tikv-scale-4 | 1,620 | 64 | 1.35× | 405 | ~100/s |
+| 1 | scylla-1 (colocated) | 3,318 | 256 | 1.00× | 3,318 | \~64/s |
+| 2 | scylla-2n | 3,444 | 256 | 1.04× | 1,722 | \~155/s |
+| 4 | scylla-4n | 3,519 | 128 | 1.06× | 880 | \~169/s |
+| 1 | tikv-minimal (colocated) | 1,201 | 1024 | 1.00× | 1,201 | \~45/s |
+| 2 | tikv-ha-2 | 1,608 | 128 | 1.34× | 804 | \~90/s |
+| 4 | tikv-scale-4 | 1,620 | 64 | 1.35× | 405 | \~100/s |
 
 ### Table G.1b — Bench resource profile @ peak BM-M4
 
-From `resource_profile` on the dedicated **bench EC2** (`aws-t3-medium`: 2 vCPU, ~3.75 GiB RAM). CPU % is summed across cores (200% ≈ both cores saturated). Use **system mem peak** for RAM — `process_rss_bytes_*` is unreliable on AL2023 (sysinfo quirk; see Appendix A data caveats).
+From `resource_profile` on the dedicated **bench EC2** (`aws-t3-medium`: 2 vCPU, \~3.75 GiB RAM). CPU % is summed across cores (200% ≈ both cores saturated). Use **system mem peak** for RAM — `process_rss_bytes_*` is unreliable on AL2023 (sysinfo quirk; see Appendix A data caveats).
 
 | Topology | Peak ops/s | C=K @ peak | Bench CPU peak | Bench CPU mean | Sys mem peak | Bench-bound? |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -899,9 +946,9 @@ From `resource_profile` on the dedicated **bench EC2** (`aws-t3-medium`: 2 vCPU,
 
 **Efficiency:** `peak_ops / storage_node_count`. If sweep stops with bench CPU ≥85%, flag **bench-bound** → Phase 5 candidate (larger bench instance), not a storage ceiling.
 
-**Scylla finding:** Peak BM-M4 improves only ~4–6% from N=1 (3,318/s colocated) to N=2 (3,444/s) and N=4 (3,519/s) on dedicated `t3.medium` nodes — far from linear 2×/4×. Bench process CPU stayed ~27–31% at peak, suggesting **network/driver/coordination overhead** (VPC RTT, multi-endpoint CQL, LWT) dominates before storage exhausts. Hot-stream control **did not stay flat** (~155/s @ 2n, ~169/s @ 4n vs ~64/s colocated) — document as dedicated-bench layout effect.
+**Scylla finding:** Peak BM-M4 improves only \~4–6% from N=1 (3,318/s colocated) to N=2 (3,444/s) and N=4 (3,519/s) on dedicated `t3.medium` nodes — far from linear 2×/4×. Bench process CPU stayed \~27–31% at peak, suggesting **network/driver/coordination overhead** (VPC RTT, multi-endpoint CQL, LWT) dominates before storage exhausts. Hot-stream control **did not stay flat** (\~155/s @ 2n, \~169/s @ 4n vs \~64/s colocated) — document as dedicated-bench layout effect.
 
-**TiKV finding:** Peak BM-M4 rises ~34% from N=1 colocated (1,201/s) to N=2 (1,608/s @ C=128) with **negligible further gain at N=4** (1,620/s @ C=64). Per-node efficiency halves (804 → 405 ops/s/node). Hot-stream ~90–100/s vs ~45/s colocated.
+**TiKV finding:** Peak BM-M4 rises \~34% from N=1 colocated (1,201/s) to N=2 (1,608/s @ C=128) with **negligible further gain at N=4** (1,620/s @ C=64). Per-node efficiency halves (804 → 405 ops/s/node). Hot-stream \~90–100/s vs \~45/s colocated.
 
 ### Table G.2 — Instance-class scaling (Phase 5, gated)
 
@@ -933,26 +980,26 @@ From `run-scylla-ceilings.sh` Phase A + prior Z1 colocated runs. Monthly $ = `ce
 
 ## Appendix H — Bottleneck verdict (Tracks U–Y + Z, Scylla)
 
-Consolidated diagnosis after Track T plateau (~3.3–3.5k ops/s BM-M4 spread-key on `aws-t3-medium`). Tracks U–Y from `run-scylla-diagnosis.sh`; Tracks Z + X/Y re-runs from `run-scylla-levers.sh` (July 2, 2026; `aws-t3-medium`, all instances torn down).
+Consolidated diagnosis after Track T plateau (\~3.3–3.5k ops/s BM-M4 spread-key on `aws-t3-medium`). Tracks U–Y from `run-scylla-diagnosis.sh`; Tracks Z + X/Y re-runs from `run-scylla-levers.sh` (July 2, 2026; `aws-t3-medium`, all instances torn down).
 
 ### Table H.1 — Bottleneck hypothesis matrix
 
 | Track | Signal | Storage-bound | Adapter/coordination | Bench/client |
 | --- | --- | --- | --- | --- |
 | U — node CPU/write rate | Hot CPU @ peak but μs write latency, 0% iowait | **No** | — | — |
-| V — rt/append vs ~2 RT min | ~3.0–3.03 RT/append (C=64) | — | **Yes** | — |
-| W — raw stress scales, Continuum flat | Raw 14.6k→29.5k; Continuum ~2.2–3.2k | **No** | **Yes** | Partial (4n stress infra) |
-| X — dual process ~2× throughput | Dual 3,345 vs single 3,561 (0.94×) | — | **Yes** | **No** |
+| V — rt/append vs \~2 RT min | \~3.0–3.03 RT/append (C=64) | — | **Yes** | — |
+| W — raw stress scales, Continuum flat | Raw 14.6k→29.5k; Continuum \~2.2–3.2k | **No** | **Yes** | Partial (4n stress infra) |
+| X — dual process \~2× throughput | Dual 3,345 vs single 3,561 (0.94×) | — | **Yes** | **No** |
 | Y — larger seq block reduces RT | blk64 3.03 vs blk256 3.01 rt/append | — | **No effect** | — |
 | Z1 — idempotency LWT | `none`: 14.2k ops/s, rt 2.03 vs `lwt` 3.1k / 3.03 | — | **Yes (LWT)** | — |
-| Z2 — topic-index cache | Z1 on: rt 3.04→2.04, ops flat ~3.5k; Z1 off (Track AA): 2n 24k→33k | — | **Yes (index write)** | — |
+| Z2 — topic-index cache | Z1 on: rt 3.04→2.04, ops flat \~3.5k; Z1 off (Track AA): 2n 24k→33k | — | **Yes (index write)** | — |
 | Z3/Z5 — pipeline / pool | No throughput gain | — | **Yes (ceiling elsewhere)** | **No** |
 
 ### Table H.2 — Recommended next action
 
 | Verdict | Next step |
 | --- | --- |
-| **Primary: Adapter/coordination + LWT** | **L1** (`IDEMPOTENCY=none`) is the largest lever (~4.5×) if at-least-once is acceptable; **L2** (topic-index cache, **default on**) removes ~1 RT/append and is required for multi-node Z1-off scale (Track AA: 2n ~31k ops/s) |
+| **Primary: Adapter/coordination + LWT** | **L1** (`IDEMPOTENCY=none`) is the largest lever (\~4.5×) if at-least-once is acceptable; **L2** (topic-index cache, **default on**) removes \~1 RT/append and is required for multi-node Z1-off scale (Track AA: 2n \~31k ops/s) |
 | Storage saturated | Larger Scylla nodes / tune compaction *(not indicated by Track U)* |
 | Bench/client bound | **Ruled out** by Track X re-run (dual process 0.94× single) |
 | Network/topology | VPC placement, driver pooling *(Z5 pool=4 did not help)* |
@@ -971,7 +1018,7 @@ Configuration is via [`ScyllaLogConfig`](../../continuum-backend-scylla/src/lib.
 | L5 Pool per shard | — | **Removed** (no measured gain) | — | — |
 | Seq block size | `seq_block_size: i64` | **Builder field, default 64** | Yes | none |
 
-**Exactly-once decision point:** L1 removes the `event_id IF NOT EXISTS` LWT (~1 Paxos/append). Do not enable `none` in production until consumers tolerate duplicate `event_id` or upstream guarantees no retries.
+**Exactly-once decision point:** L1 removes the `event_id IF NOT EXISTS` LWT (\~1 Paxos/append). Do not enable `none` in production until consumers tolerate duplicate `event_id` or upstream guarantees no retries.
 
 **Suggested experiment order:** Z2 → Z3 → re-run X/Y → Z5 → Z1 (if policy allows) → Z4 (when RF>1). **Completed** via `run-scylla-levers.sh` (July 2, 2026).
 
@@ -981,11 +1028,11 @@ Configuration is via [`ScyllaLogConfig`](../../continuum-backend-scylla/src/lib.
 
 | Experiment | Signal | Bench/client bound? | Adapter/coordination? |
 | --- | --- | --- | --- |
-| Topic fan-out T∈{1,8,64} | ~3.4–4.1k ops/s flat | **No** | **Yes** (LWT path) |
-| Mixed per-topic idempotency | ~11k ops/s @ T=64 (50% `none`) | — | **Yes (LWT per topic)** |
+| Topic fan-out T∈{1,8,64} | \~3.4–4.1k ops/s flat | **No** | **Yes** (LWT path) |
+| Mixed per-topic idempotency | \~11k ops/s @ T=64 (50% `none`) | — | **Yes (LWT per topic)** |
 | Multi-publisher N∈{1,2,4} | N=2–4 **below** N=1 (0.86–0.91×) | **No** | **Yes (shared coordinator)** |
 
-Topic count and publisher count do not unlock higher throughput — same ~3.5k ops/s ceiling as Tracks X/Z with Z1 on. See Table P5.* in [`EXPERIMENTS.md`](EXPERIMENTS.md).
+Topic count and publisher count do not unlock higher throughput — same \~3.5k ops/s ceiling as Tracks X/Z with Z1 on. See Table P5.* in [`EXPERIMENTS.md`](EXPERIMENTS.md).
 
 ### Appendix H.4 — Index hotspot verdict (Track AA, July 2026)
 
@@ -996,7 +1043,7 @@ Track AA: BM-M4/M5 × L2 on/off × Z1 off on `aws-t3-medium` dedicated bench + N
 | Single-topic m4, L2 off, 2n | 24.4k ops/s — sub-linear vs 1n (20k); prior ceiling 18.5k |
 | Single-topic m4, L2 on, 2n | **33.1k ops/s** — matches/exceeds raw cassandra-stress 2n (29.5k) |
 | Topic fan-out T=64, L2 off, 2n | 21.5k — **does not** beat single-topic; index spread alone insufficient |
-| rt/append L2 off → on | 2.03 → 1.03 — repeat index INSERT was ~1 RT/append |
+| rt/append L2 off → on | 2.03 → 1.03 — repeat index INSERT was \~1 RT/append |
 
 **Verdict:** Multi-node Z1-off scaling is **index-write bound** when L2 is off. **Default L2 on** is the minimal fix (no schema migration). Topic sharding and schema re-partition remain Phase 3 if single-topic + L2 off must scale further.
 

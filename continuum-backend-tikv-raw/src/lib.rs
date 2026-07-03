@@ -1,4 +1,8 @@
-//! Raw TiKV [`LogBackend`](continuum_core::backend::LogBackend) (PD client, no Surreal).
+//! Raw TiKV [`LogBackend`] (Placement Driver client, no Surreal).
+//!
+//! Enable via the `tikv-raw` feature on the [`continuum`](https://docs.rs/continuum) facade.
+//! See [Getting started](https://docs.rs/continuum/latest/continuum/index.html#getting-started)
+//! and the [documentation map](https://docs.rs/continuum/latest/continuum/index.html#documentation-map).
 
 mod append_ops;
 mod error_map;
