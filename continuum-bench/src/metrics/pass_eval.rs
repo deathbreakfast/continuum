@@ -97,7 +97,8 @@ pub fn evaluate_pass(id: ExperimentId, metrics: &serde_json::Value) -> bool {
                 .unwrap_or(0);
             read == expected && expected > 0
         }
-        ExperimentId::BmM1 | ExperimentId::BmM2 | ExperimentId::BmM3 | ExperimentId::BmM4 => {
+        ExperimentId::BmM1 | ExperimentId::BmM2 | ExperimentId::BmM3 | ExperimentId::BmM4
+        | ExperimentId::BmM5 => {
             let error_rate = metrics
                 .get("error_rate")
                 .and_then(serde_json::Value::as_f64)
@@ -211,7 +212,8 @@ pub fn results_summary(id: ExperimentId, metrics: &serde_json::Value, pass: bool
                 .unwrap_or(0),
             status
         ),
-        ExperimentId::BmM1 | ExperimentId::BmM2 | ExperimentId::BmM3 | ExperimentId::BmM4 => {
+        ExperimentId::BmM1 | ExperimentId::BmM2 | ExperimentId::BmM3 | ExperimentId::BmM4
+        | ExperimentId::BmM5 => {
             let hot = metrics
                 .get("hot_stream")
                 .and_then(serde_json::Value::as_bool)

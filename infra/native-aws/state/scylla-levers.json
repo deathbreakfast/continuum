@@ -1,0 +1,23 @@
+{
+  "completed": [
+    "artifact",
+    "colocated_provision_1",
+    "Z2_colocated",
+    "Z3_colocated",
+    "Y_colocated",
+    "fetch_colocated_1",
+    "teardown_colocated_1",
+    "2n_provision",
+    "X_2n",
+    "fetch_2n",
+    "teardown_2n",
+    "colocated_provision_2",
+    "Z5_colocated",
+    "Z1_colocated",
+    "Z4_colocated",
+    "fetch_colocated_2",
+    "teardown_all"
+  ],
+  "current": null,
+  "failed": null
+}

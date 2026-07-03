@@ -46,7 +46,7 @@ check_marker() {
 if [[ -n "$MARKER" ]]; then
   check_marker "$MARKER"
 else
-  for m in track-u track-v track-w track-x track-y; do
+  for m in track-u track-v track-w track-x track-y z1 z2 z3 z4 z5; do
     check_marker "$m" || true
   done
 fi

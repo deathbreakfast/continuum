@@ -1,6 +1,7 @@
 //! ScyllaDB [`LogBackend`](continuum_core::backend::LogBackend) for the continuum transport log.
 
 mod append_ops;
+mod config;
 mod error_map;
 mod schema;
 
@@ -14,6 +15,7 @@ use chrono::{DateTime, Utc};
 use scylla::client::session::Session;
 use scylla::client::session_builder::SessionBuilder;
 use scylla::serialize::row::SerializeRow;
+use scylla::statement::Consistency;
 use scylla::DeserializeRow;
 use uuid::Uuid;
 
@@ -24,18 +26,16 @@ use continuum_core::validation::{validate_read_limit, validate_topic};
 
 use error_map::map_err;
 
-/// Reserved seq numbers per stream (client-side block after one LWT).
-fn seq_block_size() -> i64 {
-    std::env::var("CONTINUUM_SCYLLA_SEQ_BLOCK_SIZE")
-        .ok()
-        .and_then(|s| s.parse().ok())
-        .filter(|&n| n > 0)
-        .unwrap_or(64)
-}
+pub use config::{consistency_from_str, IdempotencyMode, IdempotencyPolicy};
 
 /// Snapshot append round-trip counters when `CONTINUUM_APPEND_DEBUG_OPS` is enabled.
 pub fn append_debug_snapshot() -> (u64, u64) {
     append_ops::snapshot()
+}
+
+/// Reset append round-trip counters (tests / benchmarks).
+pub fn append_debug_reset() {
+    append_ops::reset();
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -57,6 +57,16 @@ pub struct ScyllaLogConfig {
     pub username: Option<String>,
     /// Optional password.
     pub password: Option<String>,
+    /// L1: idempotency policy (default exactly-once via LWT).
+    pub idempotency: IdempotencyPolicy,
+    /// L2: skip repeat `stream_index` writes after first sighting per topic+stream.
+    pub topic_index_cache: bool,
+    /// L4: optional write consistency override on event/index inserts.
+    pub write_consistency: Option<Consistency>,
+    /// Keyspace replication factor for schema bootstrap.
+    pub replication_factor: u32,
+    /// Seq numbers reserved per stream per LWT block.
+    pub seq_block_size: i64,
 }
 
 impl Default for ScyllaLogConfig {
@@ -67,6 +77,11 @@ impl Default for ScyllaLogConfig {
             datacenter: None,
             username: None,
             password: None,
+            idempotency: IdempotencyPolicy::default(),
+            topic_index_cache: false,
+            write_consistency: None,
+            replication_factor: 1,
+            seq_block_size: 64,
         }
     }
 }
@@ -89,6 +104,10 @@ pub struct ScyllaLogBackend {
     insert_stream_index: scylla::statement::prepared::PreparedStatement,
     select_stream_keys: scylla::statement::prepared::PreparedStatement,
     seq_blocks: DashMap<String, SeqBlock>,
+    stream_index_seen: DashMap<String, ()>,
+    idempotency: IdempotencyPolicy,
+    topic_index_cache: bool,
+    seq_block_size: i64,
 }
 
 #[derive(DeserializeRow)]
@@ -137,14 +156,31 @@ impl ScyllaLogBackend {
             builder = builder.user(user.clone(), pass.clone());
         }
         let session = builder.build().await.map_err(map_err)?;
-        Self::from_session(Arc::new(session), &config.keyspace).await
+        Self::from_session(Arc::new(session), &config).await
     }
 
     /// Wrap an existing session (schema bootstrap runs).
-    pub async fn from_session(session: Arc<Session>, keyspace: &str) -> Result<Self> {
-        schema::ensure_schema(&session, keyspace).await?;
-        let ks = keyspace.to_string();
+    pub async fn from_session(session: Arc<Session>, config: &ScyllaLogConfig) -> Result<Self> {
+        schema::ensure_schema(&session, &config.keyspace, config.replication_factor).await?;
+        let ks = config.keyspace.clone();
         let q = |sql: &str| sql.replace("continuum.", &format!("{ks}."));
+
+        let mut insert_event = session
+            .prepare(q(
+                "INSERT INTO continuum.continuum_event (stream_key, seq, event_id, ts_millis, attempt, actor_ref, payload_ciphertext) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            ))
+            .await
+            .map_err(map_err)?;
+        let mut insert_stream_index = session
+            .prepare(q(
+                "INSERT INTO continuum.continuum_stream_index (topic_prefix, stream_key) VALUES (?, ?)",
+            ))
+            .await
+            .map_err(map_err)?;
+        if let Some(c) = config.write_consistency {
+            insert_event.set_consistency(c);
+            insert_stream_index.set_consistency(c);
+        }
 
         let backend = Self {
             session: Arc::clone(&session),
@@ -155,12 +191,7 @@ impl ScyllaLogBackend {
                 ))
                 .await
                 .map_err(map_err)?,
-            insert_event: session
-                .prepare(q(
-                    "INSERT INTO continuum.continuum_event (stream_key, seq, event_id, ts_millis, attempt, actor_ref, payload_ciphertext) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                ))
-                .await
-                .map_err(map_err)?,
+            insert_event,
             insert_event_id_lwt: session
                 .prepare(q(
                     "INSERT INTO continuum.continuum_event_id (stream_key, event_id, seq) VALUES (?, ?, ?) IF NOT EXISTS",
@@ -213,12 +244,7 @@ impl ScyllaLogBackend {
                 ))
                 .await
                 .map_err(map_err)?,
-            insert_stream_index: session
-                .prepare(q(
-                    "INSERT INTO continuum.continuum_stream_index (topic_prefix, stream_key) VALUES (?, ?)",
-                ))
-                .await
-                .map_err(map_err)?,
+            insert_stream_index,
             select_stream_keys: session
                 .prepare(q(
                     "SELECT stream_key FROM continuum.continuum_stream_index WHERE topic_prefix = ?",
@@ -226,6 +252,10 @@ impl ScyllaLogBackend {
                 .await
                 .map_err(map_err)?,
             seq_blocks: DashMap::new(),
+            stream_index_seen: DashMap::new(),
+            idempotency: config.idempotency.clone(),
+            topic_index_cache: config.topic_index_cache,
+            seq_block_size: config.seq_block_size.max(1),
         };
         Ok(backend)
     }
@@ -254,21 +284,12 @@ impl ScyllaLogBackend {
             .map_err(map_err)
     }
 
-    async fn write_event_new(
+    async fn insert_event_row(
         &self,
         stream_key: &str,
         seq: Seq,
         rec: &AppendRecord,
-    ) -> Result<bool> {
-        let id_result = self
-            .execute_unpaged(
-                &self.insert_event_id_lwt,
-                (stream_key, rec.event_id, seq.as_i64()),
-            )
-            .await?;
-        if !lwt_applied(&id_result) {
-            return Ok(false);
-        }
+    ) -> Result<()> {
         self.execute_unpaged(
             &self.insert_event,
             (
@@ -282,6 +303,40 @@ impl ScyllaLogBackend {
             ),
         )
         .await?;
+        Ok(())
+    }
+
+    async fn reserve_event_id_lwt(
+        &self,
+        stream_key: &str,
+        seq: Seq,
+        rec: &AppendRecord,
+    ) -> Result<bool> {
+        let id_result = self
+            .execute_unpaged(
+                &self.insert_event_id_lwt,
+                (stream_key, rec.event_id, seq.as_i64()),
+            )
+            .await?;
+        Ok(lwt_applied(&id_result))
+    }
+
+    async fn write_event_new(
+        &self,
+        stream_key: &str,
+        seq: Seq,
+        rec: &AppendRecord,
+        idempotency: IdempotencyMode,
+    ) -> Result<bool> {
+        match idempotency {
+            IdempotencyMode::Lwt => {
+                if !self.reserve_event_id_lwt(stream_key, seq, rec).await? {
+                    return Ok(false);
+                }
+            }
+            IdempotencyMode::None => {}
+        }
+        self.insert_event_row(stream_key, seq, rec).await?;
         Ok(true)
     }
 
@@ -344,7 +399,7 @@ impl ScyllaLogBackend {
                 }
             }
             let block = self
-                .reserve_seq_block_lwt(stream_key, seq_block_size())
+                .reserve_seq_block_lwt(stream_key, self.seq_block_size)
                 .await?;
             let available = (block.end - block.next) as usize;
             let take = remaining.min(available);
@@ -368,6 +423,16 @@ impl ScyllaLogBackend {
     }
 
     async fn register_topic_stream(&self, topic_prefix: &str, stream_key: &str) -> Result<()> {
+        if self.topic_index_cache {
+            let key = config::stream_index_cache_key(topic_prefix, stream_key);
+            if self.stream_index_seen.contains_key(&key) {
+                return Ok(());
+            }
+            self.execute_unpaged(&self.insert_stream_index, (topic_prefix, stream_key))
+                .await?;
+            self.stream_index_seen.insert(key, ());
+            return Ok(());
+        }
         self.execute_unpaged(&self.insert_stream_index, (topic_prefix, stream_key))
             .await?;
         Ok(())
@@ -403,13 +468,17 @@ impl LogBackend for ScyllaLogBackend {
 
         let stream_key = stream.storage_key();
         let topic_prefix = Self::topic_prefix(&stream);
+        let idempotency = self.idempotency.mode_for(&stream.topic);
         let seqs = self
             .allocate_seq_batch(&stream_key, records.len())
             .await?;
         let mut out = Vec::with_capacity(records.len());
 
         for (rec, seq) in records.iter().zip(seqs) {
-            if self.write_event_new(&stream_key, seq, rec).await? {
+            if self
+                .write_event_new(&stream_key, seq, rec, idempotency)
+                .await?
+            {
                 out.push(seq);
             } else {
                 let existing = self

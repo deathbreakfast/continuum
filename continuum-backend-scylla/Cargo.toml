@@ -16,6 +16,7 @@ chrono = { workspace = true }
 continuum-core = { path = "../continuum-core" }
 scylla = { workspace = true }
 dashmap = "6"
+tokio = { workspace = true, features = ["macros"] }
 uuid = { workspace = true, features = ["serde", "v4"] }
 
 [dev-dependencies]

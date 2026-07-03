@@ -914,9 +914,9 @@ From `resource_profile` on the dedicated **bench EC2** (`aws-t3-medium`: 2 vCPU,
 
 Manifests: `native-scylla-4n-c7i`, `native-tikv-scale-4-c7i`. Start only after manual verification of Phase B.
 
-## Appendix H — Bottleneck verdict (Tracks U–Y, Scylla)
+## Appendix H — Bottleneck verdict (Tracks U–Y + Z, Scylla)
 
-Consolidated diagnosis after Track T plateau (~3.3–3.5k ops/s BM-M4 spread-key on `aws-t3-medium`). Filled from `run-scylla-diagnosis.sh` (July 2, 2026; `aws-t3-medium`, all instances torn down).
+Consolidated diagnosis after Track T plateau (~3.3–3.5k ops/s BM-M4 spread-key on `aws-t3-medium`). Tracks U–Y from `run-scylla-diagnosis.sh`; Tracks Z + X/Y re-runs from `run-scylla-levers.sh` (July 2, 2026; `aws-t3-medium`, all instances torn down).
 
 ### Table H.1 — Bottleneck hypothesis matrix
 
@@ -925,20 +925,43 @@ Consolidated diagnosis after Track T plateau (~3.3–3.5k ops/s BM-M4 spread-key
 | U — node CPU/write rate | Hot CPU @ peak but μs write latency, 0% iowait | **No** | — | — |
 | V — rt/append vs ~2 RT min | ~3.0–3.03 RT/append (C=64) | — | **Yes** | — |
 | W — raw stress scales, Continuum flat | Raw 14.6k→29.5k; Continuum ~2.2–3.2k | **No** | **Yes** | Partial (4n stress infra) |
-| X — dual process ~2× throughput | Dual aggregate not captured | — | — | **Inconclusive** |
-| Y — larger seq block reduces RT | Block 64 row lost to overwrite | — | **Inconclusive** | — |
+| X — dual process ~2× throughput | Dual 3,345 vs single 3,561 (0.94×) | — | **Yes** | **No** |
+| Y — larger seq block reduces RT | blk64 3.03 vs blk256 3.01 rt/append | — | **No effect** | — |
+| Z1 — idempotency LWT | `none`: 14.2k ops/s, rt 2.03 vs `lwt` 3.1k / 3.03 | — | **Yes (LWT)** | — |
+| Z2 — topic-index cache | rt 3.04→2.04; ops flat ~3.5k | — | **Yes (RT only)** | — |
+| Z3/Z5 — pipeline / pool | No throughput gain | — | **Yes (ceiling elsewhere)** | **No** |
 
 ### Table H.2 — Recommended next action
 
 | Verdict | Next step |
 | --- | --- |
-| **Primary: Adapter/coordination** | Reduce LWT/2PC round trips, batching, seq-block tuning; profile per-append CQL path |
+| **Primary: Adapter/coordination + LWT** | **L1** (`IDEMPOTENCY=none`) is the largest lever (~4.5×) if at-least-once is acceptable; **L2** (topic-index cache) is safe and removes ~1 RT/append but does not raise the ~3.5k ops/s ceiling alone |
 | Storage saturated | Larger Scylla nodes / tune compaction *(not indicated by Track U)* |
-| Bench/client bound | Phase 5 bench instance (`c7i.4xlarge`) or multi-process client *(Track X inconclusive; Track W bench needed Docker on distributed bench hosts)* |
-| Network/topology | VPC placement, driver pooling, contact-point tuning *(4n stress CQL timeouts suggest SG/placement follow-up)* |
+| Bench/client bound | **Ruled out** by Track X re-run (dual process 0.94× single) |
+| Network/topology | VPC placement, driver pooling *(Z5 pool=4 did not help)* |
+
+### Appendix H.1 — Optimization lever catalog (post-distillation)
+
+Configuration is via [`ScyllaLogConfig`](../../continuum-backend-scylla/src/lib.rs) builder fields (bench campaigns still map env vars in the harness). Defaults preserve prior production behavior.
+
+| Lever | Builder field | Status | Safe? | Guarantee impact |
+| --- | --- | --- | --- | --- |
+| Seq-block cache | *(core, always on)* | **Keep** | Yes | none |
+| L1 Idempotency | `idempotency: IdempotencyPolicy` | **Optional, default ON (LWT)** | No if `None` | exactly-once → at-least-once; per-topic overrides supported |
+| L2 Topic-index cache | `topic_index_cache: bool` | **Optional, default off** | Yes | none (discovery edge case if index deleted) |
+| L3 Pipelined writes | — | **Removed** (no measured gain) | — | — |
+| L4 Write CL | `write_consistency: Option<Consistency>` | **Optional, default None** | At RF>1 only | inert at RF=1; weaker durability if RF>1 |
+| L5 Pool per shard | — | **Removed** (no measured gain) | — | — |
+| Seq block size | `seq_block_size: i64` | **Builder field, default 64** | Yes | none |
+
+**Exactly-once decision point:** L1 removes the `event_id IF NOT EXISTS` LWT (~1 Paxos/append). Do not enable `none` in production until consumers tolerate duplicate `event_id` or upstream guarantees no retries.
+
+**Suggested experiment order:** Z2 → Z3 → re-run X/Y → Z5 → Z1 (if policy allows) → Z4 (when RF>1). **Completed** via `run-scylla-levers.sh` (July 2, 2026).
+
+**Z lever outcomes (summary):** L1 dominates (4.5× if at-least-once OK); L2 removes 1 RT/append safely but not throughput ceiling; L3/L5 no gain; L4 noisy at RF=1; X re-run confirms not client-bound.
 
 ```bash
-nohup infra/native-aws/scripts/run-scylla-diagnosis.sh > /tmp/scylla-diagnosis.log 2>&1 &
+nohup infra/native-aws/scripts/run-scylla-levers.sh > /tmp/scylla-levers.log 2>&1 &
 infra/native-aws/scripts/teardown-all.sh   # verify zero instances after run
 ```
 

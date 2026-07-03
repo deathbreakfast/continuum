@@ -107,6 +107,7 @@ pub enum ExperimentId {
     BmM2,
     BmM3,
     BmM4,
+    BmM5,
 }
 
 impl ExperimentId {
@@ -130,6 +131,7 @@ impl ExperimentId {
             ExperimentId::BmM2,
             ExperimentId::BmM3,
             ExperimentId::BmM4,
+            ExperimentId::BmM5,
         ]
     }
 
@@ -153,6 +155,7 @@ impl ExperimentId {
             ExperimentId::BmM2 => "bm-m2",
             ExperimentId::BmM3 => "bm-m3",
             ExperimentId::BmM4 => "bm-m4",
+            ExperimentId::BmM5 => "bm-m5",
         }
     }
 
@@ -176,6 +179,7 @@ impl ExperimentId {
             "bm-m2" => Some(ExperimentId::BmM2),
             "bm-m3" => Some(ExperimentId::BmM3),
             "bm-m4" => Some(ExperimentId::BmM4),
+            "bm-m5" => Some(ExperimentId::BmM5),
             _ => None,
         }
     }
@@ -195,7 +199,8 @@ impl ExperimentId {
             }
             ExperimentId::BmP1 => "aggregate ops scales with partition count",
             ExperimentId::BmP2 => "read completes for all partitions",
-            ExperimentId::BmM1 | ExperimentId::BmM2 | ExperimentId::BmM3 | ExperimentId::BmM4 => {
+            ExperimentId::BmM1 | ExperimentId::BmM2 | ExperimentId::BmM3 | ExperimentId::BmM4
+            | ExperimentId::BmM5 => {
                 "error rate <0.1%"
             }
         }
@@ -220,7 +225,8 @@ impl ExperimentId {
             ExperimentId::BmM1
             | ExperimentId::BmM2
             | ExperimentId::BmM3
-            | ExperimentId::BmM4 => "aggregate ops/s",
+            | ExperimentId::BmM4
+            | ExperimentId::BmM5 => "aggregate ops/s",
         }
     }
 }

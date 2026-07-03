@@ -4,12 +4,17 @@ use scylla::client::session::Session;
 
 use crate::error_map::{into_result, map_err};
 
-pub async fn ensure_schema(session: &Session, keyspace: &str) -> continuum_core::Result<()> {
+pub async fn ensure_schema(
+    session: &Session,
+    keyspace: &str,
+    replication_factor: u32,
+) -> continuum_core::Result<()> {
+    let rf = replication_factor.max(1);
     into_result(
         session
             .query_unpaged(
                 format!(
-                    "CREATE KEYSPACE IF NOT EXISTS {keyspace} WITH replication = {{'class': 'SimpleStrategy', 'replication_factor': 1}}"
+                    "CREATE KEYSPACE IF NOT EXISTS {keyspace} WITH replication = {{'class': 'SimpleStrategy', 'replication_factor': {rf}}}"
                 ),
                 &[],
             )

@@ -31,6 +31,17 @@ fn report_env_suffix() -> String {
     if let Ok(v) = std::env::var("CONTINUUM_BENCH_CLIENT_COUNT") {
         tags.push(format!("c{v}"));
     }
+    if let Ok(v) = std::env::var("CONTINUUM_BENCH_PARTITION_OFFSET") {
+        if !v.is_empty() {
+            tags.push(format!("off{v}"));
+        }
+    }
+    if let Ok(v) = std::env::var("CONTINUUM_BENCH_REPORT_TAG") {
+        let tag = v.trim();
+        if !tag.is_empty() {
+            tags.push(tag.to_string());
+        }
+    }
     if tags.is_empty() {
         String::new()
     } else {
@@ -150,5 +161,31 @@ mod tests {
         };
         let name = report_filename("bm-l3", dims);
         assert!(name.contains("scylla-scylla-3n"));
+    }
+
+    #[test]
+    fn report_tag_and_partition_offset_in_filename() {
+        std::env::set_var("CONTINUUM_BENCH_PARTITION_COUNT", "256");
+        std::env::set_var("CONTINUUM_BENCH_CLIENT_COUNT", "256");
+        std::env::set_var("CONTINUUM_BENCH_PARTITION_OFFSET", "128");
+        std::env::set_var("CONTINUUM_BENCH_REPORT_TAG", "x-dual-b");
+
+        let dims = RunDimensions {
+            storage: Storage::Scylla,
+            topology: Topology::IsolatedLab,
+            telemetry: Telemetry::Off,
+            hardware: Hardware::AwsT3Medium,
+            tikv_topology: None,
+            scylla_topology: Some(crate::harness::ScyllaTopology::TwoNode),
+            surreal_deployment: None,
+            surreal_instances: 1,
+        };
+        let name = report_filename("bm-m4", dims);
+        assert!(name.contains("-pk256-c256-off128-x-dual-b"));
+
+        std::env::remove_var("CONTINUUM_BENCH_PARTITION_COUNT");
+        std::env::remove_var("CONTINUUM_BENCH_CLIENT_COUNT");
+        std::env::remove_var("CONTINUUM_BENCH_PARTITION_OFFSET");
+        std::env::remove_var("CONTINUUM_BENCH_REPORT_TAG");
     }
 }

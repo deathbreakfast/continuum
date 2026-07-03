@@ -694,18 +694,18 @@ infra/native-aws/scripts/run-scylla-track-x.sh native-scylla-2n 256
 
 #### Table X.1 — Single vs dual process (July 2026)
 
-Track X on `native-scylla-2n` @ C=K=256: single process, then two processes @ C=128 with `CONTINUUM_BENCH_PARTITION_OFFSET` 0 / 128.
+Track X re-run on `native-scylla-2n` @ C=K=256 via `run-scylla-levers.sh` (tagged reports `x-single`, `x-dual-a`, `x-dual-b`).
 
 | Topology | Processes | Aggregate ops/s | vs single |
 | --- | --- | --- | --- |
-| scylla-2n | 1 | 2,225 | 1.00× |
-| scylla-2n | 2 | **not captured** | — |
+| scylla-2n | 1 | 3,561 | 1.00× |
+| scylla-2n | 2 | 3,345 | 0.94× |
 
-Dual-process aggregate was written to `campaign-track-x.done` on the bench host; not present in fetched reports (single-process pk256 @ 2,225 ops/s is Track U timing — X did not produce a distinct local report before teardown).
+Dual aggregate = sum of dual-a (1,673) + dual-b (1,672) @ C=128 each.
 
 ~2× → bench/client bound; flat → coordination/storage.
 
-**Result:** **Inconclusive** — re-run with report fetch fix or S3 sync before teardown.
+**Result:** **Not client-bound** — dual process does not ~2× throughput; adapter/coordination remains the limiter (consistent with Tracks V/W).
 
 ### Track Y — Coordination tuning (optional)
 
@@ -719,20 +719,117 @@ infra/native-aws/scripts/run-scylla-track-y.sh native-colocated
 
 #### Table Y.1 — Seq block size (July 2026)
 
-Colocated A/B @ C=256, `CONTINUUM_SCYLLA_SEQ_BLOCK_SIZE` 64 vs 256 (both write the same pk256 report filename).
+Colocated A/B @ C=256, `CONTINUUM_SCYLLA_SEQ_BLOCK_SIZE` 64 vs 256 (re-run via `run-scylla-levers.sh`, tags `y-blk64` / `y-blk256`).
 
 | Block size | ops/s | round_trips/append | p99 ms |
 | --- | --- | --- | --- |
-| 64 | **not captured** | — | — |
-| 256 | 1,141 | 3.01 | 404.5 |
+| 64 | 3,115 | 3.03 | 149.6 |
+| 256 | 2,997 | 3.01 | 169.6 |
 
-Surviving pk256 report is from the **last** run (block 256, with debug ops enabled). Block 64 row lost to filename overwrite.
-
-**Result:** **Inconclusive** for block-size effect — need distinct report paths per block size.
+**Result:** **No meaningful effect** — block size 64 vs 256 does not materially change rt/append or throughput at C=256.
 
 ### TiKV tracks U–Y (deferred)
 
 Same track definitions apply to `tikv-ha-2` / `tikv-scale-4` with TiKV-specific storage metrics (PD store status, TiKV `docker stats`). Not executed in this Scylla-focused run.
 
 See **Appendix H** in [`PERFORMANCE_STUDY.md`](PERFORMANCE_STUDY.md) for the consolidated bottleneck verdict table.
+
+---
+
+## Tracks Z1–Z5 — Scylla append-path optimization levers (July 2026)
+
+Follow-on to Tracks U–Y: each lever is behind a **default-off** env flag; A/B campaigns compare baseline vs treatment at fixed C=K. Executed on AWS via `infra/native-aws/scripts/run-scylla-levers.sh` (`aws-t3-medium`, colocated, July 2 2026).
+
+```bash
+infra/native-aws/scripts/run-scylla-levers.sh
+# or per-lever:
+continuum-bench/scripts/run-scylla-lever-campaign.sh z2 aws-t3-medium 256
+```
+
+Reports use `CONTINUUM_BENCH_REPORT_TAG` (`z2-baseline`, `z2-treatment`, …) to prevent overwrite.
+
+### Track Z1 — Idempotency mode (L1)
+
+**Question:** Throughput cost of per-append idempotency LWT?
+
+**Flag:** `CONTINUUM_SCYLLA_IDEMPOTENCY=lwt|none` (default `lwt`).
+
+**Risk:** **High** — `none` → at-least-once; duplicates on retry.
+
+#### Table Z1.1 — Idempotency (July 2026)
+
+| Variant | ops/s | rt/append | p99 ms |
+| --- | --- | --- | --- |
+| baseline (`lwt`) | 3,112 | 3.03 | 165.5 |
+| treatment (`none`) | 14,164 | 2.03 | 87.4 |
+
+**Result:** **LWT dominates cost** — removing idempotency LWT yields ~4.5× throughput and drops rt/append toward the ~2 RT floor. **Do not enable `none` in production** without an exactly-once policy decision.
+
+### Track Z2 — Topic-index cache (L2)
+
+**Question:** Does skipping repeat `stream_index` writes remove the hot-partition RT?
+
+**Flag:** `CONTINUUM_SCYLLA_TOPIC_INDEX_CACHE=1` (default off).
+
+**Risk:** **Low** — stale cache if index rows deleted out-of-band.
+
+#### Table Z2.1 — Topic-index cache (July 2026)
+
+| Variant | ops/s | rt/append | p99 ms |
+| --- | --- | --- | --- |
+| baseline | 3,500 | 3.04 | 173.9 |
+| treatment | 3,504 | 2.04 | 153.5 |
+
+**Result:** **RT hypothesis confirmed** — topic-index cache removes ~1 RT/append (3.04→2.04) but throughput is flat (~3.5k ops/s). Hot-partition index write was an RT cost, not the throughput ceiling.
+
+### Track Z3 — Pipelined writes (L3)
+
+**Question:** Overlap event + index INSERT wall-clock?
+
+**Flag:** `CONTINUUM_SCYLLA_PIPELINE_WRITES=1` (default off; single-record BM-M4 path).
+
+**Risk:** **Low** — same CQL semantics; LWT remains gate.
+
+#### Table Z3.1 — Pipelined writes (July 2026)
+
+| Variant | ops/s | rt/append | p99 ms |
+| --- | --- | --- | --- |
+| baseline | 3,308 | 3.04 | 148.3 |
+| treatment | 3,089 | 3.03 | 186.8 |
+
+**Result:** **No benefit** — overlapping event + index INSERT does not improve throughput; slight regression within run variance.
+
+### Track Z4 — Write consistency (L4)
+
+**Question:** Lower CL when RF>1?
+
+**Flag:** `CONTINUUM_SCYLLA_WRITE_CONSISTENCY=quorum|one|local_one` (default unset).
+
+**Risk:** **Inert at RF=1**; durability tradeoff at RF>1.
+
+#### Table Z4.1 — Write consistency (July 2026)
+
+| Variant | ops/s | rt/append | p99 ms |
+| --- | --- | --- | --- |
+| baseline | 2,325 | 3.04 | 195.7 |
+| treatment (`one`) | 1,691 | 3.04 | 545.7 |
+
+**Result:** **Inert at RF=1 in theory; noisy in practice** — CL knob shows run-to-run variance at colocated RF=1, not a reliable lever here. Re-test only when RF>1.
+
+### Track Z5 — Driver pool per shard (L5)
+
+**Question:** More connections per shard → more in-flight CQL?
+
+**Flag:** `CONTINUUM_SCYLLA_POOL_PER_SHARD=<n>` (default unset).
+
+**Risk:** **Low** — operational overload if unbounded.
+
+#### Table Z5.1 — Pool per shard (July 2026)
+
+| Variant | ops/s | rt/append | p99 ms |
+| --- | --- | --- | --- |
+| baseline | 3,292 | 3.04 | 355.2 |
+| treatment (`=4`) | 2,973 | 3.03 | 170.3 |
+
+**Result:** **No benefit** — `POOL_PER_SHARD=4` does not raise throughput; driver pool was not the limiter (consistent with Track X not being client-bound).
 
